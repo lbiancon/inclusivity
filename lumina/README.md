@@ -20,7 +20,7 @@ Poi apri http://127.0.0.1:8080
 
 Lumina può stare in `C:\xampp\htdocs\lumina` e aprirsi su http://localhost/lumina/ insieme alle altre cartelle. Apache deve già parlare PHP 8.5.12: copiare la cartella prima, con un PHP più vecchio, mostra solo il messaggio di versione. Gli altri siti restano com'erano.
 
-1. Ferma Apache, rinomina `C:\xampp\php` in `php-vecchio` e scompatta PHP 8.5.12 Thread Safe x64 in `C:\xampp\php`, tenendo il `php.ini` di prima. Se Apache non parte, rimetti `php-vecchio`.
+1. Ferma Apache, rinomina `C:\xampp\php` in `php-vecchio` e scompatta PHP 8.5.12 Thread Safe x64 VS17 in `C:\xampp\php`. Il `php.ini` vecchio non si ricopia: Xdebug e altre direttive di quella versione impediscono l'avvio. Parti da `php.ini-development` rinominato in `php.ini`, con `extension_dir = "C:\xampp\php\ext"`, il fuso `Europe/Rome` e le estensioni `curl`, `gd`, `mbstring`, `mysqli`, `openssl`, `pdo_mysql`, `zip`. Xdebug si rimette dopo, con la DLL `php_xdebug-3.5.3-8.5-ts-vs17-x86_64`, non con il file di prima. Se Apache non parte, rimetti `php-vecchio`.
 2. Copia l'intera cartella `lumina` in `C:\xampp\htdocs\lumina`. Non copiare solo `public`.
 3. Avvia MySQL e lancia una volta `C:\xampp\php\php.exe bin\xampp.php` dentro quella cartella. Crea i database e si chiude. Non avvia un secondo sito.
 4. Avvia Apache e apri http://localhost/lumina/
