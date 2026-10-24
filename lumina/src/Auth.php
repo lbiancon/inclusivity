@@ -62,7 +62,7 @@ final class Auth
         $user = self::user($pdo);
         if ($user === null) {
             $_SESSION['after_login'] = request_path();
-            header('Location: /accedi');
+            go('/accedi');
             exit;
         }
 

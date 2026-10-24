@@ -20,14 +20,14 @@ $open = !in_array($status, ['cancelled', 'completed', 'no_show'], true);
     </p>
     <?php if ($appointment['notes'] !== ''): ?><p><?= e($appointment['notes']) ?></p><?php endif; ?>
     <?php if ($appointment['cancel_reason'] !== ''): ?><p class="muted">Annullamento: <?= e($appointment['cancel_reason']) ?></p><?php endif; ?>
-    <p><a href="/app/clienti/<?= (int) $appointment['client_id'] ?>"><?= e($appointment['client_name']) ?></a> · <?= e($appointment['phone']) ?> · <?= e($appointment['email'] ?? '') ?></p>
+    <p><a href="<?= e(url('/app/clienti/' . ((int) $appointment['client_id']))) ?>"><?= e($appointment['client_name']) ?></a> · <?= e($appointment['phone']) ?> · <?= e($appointment['email'] ?? '') ?></p>
     <?php if ($appointment['allergies'] !== ''): ?><p class="callout">Allergie: <?= e($appointment['allergies']) ?></p><?php endif; ?>
     <?php if ($appointment['preferences'] !== ''): ?><p>Preferenze: <?= e($appointment['preferences']) ?></p><?php endif; ?>
     <p class="muted">Presenze registrate: <?= (int) $score['kept'] ?> tenute, <?= (int) $score['missed'] ?> assenze. <?= $score['percent'] === null ? 'Servono almeno due esiti per un giudizio.' : 'Affidabilità ' . (int) $score['percent'] . '%.' ?></p>
   </article>
   <div class="noprint">
     <?php if ($open): ?>
-      <form class="card" method="post" action="/app/appuntamenti/<?= (int) $appointment['id'] ?>/stato">
+      <form class="card" method="post" action="<?= e(url('/app/appuntamenti/' . ((int) $appointment['id']) . '/stato')) ?>">
         <?= csrf_field() ?>
         <h2>Stato</h2>
         <div class="actions">
@@ -37,14 +37,14 @@ $open = !in_array($status, ['cancelled', 'completed', 'no_show'], true);
         </div>
         <p class="muted">L'assenza non restituisce il credito. Puoi farlo dopo, se è il caso.</p>
       </form>
-      <form class="card" method="post" action="/app/appuntamenti/<?= (int) $appointment['id'] ?>/annulla" data-confirm="Annullare e offrire il posto a chi è in lista?">
+      <form class="card" method="post" action="<?= e(url('/app/appuntamenti/' . ((int) $appointment['id']) . '/annulla')) ?>" data-confirm="Annullare e offrire il posto a chi è in lista?">
         <?= csrf_field() ?>
         <label class="field">Motivo <input name="reason" maxlength="180"></label>
         <button class="btn danger" type="submit">Annulla e libera il posto</button>
       </form>
     <?php endif; ?>
     <?php if ($appointment['client_package_id'] !== null): ?>
-      <form class="card" method="post" action="/app/appuntamenti/<?= (int) $appointment['id'] ?>/rimborsa" data-confirm="Restituire il credito?">
+      <form class="card" method="post" action="<?= e(url('/app/appuntamenti/' . ((int) $appointment['id']) . '/rimborsa')) ?>" data-confirm="Restituire il credito?">
         <?= csrf_field() ?>
         <p>Questa prenotazione ha scalato una tessera.</p>
         <button class="btn ghost" type="submit">Restituisci il credito</button>

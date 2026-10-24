@@ -1,6 +1,6 @@
 <?php $money = static fn (int $cents): string => number_format($cents / 100, 2, ',', ''); ?>
 <div class="grid two">
-  <form class="card" method="post" action="/app/pacchetti">
+  <form class="card" method="post" action="<?= e(url('/app/pacchetti')) ?>">
     <?= csrf_field() ?>
     <?= redirect_field('/app/pacchetti') ?>
     <h2>Nuova tessera</h2>
@@ -23,7 +23,7 @@
     <?php foreach ($packages as $package): ?>
       <details class="card">
         <summary><?= e($package['name']) ?> · <?= (int) $package['credits'] ?> crediti</summary>
-        <form method="post" action="/app/pacchetti/<?= (int) $package['id'] ?>">
+        <form method="post" action="<?= e(url('/app/pacchetti/' . ((int) $package['id']))) ?>">
           <?= csrf_field() ?>
           <?= redirect_field('/app/pacchetti') ?>
           <label class="field">Nome <input name="name" required value="<?= e($package['name']) ?>"></label>

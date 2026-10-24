@@ -1,5 +1,5 @@
 <div class="grid two">
-  <form class="card" method="post" action="/app/prezzi">
+  <form class="card" method="post" action="<?= e(url('/app/prezzi')) ?>">
     <?= csrf_field() ?>
     <?= redirect_field('/app/prezzi') ?>
     <h2>Nuova fascia</h2>
@@ -30,7 +30,7 @@
         <strong><?= e($rule['name']) ?></strong>
         <span class="badge<?= (int) $rule['active'] === 1 ? ' ideal' : '' ?>"><?= (int) $rule['active'] === 1 ? 'Attiva' : 'Spenta' ?></span>
         <p><?= e($rule['service_name'] ?? 'Tutti i servizi') ?> · <?= $rule['weekday'] === null ? 'ogni giorno' : e(weekday_name((int) $rule['weekday'])) ?> · <?= e(substr((string) $rule['start_time'], 0, 5)) ?>–<?= e(substr((string) $rule['end_time'], 0, 5)) ?> · −<?= (int) $rule['discount_percent'] ?>%</p>
-        <form method="post" action="/app/prezzi/<?= (int) $rule['id'] ?>"><?= csrf_field() ?><button class="btn small ghost" type="submit"><?= (int) $rule['active'] === 1 ? 'Spegni' : 'Riaccendi' ?></button></form>
+        <form method="post" action="<?= e(url('/app/prezzi/' . ((int) $rule['id']))) ?>"><?= csrf_field() ?><button class="btn small ghost" type="submit"><?= (int) $rule['active'] === 1 ? 'Spegni' : 'Riaccendi' ?></button></form>
       </article>
     <?php endforeach; ?>
     <?php if ($rules === []): ?><p class="empty">Nessuna fascia. Il listino resta quello del servizio.</p><?php endif; ?>

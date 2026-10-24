@@ -4,9 +4,9 @@
     <h1>L'agenda che protegge il margine.</h1>
     <p class="lede">Lumina non si limita a segnare gli appuntamenti. Chiude i buchi tra un cliente e l'altro, abbassa il prezzo nelle ore vuote e, se qualcuno disdice, offre il posto a chi è in lista.</p>
     <div class="actions">
-      <a class="btn" href="/registrati">Apri la tua agenda</a>
-      <a class="btn ghost" href="/prezzi">Guarda i piani</a>
-      <a class="btn ghost" href="/accedi">Entra nella demo</a>
+      <a class="btn" href="<?= e(url('/registrati')) ?>">Apri la tua agenda</a>
+      <a class="btn ghost" href="<?= e(url('/prezzi')) ?>">Guarda i piani</a>
+      <a class="btn ghost" href="<?= e(url('/accedi')) ?>">Entra nella demo</a>
     </div>
   </div>
   <aside class="hero-card">
@@ -22,7 +22,7 @@
 <section class="section" id="piani">
   <h2>Bottega, Salone, Borgo.</h2>
   <p class="muted">0 €, 29 € o 79 € al mese, IVA esclusa. L'anno costa dieci mesi. I limiti partono subito, l'addebito no: il pagamento non è ancora collegato.</p>
-  <p><a class="btn" href="/prezzi">Confronta i piani</a></p>
+  <p><a class="btn" href="<?= e(url('/prezzi')) ?>">Confronta i piani</a></p>
 </section>
 <section class="section" id="vetrina">
   <h2>Attività prenotabili</h2>
@@ -32,7 +32,7 @@
       <p class="empty">Nessuna attività ancora. Apri la prima agenda.</p>
     <?php endif; ?>
     <?php foreach ($businesses as $business): ?>
-      <a class="card" data-category="<?= e($business['category']) ?>" href="/b/<?= e($business['slug']) ?>">
+      <a class="card" data-category="<?= e($business['category']) ?>" href="<?= e(url('/b/' . ($business['slug']))) ?>">
         <span class="pill"><?= e(category_label((string) $business['category'])) ?></span>
         <h3><?= e($business['name']) ?></h3>
         <p><?= e($business['tagline'] !== '' ? $business['tagline'] : $business['city']) ?></p>

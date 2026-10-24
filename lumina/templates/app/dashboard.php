@@ -14,7 +14,7 @@
     <div class="list">
       <?php if ($rows === []): ?><p class="empty">Nessun appuntamento in giornata.</p><?php endif; ?>
       <?php foreach ($rows as $row): ?>
-        <a href="/app/appuntamenti/<?= (int) $row['id'] ?>">
+        <a href="<?= e(url('/app/appuntamenti/' . ((int) $row['id']))) ?>">
           <time><?= e(dt((string) $row['starts_at'], (string) $business['timezone'], 'HH:mm')) ?></time>
           <span><strong><?= e($row['client_name']) ?></strong><br><span class="muted"><?= e($row['service_name']) ?> · <?= e($row['staff_name']) ?></span></span>
           <span>
@@ -40,13 +40,13 @@
     <h3>Prossimi</h3>
     <div class="list">
       <?php foreach ($insights['next'] as $row): ?>
-        <a href="/app/appuntamenti/<?= (int) $row['id'] ?>">
+        <a href="<?= e(url('/app/appuntamenti/' . ((int) $row['id']))) ?>">
           <time><?= e(dt((string) $row['starts_at'], (string) $business['timezone'], 'd MMM HH:mm')) ?></time>
           <span><?= e($row['client_name']) ?> · <?= e($row['service_name']) ?></span>
           <span><?= e(euro((int) $row['price_cents'])) ?></span>
         </a>
       <?php endforeach; ?>
     </div>
-    <p><a class="btn small" href="/app/giornata">Apri la bacheca</a></p>
+    <p><a class="btn small" href="<?= e(url('/app/giornata')) ?>">Apri la bacheca</a></p>
   </section>
 </div>

@@ -84,7 +84,7 @@ final class Catalog
             throw $exception;
         }
         flash('ok', 'Servizio salvato.');
-        header('Location: /app/servizi');
+        go('/app/servizi');
         exit;
     }
 
@@ -161,7 +161,7 @@ final class Catalog
             throw $exception;
         }
         flash('ok', 'Persona salvata.');
-        header('Location: /app/staff');
+        go('/app/staff');
         exit;
     }
 
@@ -196,7 +196,7 @@ final class Catalog
             throw $exception;
         }
         flash('ok', $custom ? 'Turno personale salvato.' : 'Usa di nuovo gli orari dell\'attività.');
-        header('Location: /app/staff');
+        go('/app/staff');
         exit;
     }
 
@@ -221,7 +221,7 @@ final class Catalog
             Db::run(App::$pdo, 'UPDATE resources SET name = :name, kind = :kind, capacity = :capacity, active = :active WHERE id = :id', $payload + ['id' => $resourceId]);
         }
         flash('ok', 'Postazione salvata.');
-        header('Location: /app/staff');
+        go('/app/staff');
         exit;
     }
 

@@ -47,6 +47,6 @@ final class Secret
             $host = '127.0.0.1:8080';
         }
 
-        return ($https ? 'https' : 'http') . '://' . $host;
+        return ($https ? 'https' : 'http') . '://' . $host . lumina_base();
     }
 }

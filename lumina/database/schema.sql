@@ -31,6 +31,8 @@ CREATE TABLE businesses (
     reliability_threshold TINYINT UNSIGNED NOT NULL DEFAULT 70,
     plan ENUM('bottega', 'salone', 'borgo') NOT NULL DEFAULT 'salone',
     plan_interval ENUM('month', 'year') NOT NULL DEFAULT 'month',
+    logo_ext VARCHAR(4) NULL,
+    accent CHAR(7) NOT NULL DEFAULT '#12151a',
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     UNIQUE KEY uq_business_slug (slug),
     CONSTRAINT fk_business_owner FOREIGN KEY (owner_user_id) REFERENCES users (id),

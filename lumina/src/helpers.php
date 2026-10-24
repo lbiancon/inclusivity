@@ -83,11 +83,54 @@ function appointment_status_label(string $status): string
     };
 }
 
+function lumina_base(): string
+{
+    $script = str_replace('\\', '/', (string) ($_SERVER['SCRIPT_NAME'] ?? '/index.php'));
+    $dir = rtrim(dirname($script), '/');
+    if (str_ends_with($dir, '/public')) {
+        $dir = substr($dir, 0, -strlen('/public'));
+    }
+    if ($dir === '' || $dir === '/' || $dir === '.') {
+        return '';
+    }
+
+    return $dir;
+}
+
 function request_path(): string
 {
     $path = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH);
+    $path = is_string($path) && $path !== '' ? $path : '/';
+    $base = lumina_base();
+    if ($base !== '' && ($path === $base || str_starts_with($path, $base . '/'))) {
+        $path = substr($path, strlen($base));
+    }
+    if ($path === '/public' || str_starts_with($path, '/public/')) {
+        $path = substr($path, strlen('/public')) ?: '/';
+    }
+    if ($path === '' || $path[0] !== '/') {
+        $path = '/' . ltrim($path, '/');
+    }
 
-    return is_string($path) && $path !== '' ? $path : '/';
+    return $path;
+}
+
+function url(string $path): string
+{
+    if (preg_match('#\Ahttps?://#', $path) === 1) {
+        return $path;
+    }
+    if ($path === '' || $path[0] !== '/') {
+        $path = '/' . ltrim($path, '/');
+    }
+
+    return lumina_base() . $path;
+}
+
+function go(string $path): never
+{
+    header('Location: ' . url($path));
+    exit;
 }
 
 function path_is(string $prefix): bool

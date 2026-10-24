@@ -4,7 +4,7 @@
     <h1>Come vuoi usare <?= e($email) ?>?</h1>
     <p class="lede">Il piano si attiva subito. Lumina non addebita la carta: i limiti però sono quelli del piano che scegli. I prezzi, IVA esclusa, sono quelli della pagina piani.</p>
   </div>
-  <form class="gate-panel card" method="post" action="/registrati/profilo">
+  <form class="gate-panel card" method="post" action="<?= e(url('/registrati/profilo')) ?>">
     <?= csrf_field() ?>
     <?= redirect_field('/registrati/profilo') ?>
     <div class="switch">

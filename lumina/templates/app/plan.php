@@ -1,5 +1,5 @@
 <p class="muted">Piano attuale: <strong><?= e($offers[\Lumina\Plan::id($business)]['name']) ?></strong>, <?= ($business['plan_interval'] ?? 'month') === 'year' ? 'annuale' : 'mensile' ?>. Cambiarlo non addebita nulla.</p>
-<form method="post" action="/app/piano" class="plan-grid">
+<form method="post" action="<?= e(url('/app/piano')) ?>" class="plan-grid">
   <?= csrf_field() ?>
   <?= redirect_field('/app/piano') ?>
   <?php foreach ($offers as $id => $offer): ?>
@@ -19,4 +19,4 @@
   </label>
   <button class="btn" type="submit">Attiva questo piano</button>
 </form>
-<p class="muted"><a href="/prezzi">Vedi il confronto completo</a></p>
+<p class="muted"><a href="<?= e(url('/prezzi')) ?>">Vedi il confronto completo</a></p>

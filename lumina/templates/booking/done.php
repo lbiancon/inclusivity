@@ -14,8 +14,8 @@
       <p class="callout">Per questa prenotazione l'attività può chiedere una caparra. Non è un pagamento online: concordatela in sede.</p>
     <?php endif; ?>
     <div class="actions">
-      <a class="btn" href="/p/<?= e($appointment['public_token']) ?>">Apri la prenotazione</a>
-      <a class="btn ghost" href="/p/<?= e($appointment['public_token']) ?>.ics">Aggiungi al calendario</a>
+      <a class="btn" href="<?= e(url('/p/' . ($appointment['public_token']))) ?>">Apri la prenotazione</a>
+      <a class="btn ghost" href="<?= e(url('/p/' . ($appointment['public_token']) . '.ics')) ?>">Aggiungi al calendario</a>
     </div>
     <p class="muted">Conserva il link: non serve un account per annullare entro <?= (int) $appointment['cancel_hours'] ?> ore.</p>
   </article>

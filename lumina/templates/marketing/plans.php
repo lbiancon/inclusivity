@@ -23,6 +23,6 @@
       </article>
     <?php endforeach; ?>
   </div>
-  <p class="actions"><a class="btn" href="/registrati">Apri l'agenda</a> <a class="btn ghost" href="/accedi">Entra</a></p>
+  <p class="actions"><a class="btn" href="<?= e(url('/registrati')) ?>">Apri l'agenda</a> <a class="btn ghost" href="<?= e(url('/accedi')) ?>">Entra</a></p>
   <p class="muted">Il pagamento online non è collegato. Quando lo sarà, questi sono i prezzi. La caparra in agenda resta un avviso, non un incasso.</p>
 </section>

@@ -178,12 +178,12 @@ final class Desk
         if ($occurrences > 1) {
             $series = App::$bookings->bookSeries($businessId, $serviceId, $staffId, null, $clientId, $start, $occurrences, $notes, $usePackage);
             flash('ok', count($series['booked']) . ' prenotazioni create' . ($series['skipped'] === [] ? '.' : ', ' . count($series['skipped']) . ' settimane saltate.'));
-            header('Location: /app/agenda');
+            go('/app/agenda');
             exit;
         }
         $appointment = App::$bookings->bookAppointment($businessId, $serviceId, $staffId, $resourceId, $clientId, $start, $notes, $usePackage);
         flash('ok', 'Prenotazione creata.');
-        header('Location: /app/appuntamenti/' . $appointment['id']);
+        go('/app/appuntamenti/' . $appointment['id']);
         exit;
     }
 
@@ -196,7 +196,7 @@ final class Desk
             Input::choice('status', ['arrived', 'in_progress', 'completed', 'no_show']),
         );
         flash('ok', 'Stato aggiornato.');
-        header('Location: /app/appuntamenti/' . (int) $id);
+        go('/app/appuntamenti/' . (int) $id);
         exit;
     }
 
@@ -205,7 +205,7 @@ final class Desk
         $workspace = Guard::workspace();
         $offer = App::$bookings->cancelAppointment((int) $id, (int) $workspace['business']['id'], true, Input::str('reason', 180));
         flash('ok', $offer === null ? 'Prenotazione annullata.' : 'Prenotazione annullata e posto offerto a chi era in lista.');
-        header('Location: /app/giornata');
+        go('/app/giornata');
         exit;
     }
 
@@ -214,7 +214,7 @@ final class Desk
         $workspace = Guard::workspace();
         $extended = App::$bookings->refundAppointmentCredit((int) $id, (int) $workspace['business']['id']);
         flash('ok', $extended ? 'Credito restituito. La tessera era scaduta: vale per un\'altra settimana.' : 'Credito restituito.');
-        header('Location: /app/appuntamenti/' . (int) $id);
+        go('/app/appuntamenti/' . (int) $id);
         exit;
     }
 
@@ -285,7 +285,7 @@ final class Desk
             'UPDATE notifications SET read_at = :now WHERE user_id = :user AND read_at IS NULL',
             ['now' => App::$clock->sql(App::$clock->now()), 'user' => (int) $workspace['user']['id']],
         );
-        header('Location: /app/notifiche');
+        go('/app/notifiche');
         exit;
     }
 

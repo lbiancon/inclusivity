@@ -16,6 +16,17 @@ Poi apri http://127.0.0.1:8080
 
 `setup.sh` applica lo schema se manca e carica la demo. `php bin/seed.php --fresh` la ricrea. `php bin/selftest.php` esegue i controlli sul database `lumina_test`.
 
+## Dentro htdocs
+
+Lumina può stare in `C:\xampp\htdocs\lumina` e aprirsi su http://localhost/lumina/ insieme alle altre cartelle. Apache deve già parlare PHP 8.5.12: copiare la cartella prima, con un PHP più vecchio, mostra solo il messaggio di versione. Gli altri siti restano com'erano.
+
+1. Ferma Apache, rinomina `C:\xampp\php` in `php-vecchio` e scompatta PHP 8.5.12 Thread Safe x64 in `C:\xampp\php`, tenendo il `php.ini` di prima. Se Apache non parte, rimetti `php-vecchio`.
+2. Copia l'intera cartella `lumina` in `C:\xampp\htdocs\lumina`. Non copiare solo `public`.
+3. Avvia MySQL e lancia una volta `C:\xampp\php\php.exe bin\xampp.php` dentro quella cartella. Crea i database e si chiude. Non avvia un secondo sito.
+4. Avvia Apache e apri http://localhost/lumina/
+
+Il logo e il colore si cambiano da Impostazioni, nella scheda pubblica. La pagina del cliente è `http://localhost/lumina/b/nome-attivita`.
+
 ## XAMPP e Lumina insieme
 
 I due convivono. Apache di XAMPP continua a servire `htdocs` su http://localhost. Lumina è un secondo programma, sulla porta 8080, e usa lo stesso MariaDB. Non si reinstallano XAMPP né si tocca `httpd.conf`.

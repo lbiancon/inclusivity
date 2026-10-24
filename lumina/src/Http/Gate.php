@@ -22,7 +22,7 @@ final class Gate
     public function show(): void
     {
         if (Auth::user(App::$pdo) !== null) {
-            header('Location: /app');
+            go('/app');
             exit;
         }
         $this->render('register');
@@ -31,7 +31,7 @@ final class Gate
     public function enter(): void
     {
         if (Auth::user(App::$pdo) !== null) {
-            header('Location: /app');
+            go('/app');
             exit;
         }
         $this->render('login');
@@ -44,7 +44,7 @@ final class Gate
         Passcode::issue(App::$pdo, App::$clock, $email, $this->ip());
         $_SESSION['gate_email'] = $email;
         unset($_SESSION['gate_ok']);
-        header('Location: /registrati/codice');
+        go('/registrati/codice');
         exit;
     }
 
@@ -80,7 +80,7 @@ final class Gate
         $_SESSION['gate_ok'] = true;
         $user = Db::one(App::$pdo, 'SELECT * FROM users WHERE email = :email', ['email' => $email]);
         if ($user === null) {
-            header('Location: /registrati/profilo');
+            go('/registrati/profilo');
             exit;
         }
         if ($user['email_verified_at'] === null) {
@@ -93,14 +93,14 @@ final class Gate
         Auth::loginId((int) $user['id']);
         $this->clearGate();
         $this->linkClients($user);
-        header('Location: ' . $this->destination($user));
+        go($this->destination($user));
         exit;
     }
 
     public function profileForm(): void
     {
         if (empty($_SESSION['gate_ok']) || $this->pendingEmail() === '') {
-            header('Location: /registrati');
+            go('/registrati');
             exit;
         }
         $pending = $_SESSION['pending_oauth'] ?? null;
@@ -195,7 +195,7 @@ final class Gate
         flash('ok', $account === 'business'
             ? 'Agenda aperta sul piano ' . Plan::offers()[$plan]['name'] . '. Nessun addebito: il pagamento non è collegato, i limiti sì.'
             : 'Accesso creato. Le prenotazioni con questa email compariranno qui.');
-        header('Location: ' . ($account === 'business' ? '/app/servizi' : '/portale'));
+        go(($account === 'business' ? '/app/servizi' : '/portale'));
         exit;
     }
 
@@ -247,7 +247,7 @@ final class Gate
             'id' => (int) $workspace['business']['id'],
         ]);
         flash('ok', 'Piano ' . Plan::offers()[$plan]['name'] . ' attivo. Nessuna carta è stata addebitata.');
-        header('Location: /app/piano');
+        go('/app/piano');
         exit;
     }
 
@@ -258,17 +258,17 @@ final class Gate
             $result = Oauth::finish(App::$pdo, App::$clock, $provider, $request);
         } catch (DomainException $exception) {
             flash('err', $exception->getMessage());
-            header('Location: /registrati');
+            go('/registrati');
             exit;
         }
         if ($result['kind'] === 'profile') {
-            header('Location: /registrati/profilo');
+            go('/registrati/profilo');
             exit;
         }
         $user = $result['user'] ?? [];
         $this->linkClients($user);
         $this->clearGate();
-        header('Location: ' . $this->destination($user));
+        go($this->destination($user));
         exit;
     }
 
@@ -279,10 +279,10 @@ final class Gate
             $url = Oauth::begin(App::$pdo, App::$clock, $provider, $intent);
         } catch (DomainException $exception) {
             flash('err', $exception->getMessage());
-            header('Location: /registrati');
+            go('/registrati');
             exit;
         }
-        header('Location: ' . $url);
+        go($url);
         exit;
     }
 
@@ -303,7 +303,7 @@ final class Gate
     {
         $email = $_SESSION['gate_email'] ?? '';
         if (!is_string($email) || filter_var($email, FILTER_VALIDATE_EMAIL) === false) {
-            header('Location: /registrati');
+            go('/registrati');
             exit;
         }
 
@@ -313,7 +313,7 @@ final class Gate
     private function trap(): void
     {
         if (Input::str('company', 120) !== '') {
-            header('Location: /registrati/codice');
+            go('/registrati/codice');
             exit;
         }
     }

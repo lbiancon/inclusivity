@@ -45,14 +45,14 @@ final class Front
         if ($next === null || $next === '/accedi') {
             $next = (string) $user['role'] === 'client' ? '/portale' : '/app';
         }
-        header('Location: ' . $next);
+        go($next);
         exit;
     }
 
     public function logout(): void
     {
         Auth::logout();
-        header('Location: /');
+        go('/');
         exit;
     }
 
@@ -131,7 +131,7 @@ final class Front
         $appointment = $this->ownedAppointment((int) $id, $user);
         App::$bookings->cancelAppointment((int) $appointment['id'], (int) $appointment['business_id'], false, Input::str('reason', 180));
         flash('ok', 'Prenotazione annullata.');
-        header('Location: /portale');
+        go('/portale');
         exit;
     }
 
@@ -142,7 +142,7 @@ final class Front
         $offer = $this->ownedOffer((int) $id, $user);
         $appointment = App::$bookings->acceptOffer((int) $offer['id'], Input::flag('use_package') === 1);
         flash('ok', 'Posto confermato.');
-        header('Location: /p/' . $appointment['public_token']);
+        go('/p/' . $appointment['public_token']);
         exit;
     }
 

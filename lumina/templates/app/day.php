@@ -4,9 +4,9 @@ $prev = (new DateTimeImmutable($date))->modify('-1 day')->format('Y-m-d');
 $next = (new DateTimeImmutable($date))->modify('+1 day')->format('Y-m-d');
 ?>
 <div class="actions noprint">
-  <a class="btn small ghost" href="/app/giornata?data=<?= e($prev) ?>">Ieri</a>
+  <a class="btn small ghost" href="<?= e(url('/app/giornata?data=' . ($prev))) ?>">Ieri</a>
   <strong><?= e(dt($date . ' 12:00:00', $tz, 'EEEE d MMMM')) ?></strong>
-  <a class="btn small ghost" href="/app/giornata?data=<?= e($next) ?>">Domani</a>
+  <a class="btn small ghost" href="<?= e(url('/app/giornata?data=' . ($next))) ?>">Domani</a>
 </div>
 <?php if ($frame['closed']): ?>
   <p class="empty">Giorno chiuso: non ci sono turni dell'attività.</p>
@@ -49,7 +49,7 @@ $next = (new DateTimeImmutable($date))->modify('+1 day')->format('Y-m-d');
                 }
                 $title = $block['time'] . ' ' . $block['who'] . ' · ' . $block['what'] . ($block['allergy'] ? ' · allergia' : '');
               ?>
-              <a class="block status-<?= e($block['status']) ?>" href="<?= e($block['href']) ?>" title="<?= e($title) ?>" style="left: <?= (($leftMin - $winStart) / $winSpan) * 100 ?>%; width: <?= (($rightMin - $leftMin) / $winSpan) * 100 ?>%; background: <?= e(hex_color($lane['staff']['color'])) ?>22">
+              <a class="block status-<?= e($block['status']) ?>" href="<?= e(url(($block['href']))) ?>" title="<?= e($title) ?>" style="left: <?= (($leftMin - $winStart) / $winSpan) * 100 ?>%; width: <?= (($rightMin - $leftMin) / $winSpan) * 100 ?>%; background: <?= e(hex_color($lane['staff']['color'])) ?>22">
                 <strong><?= e($block['time']) ?> <?= e($block['who']) ?></strong>
                 <small><?= e($block['what']) ?><?php if ($block['allergy']): ?> · <span class="allergy">allergia</span><?php endif; ?></small>
               </a>
@@ -63,7 +63,7 @@ $next = (new DateTimeImmutable($date))->modify('+1 day')->format('Y-m-d');
 
 <section class="panel noprint">
   <h2>Metti in agenda</h2>
-  <form method="get" action="/app/giornata" class="split">
+  <form method="get" action="<?= e(url('/app/giornata')) ?>" class="split">
     <input type="hidden" name="data" value="<?= e($date) ?>">
     <label class="field">Servizio
       <select name="servizio" data-submit>
@@ -83,7 +83,7 @@ $next = (new DateTimeImmutable($date))->modify('+1 day')->format('Y-m-d');
     </label>
   </form>
   <?php if ($serviceId > 0): ?>
-    <form method="post" action="/app/appuntamenti">
+    <form method="post" action="<?= e(url('/app/appuntamenti')) ?>">
       <?= csrf_field() ?>
       <?= redirect_field('/app/giornata?data=' . $date . '&servizio=' . $serviceId . '&staff=' . $staffId) ?>
       <input type="hidden" name="service_id" value="<?= $serviceId ?>">

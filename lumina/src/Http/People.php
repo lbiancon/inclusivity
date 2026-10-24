@@ -111,7 +111,7 @@ final class People
             throw $exception;
         }
         flash('ok', 'Scheda aggiornata.');
-        header('Location: /app/clienti/' . $clientId);
+        go('/app/clienti/' . $clientId);
         exit;
     }
 
@@ -120,7 +120,7 @@ final class People
         $workspace = Guard::workspace();
         App::$bookings->sellPackage((int) $workspace['business']['id'], (int) $id, Input::int('package_id', 1, 999999999));
         flash('ok', 'Tessera attivata.');
-        header('Location: /app/clienti/' . (int) $id);
+        go('/app/clienti/' . (int) $id);
         exit;
     }
 

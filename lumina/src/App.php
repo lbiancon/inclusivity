@@ -46,9 +46,8 @@ final class App
         ini_set('display_errors', self::$debug ? '1' : '0');
 
         $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
-        $path = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH);
         try {
-            self::routes()->dispatch($method, rawurldecode(is_string($path) ? $path : '/'));
+            self::routes()->dispatch($method, rawurldecode(request_path()));
         } catch (HttpException $exception) {
             http_response_code($exception->status);
             View::render('error', [
@@ -63,8 +62,7 @@ final class App
                 $_SESSION['old'] = $old;
                 flash('err', $exception->getMessage());
                 $back = safe_path((string) ($_POST['redirect'] ?? ''));
-                header('Location: ' . ($back ?? '/'));
-                exit;
+                go($back ?? '/');
             }
             http_response_code(422);
             View::render('error', [
@@ -124,6 +122,7 @@ final class App
         $router->post('/portale/offerte/{id}/accetta', $front->portalAccept(...));
         $router->get('/portale/appuntamenti/{id}.ics', $front->portalIcs(...));
 
+        $router->get('/b/{slug}/marchio', $booking->logo(...));
         $router->get('/b/{slug}', $booking->show(...));
         $router->post('/b/{slug}', $booking->book(...));
         $router->post('/b/{slug}/corso', $booking->bookClass(...));

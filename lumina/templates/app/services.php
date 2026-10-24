@@ -1,6 +1,6 @@
 <?php $money = static fn (int $cents): string => number_format($cents / 100, 2, ',', ''); ?>
 <div class="grid two">
-  <form class="card" method="post" action="/app/servizi">
+  <form class="card" method="post" action="<?= e(url('/app/servizi')) ?>">
     <?= csrf_field() ?>
     <?= redirect_field('/app/servizi') ?>
     <h2>Nuovo servizio</h2>
@@ -43,7 +43,7 @@
       ?>
       <details class="card">
         <summary><?= e($service['name']) ?> · <?= e(euro((int) $service['price_cents'])) ?> <?= (int) $service['active'] === 1 ? '' : '· spento' ?></summary>
-        <form method="post" action="/app/servizi/<?= $sid ?>">
+        <form method="post" action="<?= e(url('/app/servizi/' . ($sid))) ?>">
           <?= csrf_field() ?>
           <?= redirect_field('/app/servizi') ?>
           <label class="field">Nome <input name="name" required value="<?= e($service['name']) ?>"></label>

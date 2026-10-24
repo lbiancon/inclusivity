@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Lumina\Http;
 
 use Lumina\App;
+use Lumina\Brand;
 use Lumina\Category;
 use Lumina\Db;
 use Lumina\DomainException;
@@ -54,7 +55,7 @@ final class Studio
             Input::str('notes', 300),
         );
         flash('ok', 'Corso messo in agenda.');
-        header('Location: /app/classi/' . $session['id']);
+        go('/app/classi/' . $session['id']);
         exit;
     }
 
@@ -92,7 +93,7 @@ final class Studio
         }
         App::$bookings->bookClass((int) $session['id'], $clientId, Input::flag('use_package') === 1);
         flash('ok', 'Iscrizione registrata.');
-        header('Location: /app/classi/' . $session['id']);
+        go('/app/classi/' . $session['id']);
         exit;
     }
 
@@ -101,7 +102,7 @@ final class Studio
         $workspace = Guard::workspace();
         App::$bookings->setSessionStatus((int) $id, (int) $workspace['business']['id'], Input::choice('status', ['cancelled', 'completed']));
         flash('ok', 'Corso aggiornato.');
-        header('Location: /app/classi/' . (int) $id);
+        go('/app/classi/' . (int) $id);
         exit;
     }
 
@@ -118,7 +119,7 @@ final class Studio
         }
         App::$bookings->setClassBookingStatus((int) $booking['id'], (int) $workspace['business']['id'], Input::choice('status', ['attended', 'no_show', 'cancelled']));
         flash('ok', 'Iscrizione aggiornata.');
-        header('Location: /app/classi/' . $booking['session_id']);
+        go('/app/classi/' . $booking['session_id']);
         exit;
     }
 
@@ -135,7 +136,7 @@ final class Studio
         }
         $extended = App::$bookings->refundClassCredit((int) $id, (int) $workspace['business']['id']);
         flash('ok', $extended ? 'Credito restituito e tessera prorogata di una settimana.' : 'Credito restituito.');
-        header('Location: /app/classi/' . $booking['session_id']);
+        go('/app/classi/' . $booking['session_id']);
         exit;
     }
 
@@ -180,7 +181,7 @@ final class Studio
             Db::run(App::$pdo, 'UPDATE packages SET service_id = :service, name = :name, credits = :credits, price_cents = :price, valid_days = :days, active = :active WHERE id = :id', $payload + ['id' => $packageId]);
         }
         flash('ok', 'Tessera salvata.');
-        header('Location: /app/pacchetti');
+        go('/app/pacchetti');
         exit;
     }
 
@@ -212,7 +213,7 @@ final class Studio
         }
         App::$bookings->acceptOffer((int) $row['id'], Input::flag('use_package') === 1);
         flash('ok', 'Offerta convertita in prenotazione.');
-        header('Location: /app/attesa');
+        go('/app/attesa');
         exit;
     }
 
@@ -221,7 +222,7 @@ final class Studio
         $workspace = Guard::workspace();
         App::$bookings->cancelWaitlist((int) $id, (int) $workspace['business']['id']);
         flash('ok', 'Richiesta chiusa.');
-        header('Location: /app/attesa');
+        go('/app/attesa');
         exit;
     }
 
@@ -265,7 +266,7 @@ final class Studio
             'discount' => Input::int('discount_percent', 1, 90),
         ]);
         flash('ok', 'Regola attiva: gli orari in fascia mostrano il prezzo nuovo.');
-        header('Location: /app/prezzi');
+        go('/app/prezzi');
         exit;
     }
 
@@ -280,7 +281,7 @@ final class Studio
             'active' => (int) $rule['active'] === 1 ? 0 : 1,
             'id' => (int) $rule['id'],
         ]);
-        header('Location: /app/prezzi');
+        go('/app/prezzi');
         exit;
     }
 
@@ -289,7 +290,7 @@ final class Studio
         $workspace = Guard::workspace();
         if (!Plan::allows($workspace['business'], 'analytics')) {
             flash('err', 'Le analisi sono nel piano Borgo.');
-            header('Location: /app/piano');
+            go('/app/piano');
             exit;
         }
         Guard::view('app/analytics', $workspace, [
@@ -319,6 +320,8 @@ final class Studio
     {
         $workspace = Guard::workspace(true);
         $businessId = (int) $workspace['business']['id'];
+        $logo = Brand::uploaded();
+        $removeLogo = Input::str('remove_logo', 3) === '1';
         $profile = [
             'name' => Input::str('name', 140, true),
             'tagline' => Input::str('tagline', 180),
@@ -331,6 +334,7 @@ final class Studio
             'cancel_hours' => Input::int('cancel_hours', 0, 168),
             'slot_minutes' => (int) Input::choice('slot_minutes', ['10', '15', '20', '30']),
             'threshold' => Input::int('reliability_threshold', 1, 100),
+            'accent' => hex_color(Input::str('accent', 7)),
             'id' => $businessId,
         ];
         $rows = (new Catalog())->shiftsPublic();
@@ -339,7 +343,7 @@ final class Studio
             Db::run(App::$pdo, 'UPDATE businesses SET
                 name = :name, tagline = :tagline, description = :description, address = :address, city = :city,
                 phone = :phone, email = :email, category = :category, cancel_hours = :cancel_hours,
-                slot_minutes = :slot_minutes, reliability_threshold = :threshold
+                slot_minutes = :slot_minutes, reliability_threshold = :threshold, accent = :accent
                 WHERE id = :id', $profile);
             Db::run(App::$pdo, 'DELETE FROM weekly_hours WHERE business_id = :business AND staff_id IS NULL', ['business' => $businessId]);
             foreach ($rows as $row) {
@@ -357,9 +361,16 @@ final class Studio
             }
             throw $exception;
         }
+        if ($removeLogo) {
+            Brand::delete($businessId);
+            Db::run(App::$pdo, 'UPDATE businesses SET logo_ext = NULL WHERE id = :id', ['id' => $businessId]);
+        }
+        if ($logo !== null) {
+            Brand::store($businessId, $logo['ext'], $logo['bytes']);
+            Db::run(App::$pdo, 'UPDATE businesses SET logo_ext = :ext WHERE id = :id', ['ext' => $logo['ext'], 'id' => $businessId]);
+        }
         flash('ok', 'Impostazioni salvate.');
-        header('Location: /app/impostazioni');
-        exit;
+        go('/app/impostazioni');
     }
 
     public function saveClosure(): void
@@ -387,7 +398,7 @@ final class Studio
             'reason' => Input::str('reason', 180),
         ]);
         flash('ok', 'Chiusura segnata. Quegli orari non saranno più prenotabili.');
-        header('Location: /app/impostazioni');
+        go('/app/impostazioni');
         exit;
     }
 
@@ -399,7 +410,7 @@ final class Studio
             'business' => (int) $workspace['business']['id'],
         ]);
         flash('ok', 'Chiusura rimossa.');
-        header('Location: /app/impostazioni');
+        go('/app/impostazioni');
         exit;
     }
 

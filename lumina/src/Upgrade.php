@@ -17,6 +17,9 @@ final class Upgrade
             $pdo->exec('ALTER TABLE users MODIFY password_hash VARCHAR(255) NULL, ADD COLUMN email_verified_at DATETIME NULL');
             $pdo->exec('UPDATE users SET email_verified_at = created_at WHERE password_hash IS NOT NULL AND email_verified_at IS NULL');
         }
+        if (!self::column($pdo, 'businesses', 'logo_ext')) {
+            $pdo->exec("ALTER TABLE businesses ADD COLUMN logo_ext VARCHAR(4) NULL, ADD COLUMN accent CHAR(7) NOT NULL DEFAULT '#12151a'");
+        }
         if (!self::column($pdo, 'businesses', 'plan')) {
             $pdo->exec("ALTER TABLE businesses ADD COLUMN plan ENUM('bottega','salone','borgo') NOT NULL DEFAULT 'salone', ADD COLUMN plan_interval ENUM('month','year') NOT NULL DEFAULT 'month'");
             $pdo->exec("UPDATE businesses SET plan = 'borgo' WHERE slug = 'palestra-borgo'");

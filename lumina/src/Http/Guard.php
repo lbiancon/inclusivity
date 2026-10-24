@@ -33,7 +33,7 @@ final class Guard
         }
         if ($business === null) {
             if ((string) $user['role'] === 'client') {
-                header('Location: /portale');
+                go('/portale');
                 exit;
             }
             throw new HttpException(403, 'Nessuna attività associata a questo account.');

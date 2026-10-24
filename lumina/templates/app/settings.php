@@ -1,8 +1,22 @@
 <div class="grid two">
-  <form class="card" method="post" action="/app/impostazioni">
+  <form class="card" method="post" action="<?= e(url('/app/impostazioni')) ?>" enctype="multipart/form-data">
     <?= csrf_field() ?>
     <?= redirect_field('/app/impostazioni') ?>
     <h2>Scheda pubblica</h2>
+    <div class="brand-row">
+      <?php if (($business['logo_ext'] ?? '') !== ''): ?>
+        <img class="shop-logo" src="<?= e(url('/b/' . $business['slug'] . '/marchio')) ?>" alt="">
+      <?php else: ?>
+        <span class="shop-logo letter" aria-hidden="true"><?= e(mb_strtoupper(mb_substr((string) $business['name'], 0, 1))) ?></span>
+      <?php endif; ?>
+      <div>
+        <label class="field">Logo, PNG o JPG fino a 2 MB <input type="file" name="logo" accept="image/png,image/jpeg"></label>
+        <?php if (($business['logo_ext'] ?? '') !== ''): ?>
+          <label class="checks"><input type="checkbox" name="remove_logo" value="1"> Togli il logo</label>
+        <?php endif; ?>
+      </div>
+    </div>
+    <label class="field">Colore del salone <input type="color" name="accent" value="<?= e(hex_color($business['accent'] ?? '')) ?>"></label>
     <label class="field">Nome <input name="name" required value="<?= e($business['name']) ?>"></label>
     <label class="field">Frase <input name="tagline" value="<?= e($business['tagline']) ?>"></label>
     <label class="field">Descrizione <textarea name="description"><?= e($business['description']) ?></textarea></label>
@@ -34,7 +48,7 @@
     <button class="btn" type="submit">Salva</button>
   </form>
   <div>
-    <form class="card" method="post" action="/app/chiusure">
+    <form class="card" method="post" action="<?= e(url('/app/chiusure')) ?>">
       <?= csrf_field() ?>
       <?= redirect_field('/app/impostazioni') ?>
       <h2>Chiusura</h2>
@@ -57,10 +71,10 @@
         <article class="card">
           <strong><?= e(dt((string) $closure['starts_at'], (string) $business['timezone'])) ?> – <?= e(dt((string) $closure['ends_at'], (string) $business['timezone'], 'HH:mm')) ?></strong>
           <p><?= e($closure['staff_name'] ?? 'Tutta l\'attività') ?> · <?= e($closure['reason']) ?></p>
-          <form method="post" action="/app/chiusure/<?= (int) $closure['id'] ?>/elimina" data-confirm="Riaprire questa fascia?"><?= csrf_field() ?><button class="btn small ghost">Riapri</button></form>
+          <form method="post" action="<?= e(url('/app/chiusure/' . ((int) $closure['id']) . '/elimina')) ?>" data-confirm="Riaprire questa fascia?"><?= csrf_field() ?><button class="btn small ghost">Riapri</button></form>
         </article>
       <?php endforeach; ?>
     </div>
-    <p class="muted">Indirizzo pubblico: /b/<?= e($business['slug']) ?>. Il fuso resta <?= e($business['timezone']) ?>: gli orari che scrivi sono quelli che vede il cliente.</p>
+    <p class="muted">Indirizzo pubblico: <?= e(url('/b/' . $business['slug'])) ?>. Il fuso resta <?= e($business['timezone']) ?>: gli orari che scrivi sono quelli che vede il cliente.</p>
   </div>
 </div>

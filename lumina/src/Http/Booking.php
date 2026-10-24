@@ -8,6 +8,7 @@ use DateTimeImmutable;
 use DateTimeZone;
 use Lumina\App;
 use Lumina\Auth;
+use Lumina\Brand;
 use Lumina\Db;
 use Lumina\DomainException;
 use Lumina\HttpException;
@@ -122,13 +123,28 @@ final class Booking
         ]);
     }
 
+    public function logo(string $slug): void
+    {
+        $business = $this->business($slug);
+        $ext = (string) ($business['logo_ext'] ?? '');
+        $file = Brand::path((int) $business['id'], $ext);
+        if ($file === null) {
+            throw new HttpException(404, 'Nessun logo.');
+        }
+        header('Content-Type: ' . ($ext === 'png' ? 'image/png' : 'image/jpeg'));
+        header('Cache-Control: public, max-age=3600');
+        header('X-Content-Type-Options: nosniff');
+        readfile($file);
+        exit;
+    }
+
     public function book(string $slug): void
     {
         $business = $this->business($slug);
         $this->throttle();
         if (Input::str('website', 80) !== '') {
             flash('ok', 'Richiesta ricevuta.');
-            header('Location: /b/' . $business['slug']);
+            go('/b/' . $business['slug']);
             exit;
         }
         $serviceId = Input::int('service_id', 1, 999999999);
@@ -159,7 +175,7 @@ final class Booking
             Input::flag('use_package') === 1,
             $userId,
         );
-        header('Location: /b/' . $business['slug'] . '/ok/' . $appointment['public_token']);
+        go('/b/' . $business['slug'] . '/ok/' . $appointment['public_token']);
         exit;
     }
 
@@ -169,7 +185,7 @@ final class Booking
         $this->throttle();
         if (Input::str('website', 80) !== '') {
             flash('ok', 'Richiesta ricevuta.');
-            header('Location: /b/' . $business['slug']);
+            go('/b/' . $business['slug']);
             exit;
         }
         $session = Db::one(
@@ -198,7 +214,7 @@ final class Booking
             Input::flag('use_package') === 1,
             $userId,
         );
-        header('Location: /c/' . $booking['public_token']);
+        go('/c/' . $booking['public_token']);
         exit;
     }
 
@@ -208,7 +224,7 @@ final class Booking
         $this->throttle();
         if (Input::str('website', 80) !== '') {
             flash('ok', 'Richiesta ricevuta.');
-            header('Location: /b/' . $business['slug']);
+            go('/b/' . $business['slug']);
             exit;
         }
         $staffId = Input::int('staff_id', 0, 999999999, false);
@@ -228,7 +244,7 @@ final class Booking
             Input::time('time_to'),
             $userId,
         );
-        header('Location: /w/' . $entry['public_token']);
+        go('/w/' . $entry['public_token']);
         exit;
     }
 
@@ -255,7 +271,7 @@ final class Booking
         $appointment = $this->appointmentByToken($token, null);
         App::$bookings->cancelAppointment((int) $appointment['id'], (int) $appointment['business_id'], false, Input::str('reason', 180));
         flash('ok', 'Prenotazione annullata.');
-        header('Location: /p/' . $token);
+        go('/p/' . $token);
         exit;
     }
 
@@ -295,7 +311,7 @@ final class Booking
         }
         App::$bookings->setClassBookingStatus((int) $booking['id'], (int) $booking['business_id'], 'cancelled');
         flash('ok', 'Iscrizione annullata.');
-        header('Location: /c/' . $token);
+        go('/c/' . $token);
         exit;
     }
 
@@ -313,7 +329,7 @@ final class Booking
     {
         $entry = $this->waitByToken($token);
         $appointment = App::$bookings->acceptOffer((int) $entry['id'], Input::flag('use_package') === 1);
-        header('Location: /p/' . $appointment['public_token']);
+        go('/p/' . $appointment['public_token']);
         exit;
     }
 
@@ -322,7 +338,7 @@ final class Booking
         $entry = $this->waitByToken($token);
         App::$bookings->cancelWaitlist((int) $entry['id'], (int) $entry['business_id']);
         flash('ok', 'Richiesta annullata.');
-        header('Location: /w/' . $token);
+        go('/w/' . $token);
         exit;
     }
 

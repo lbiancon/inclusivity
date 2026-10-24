@@ -7,7 +7,7 @@ foreach ($hours as $row) {
 ?>
 <div class="grid two">
   <div>
-    <form class="card" method="post" action="/app/staff">
+    <form class="card" method="post" action="<?= e(url('/app/staff')) ?>">
       <?= csrf_field() ?>
       <?= redirect_field('/app/staff') ?>
       <h2>Nuova persona</h2>
@@ -20,7 +20,7 @@ foreach ($hours as $row) {
       <label class="checks"><input type="checkbox" name="active" value="1" checked> Attiva</label>
       <button class="btn" type="submit">Salva</button>
     </form>
-    <form class="card" method="post" action="/app/risorse">
+    <form class="card" method="post" action="<?= e(url('/app/risorse')) ?>">
       <?= csrf_field() ?>
       <?= redirect_field('/app/staff') ?>
       <h2>Nuova postazione</h2>
@@ -41,7 +41,7 @@ foreach ($hours as $row) {
       <?php $pid = (int) $person['id']; ?>
       <details class="card">
         <summary><i class="dot" style="background: <?= e(hex_color($person['color'])) ?>"></i> <?= e($person['name']) ?><?= $person['email'] ? ' · ' . e($person['email']) : '' ?></summary>
-        <form method="post" action="/app/staff/<?= $pid ?>">
+        <form method="post" action="<?= e(url('/app/staff/' . ($pid))) ?>">
           <?= csrf_field() ?>
           <?= redirect_field('/app/staff') ?>
           <label class="field">Nome <input name="name" required value="<?= e($person['name']) ?>"></label>
@@ -58,7 +58,7 @@ foreach ($hours as $row) {
           <label class="checks"><input type="checkbox" name="active" value="1"<?= (int) $person['active'] === 1 ? ' checked' : '' ?>> Attiva</label>
           <button class="btn small" type="submit">Aggiorna</button>
         </form>
-        <form method="post" action="/app/staff/<?= $pid ?>/orari">
+        <form method="post" action="<?= e(url('/app/staff/' . ($pid) . '/orari')) ?>">
           <?= csrf_field() ?>
           <?= redirect_field('/app/staff') ?>
           <h3>Turno personale</h3>
@@ -71,7 +71,7 @@ foreach ($hours as $row) {
     <?php foreach ($resources as $resource): ?>
       <details class="card">
         <summary><?= e($resource['name']) ?> · <?= e($kinds[(string) $resource['kind']] ?? 'Altro') ?></summary>
-        <form method="post" action="/app/risorse/<?= (int) $resource['id'] ?>">
+        <form method="post" action="<?= e(url('/app/risorse/' . ((int) $resource['id']))) ?>">
           <?= csrf_field() ?>
           <?= redirect_field('/app/staff') ?>
           <label class="field">Nome <input name="name" required value="<?= e($resource['name']) ?>"></label>

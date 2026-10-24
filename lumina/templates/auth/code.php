@@ -5,7 +5,7 @@
     <p class="lede">Il codice è stato chiesto per <strong><?= e($email) ?></strong>. Dura dieci minuti. Un codice nuovo spegne quello di prima.</p>
   </div>
   <div class="gate-panel card">
-    <form method="post" action="/registrati/codice" id="codice">
+    <form method="post" action="<?= e(url('/registrati/codice')) ?>" id="codice">
       <?= csrf_field() ?>
       <?= redirect_field('/registrati/codice') ?>
       <div class="digits" data-digits>
@@ -16,7 +16,7 @@
       <input type="hidden" name="code" value="">
       <button class="btn block" type="submit">Conferma il codice</button>
     </form>
-    <form method="post" action="/registrati/codice/invia">
+    <form method="post" action="<?= e(url('/registrati/codice/invia')) ?>">
       <?= csrf_field() ?>
       <?= redirect_field('/registrati/codice') ?>
       <input type="hidden" name="email" value="<?= e($email) ?>">

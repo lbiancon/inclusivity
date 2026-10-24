@@ -1,5 +1,5 @@
 <div class="grid two">
-  <form class="card" method="post" action="/app/clienti/<?= (int) $client['id'] ?>">
+  <form class="card" method="post" action="<?= e(url('/app/clienti/' . ((int) $client['id']))) ?>">
     <?= csrf_field() ?>
     <?= redirect_field('/app/clienti/' . $client['id']) ?>
     <label class="field">Nome <input name="name" required value="<?= e($client['name']) ?>"></label>
@@ -30,7 +30,7 @@
         <?php if ($score['advise_deposit']): ?><p class="callout">Sotto la soglia dell'attività: sulle prossime prenotazioni compare il consiglio di caparra.</p><?php endif; ?>
       <?php endif; ?>
     </article>
-    <form class="card" method="post" action="/app/clienti/<?= (int) $client['id'] ?>/tessera">
+    <form class="card" method="post" action="<?= e(url('/app/clienti/' . ((int) $client['id']) . '/tessera')) ?>">
       <?= csrf_field() ?>
       <h2>Attiva una tessera</h2>
       <label class="field">Tessera
@@ -55,7 +55,7 @@
 <h2>Storico</h2>
 <div class="list">
   <?php foreach ($history as $row): ?>
-    <a href="/app/appuntamenti/<?= (int) $row['id'] ?>">
+    <a href="<?= e(url('/app/appuntamenti/' . ((int) $row['id']))) ?>">
       <time><?= e(dt((string) $row['starts_at'], (string) $business['timezone'], 'd MMM HH:mm')) ?></time>
       <span><?= e($row['service_name']) ?> · <?= e($row['staff_name']) ?></span>
       <span class="badge <?= e($row['status']) ?>"><?= e(appointment_status_label((string) $row['status'])) ?></span>

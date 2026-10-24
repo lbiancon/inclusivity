@@ -11,12 +11,12 @@
     <?php if ($appointment['notes'] !== ''): ?><p><?= e($appointment['notes']) ?></p><?php endif; ?>
     <?php if ($appointment['cancel_reason'] !== ''): ?><p class="muted">Motivo: <?= e($appointment['cancel_reason']) ?></p><?php endif; ?>
     <div class="actions">
-      <a class="btn ghost" href="/p/<?= e($appointment['public_token']) ?>.ics">Calendario</a>
-      <a class="btn ghost" href="/b/<?= e($appointment['slug']) ?>">Altri orari</a>
+      <a class="btn ghost" href="<?= e(url('/p/' . ($appointment['public_token']) . '.ics')) ?>">Calendario</a>
+      <a class="btn ghost" href="<?= e(url('/b/' . ($appointment['slug']))) ?>">Altri orari</a>
     </div>
   </article>
   <?php if ($open && (string) $appointment['status'] === 'confirmed'): ?>
-    <form class="card" method="post" action="/p/<?= e($appointment['public_token']) ?>/annulla" data-confirm="Annullare questa prenotazione?">
+    <form class="card" method="post" action="<?= e(url('/p/' . ($appointment['public_token']) . '/annulla')) ?>" data-confirm="Annullare questa prenotazione?">
       <?= csrf_field() ?>
       <h2>Annulla</h2>
       <p class="muted">Puoi farlo fino a <?= (int) $appointment['cancel_hours'] ?> ore prima. Un credito di tessera torna sulla tessera.</p>

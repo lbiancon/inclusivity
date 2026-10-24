@@ -8,7 +8,7 @@
       <article class="card">
         <strong><?= e($offer['service_name']) ?></strong> · <?= e($offer['business_name']) ?>
         <p>Proposto per <?= e(dt((string) $offer['offer_starts_at'], (string) $offer['timezone'])) ?>, scade <?= e(dt((string) $offer['offer_expires_at'], (string) $offer['timezone'], 'd MMM HH:mm')) ?>.</p>
-        <form method="post" action="/portale/offerte/<?= (int) $offer['id'] ?>/accetta">
+        <form method="post" action="<?= e(url('/portale/offerte/' . ((int) $offer['id']) . '/accetta')) ?>">
           <?= csrf_field() ?>
           <label class="checks"><input type="checkbox" name="use_package" value="1"> Scala un credito</label>
           <button class="btn small" type="submit">Accetto</button>
@@ -29,9 +29,9 @@
         <span class="muted"><?= e($row['business_name']) ?> · <?= e($row['staff_name']) ?></span>
       </div>
       <div class="actions">
-        <a class="btn small ghost" href="/portale/appuntamenti/<?= (int) $row['id'] ?>.ics">Calendario</a>
+        <a class="btn small ghost" href="<?= e(url('/portale/appuntamenti/' . ((int) $row['id']) . '.ics')) ?>">Calendario</a>
         <?php if ((string) $row['status'] === 'confirmed'): ?>
-          <form method="post" action="/portale/appuntamenti/<?= (int) $row['id'] ?>/annulla" data-confirm="Annullare?">
+          <form method="post" action="<?= e(url('/portale/appuntamenti/' . ((int) $row['id']) . '/annulla')) ?>" data-confirm="Annullare?">
             <?= csrf_field() ?>
             <button class="btn small danger" type="submit">Annulla</button>
           </form>

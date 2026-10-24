@@ -1,6 +1,6 @@
 <?php $classStatus = ['scheduled' => 'In programma', 'cancelled' => 'Annullato', 'completed' => 'Chiuso']; ?>
 <div class="grid two">
-  <form class="card" method="post" action="/app/classi">
+  <form class="card" method="post" action="<?= e(url('/app/classi')) ?>">
     <?= csrf_field() ?>
     <?= redirect_field('/app/classi') ?>
     <h2>Nuovo corso</h2>
@@ -33,7 +33,7 @@
   </form>
   <div class="list">
     <?php foreach ($sessions as $session): ?>
-      <a class="card" href="/app/classi/<?= (int) $session['id'] ?>">
+      <a class="card" href="<?= e(url('/app/classi/' . ((int) $session['id']))) ?>">
         <strong><?= e($session['service_name']) ?></strong>
         <span><?= e(dt((string) $session['starts_at'], (string) $business['timezone'])) ?> · <?= e($session['staff_name']) ?></span>
         <span class="muted"><?= (int) $session['taken'] ?>/<?= (int) $session['capacity'] ?> · <?= e($classStatus[(string) $session['status']] ?? '') ?></span>
