@@ -16,15 +16,21 @@ Poi apri http://127.0.0.1:8080
 
 `setup.sh` applica lo schema se manca e carica la demo. `php bin/seed.php --fresh` la ricrea. `php bin/selftest.php` esegue i controlli sul database `lumina_test`.
 
-## XAMPP su Windows
+## XAMPP e Lumina insieme
 
-Non reinstallare XAMPP sopra `C:\xampp`. L'installer sostituisce `htdocs` e `mysql\data`. I siti e i database che stavano lì non sono in questo repository.
+I due convivono. Apache di XAMPP continua a servire `htdocs` su http://localhost. Lumina è un secondo programma, sulla porta 8080, e usa lo stesso MariaDB. Non si reinstallano XAMPP né si tocca `httpd.conf`.
 
-`bin\xampp.bat` non cancella quelle cartelle. Crea solo i database `lumina` e `lumina_test` e un virtual host sulla porta 8080. La porta 80 non cambia. Se Apache non si avvia dopo quel comando, rimetti `C:\xampp\apache\conf\httpd.conf.lumina-bak` al posto di `httpd.conf` e cancella `C:\xampp\apache\conf\extra\httpd-lumina.conf`. Poi riavvia Apache: `http://localhost` torna alle app di `htdocs`.
+1. Dal pannello XAMPP avvia Apache e MySQL. Controlla che i siti di sempre si aprano su http://localhost.
+2. Nella cartella `lumina` lancia `bin\xampp.bat` e lascia la finestra aperta.
+3. Apri http://127.0.0.1:8080
 
-Lumina chiede PHP 8.5.12. Se il PHP di XAMPP è più vecchio, l'agenda non parte. Il resto di XAMPP può restare com'è. Le build 8.2.35, 8.3.36 e 8.4.27 chiudono le falle del 21 ottobre 2026, ma questa agenda usa la sintassi di PHP 8.5.
+Lo script crea solo i database `lumina` e `lumina_test` e l'utente `lumina` / `lumina_local`. Gli altri database restano.
 
-Se `htdocs` o MySQL sembrano spariti, fermati: non rilanciare l'installer e non svuotare il Cestino. Controlla se in `C:\xampp\htdocs` e `C:\xampp\mysql\data` ci sono ancora le cartelle dei siti e dei database. Se ci sono, il problema è l'avvio di Apache o MariaDB, non la cancellazione. Se trovi solo la dashboard nuova, cerca una copia (`xampp_old`, `htdocs.old`, la cartella `data` copiata prima della reinstallazione), il Cestino e Versioni precedenti sulle cartelle. Copia il recupero in `C:\recupero-xampp`. Nei database rimetti solo le cartelle delle tue applicazioni: non sovrascrivere `mysql`, `performance_schema` e `phpmyadmin`. `ibdata1` si ricopia solo se la versione di MariaDB è la stessa.
+Lumina chiede PHP 8.5.12. Se il PHP dentro XAMPP è già quello, `xampp.bat` lo usa soltanto per la porta 8080: Apache sulla porta 80 non cambia. Se è più vecchio, scarica lo zip di PHP 8.5.12 da https://windows.php.net/download/ e scompattalo in `C:\php85`, fuori da `C:\xampp`. Poi rilancia `bin\xampp.bat`. Le build 8.2.35, 8.3.36 e 8.4.27 chiudono le falle del 21 ottobre 2026, ma questa agenda usa la sintassi di PHP 8.5, quindi il PHP vecchio resta alle app di `htdocs`.
+
+Se un lancio precedente aveva aggiunto un virtual host e Apache non parte, rimetti `C:\xampp\apache\conf\httpd.conf.lumina-bak` al posto di `httpd.conf` e cancella `C:\xampp\apache\conf\extra\httpd-lumina.conf`. Poi riavvia Apache.
+
+Se root di MariaDB ha una password: `set XAMPP_MYSQL_ROOT_PASSWORD=...` prima di lanciare lo script. Se il PHP 8.5 sta in un'altra cartella: `set LUMINA_PHP=D:\php\php.exe`.
 
 Database locale previsto: `lumina` su `127.0.0.1`, utente `lumina`, password `lumina_local`. Variabili opzionali: `LUMINA_DB_HOST`, `LUMINA_DB_PORT`, `LUMINA_DB_NAME`, `LUMINA_DB_USER`, `LUMINA_DB_PASS`. Con `LUMINA_DEBUG=1` gli errori finiscono nella pagina.
 
