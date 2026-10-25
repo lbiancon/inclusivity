@@ -26,18 +26,13 @@ final class App
 
     public static function run(): void
     {
-        self::boot();
-        $https = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
-            || (($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') === 'https');
-        session_name('LUMINASESS');
-        session_set_cookie_params([
-            'lifetime' => 0,
-            'path' => '/',
-            'secure' => $https,
-            'httponly' => true,
-            'samesite' => 'Lax',
-        ]);
-        session_start();
+        try {
+            self::boot();
+            self::startSession();
+        } catch (Throwable $exception) {
+            error_log($exception->__toString());
+            fail_page(500, self::visible($exception));
+        }
         header('X-Frame-Options: DENY');
         header('X-Content-Type-Options: nosniff');
         header('Referrer-Policy: same-origin');
@@ -72,13 +67,56 @@ final class App
             ]);
         } catch (Throwable $exception) {
             error_log($exception->__toString());
+            if (headers_sent()) {
+                fail_page(500, self::visible($exception));
+            }
             http_response_code(500);
             View::render('error', [
                 'title' => 'Errore',
-                'message' => self::$debug ? $exception->getMessage() : 'Qualcosa non ha funzionato. Riprova tra un momento.',
+                'message' => self::visible($exception),
                 'status' => 500,
             ]);
         }
+    }
+
+    private static function startSession(): void
+    {
+        $save = (string) ini_get('session.save_path');
+        if (preg_match('/^\d+;(.*)$/', $save, $match) === 1) {
+            $save = $match[1];
+        }
+        $save = trim($save);
+        if ($save !== '' && !is_dir($save)) {
+            fail_page(500, "PHP non trova la cartella delle sessioni:\n{$save}\nCrea quella cartella, oppure nel php.ini commenta la riga session.save_path e riavvia Apache.");
+        }
+        $https = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
+            || (($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') === 'https');
+        session_name('LUMINASESS');
+        session_set_cookie_params([
+            'lifetime' => 0,
+            'path' => '/',
+            'secure' => $https,
+            'httponly' => true,
+            'samesite' => 'Lax',
+        ]);
+        if (session_start() !== true) {
+            fail_page(500, 'PHP non apre la sessione. Controlla session.save_path nel php.ini e riavvia Apache.');
+        }
+    }
+
+    private static function visible(Throwable $exception): string
+    {
+        if ($exception instanceof \PDOException) {
+            return "Lumina non raggiunge MariaDB.\n"
+                . "Avvia MySQL dal pannello XAMPP. Poi, dentro la cartella lumina, lancia una volta:\n"
+                . "C:\\xampp\\php\\php.exe bin\\xampp.php\n\n"
+                . $exception->getMessage();
+        }
+        if (self::$debug || lumina_private_request()) {
+            return $exception->getMessage();
+        }
+
+        return 'Qualcosa non ha funzionato. Riprova tra un momento.';
     }
 
     public static function boot(): void

@@ -133,6 +133,28 @@ function go(string $path): never
     exit;
 }
 
+function lumina_private_request(): bool
+{
+    $addr = (string) ($_SERVER['REMOTE_ADDR'] ?? '');
+
+    return $addr === ''
+        || $addr === '127.0.0.1'
+        || $addr === '::1'
+        || str_starts_with($addr, '10.')
+        || str_starts_with($addr, '192.168.')
+        || str_starts_with($addr, '172.');
+}
+
+function fail_page(int $status, string $message): never
+{
+    if (!headers_sent()) {
+        http_response_code($status);
+        header('Content-Type: text/plain; charset=utf-8');
+    }
+    echo $message;
+    exit;
+}
+
 function path_is(string $prefix): bool
 {
     $path = request_path();

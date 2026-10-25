@@ -1,4 +1,3 @@
-Options -Indexes
 RewriteEngine On
 RewriteRule ^assets/(.*)$ public/assets/$1 [L]
 RewriteRule ^favicon\.svg$ public/favicon.svg [L]
