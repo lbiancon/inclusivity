@@ -107,10 +107,21 @@ final class App
     private static function visible(Throwable $exception): string
     {
         if ($exception instanceof \PDOException) {
+            $message = $exception->getMessage();
+            if (str_contains($message, '[1045]') || str_contains($message, '[1044]')) {
+                return Db::localAccountHelp() . "\n\n" . $message;
+            }
+            if (str_contains($message, '[1049]') || str_contains($message, '[1146]') || str_contains($message, '42S02')) {
+                return "Manca lo schema di Lumina.\n"
+                    . "Nel prompt, dentro C:\\xampp\\htdocs\\lumina:\n"
+                    . "C:\\xampp\\php\\php.exe bin\\seed.php\n\n"
+                    . $message;
+            }
+
             return "Lumina non raggiunge MariaDB.\n"
                 . "Avvia MySQL dal pannello XAMPP. Poi, dentro la cartella lumina, lancia una volta:\n"
                 . "C:\\xampp\\php\\php.exe bin\\xampp.php\n\n"
-                . $exception->getMessage();
+                . $message;
         }
         if (self::$debug || lumina_private_request()) {
             return $exception->getMessage();

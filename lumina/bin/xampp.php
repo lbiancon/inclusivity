@@ -44,20 +44,20 @@ function lumina_xampp_database(): void
         }
     }
     if (!$pdo instanceof PDO) {
-        fwrite(STDERR, "MariaDB di XAMPP non risponde. Avvia MySQL dal pannello e rilancia bin\\xampp.bat\n");
+        $denied = $last instanceof PDOException && str_contains($last->getMessage(), '[1045]');
+        if ($denied) {
+            fwrite(STDERR, "MariaDB risponde, ma root non entra con questa password.\n");
+            fwrite(STDERR, "Se root ha una password: set XAMPP_MYSQL_ROOT_PASSWORD=... e rilancia.\n");
+            fwrite(STDERR, "Altrimenti esegui in phpMyAdmin le istruzioni qui sotto, poi php bin\\seed.php\n\n");
+            fwrite(STDERR, Db::localAccountHelp() . "\n");
+        } else {
+            fwrite(STDERR, "MariaDB di XAMPP non risponde. Avvia MySQL dal pannello e rilancia bin\\xampp.bat\n");
+        }
         if ($last instanceof PDOException) {
             fwrite(STDERR, $last->getMessage() . "\n");
         }
         exit(1);
     }
-    $pdo->exec('CREATE DATABASE IF NOT EXISTS lumina CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci');
-    $pdo->exec('CREATE DATABASE IF NOT EXISTS lumina_test CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci');
-    foreach (['127.0.0.1', 'localhost'] as $host) {
-        $pdo->exec("CREATE USER IF NOT EXISTS 'lumina'@'{$host}' IDENTIFIED BY 'lumina_local'");
-        $pdo->exec("ALTER USER 'lumina'@'{$host}' IDENTIFIED BY 'lumina_local'");
-        $pdo->exec("GRANT ALL PRIVILEGES ON lumina.* TO 'lumina'@'{$host}'");
-        $pdo->exec("GRANT ALL PRIVILEGES ON lumina_test.* TO 'lumina'@'{$host}'");
-    }
-    $pdo->exec('FLUSH PRIVILEGES');
+    Db::installLocal($pdo);
     Db::connect();
 }
