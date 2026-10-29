@@ -25,6 +25,8 @@ Lumina può stare in `C:\xampp\htdocs\lumina` e aprirsi su http://localhost/lumi
 3. Avvia MySQL e lancia una volta `C:\xampp\php\php.exe bin\xampp.php` dentro quella cartella. Crea i database e si chiude. Non avvia un secondo sito. Se la pagina risponde `Access denied for user 'lumina'@'localhost'`, l'utente non è stato creato: con la password di root vuota basta quello script. Se root ha una password, `set XAMPP_MYSQL_ROOT_PASSWORD=...` prima di rilanciarlo, oppure in phpMyAdmin crea `lumina`@`localhost` e `lumina`@`127.0.0.1` con password `lumina_local` e i permessi sui database `lumina` e `lumina_test`, poi lancia `C:\xampp\php\php.exe bin\seed.php`. Gli altri database non si toccano.
 4. Avvia Apache e apri http://localhost/lumina/
 
+Se Chrome scrive «Questa pagina non funziona» con HTTP 500, il messaggio vero è più corto di 512 byte e il browser lo sostituisce. In quel caso MariaDB rifiuta l'utente `lumina`: dal prompt, dentro `C:\xampp\htdocs\lumina`, lancia `C:\xampp\php\php.exe bin\xampp.php`. Con la password di root vuota crea l'utente e la demo. Poi ricarica http://localhost/lumina/b/atelier-luce
+
 Il logo e il colore si cambiano da Impostazioni, nella scheda pubblica. La pagina del cliente è `http://localhost/lumina/b/nome-attivita`.
 
 ## XAMPP e Lumina insieme

@@ -134,10 +134,43 @@ final class App
     {
         self::$debug = getenv('LUMINA_DEBUG') === '1';
         self::$pdo = Db::connect();
+        self::installSchema();
         Upgrade::apply(self::$pdo);
         self::$clock = new Clock();
         self::$engine = new Engine(self::$pdo, self::$clock);
         self::$bookings = new Bookings(self::$pdo, self::$clock, self::$engine);
+        self::installDemo();
+    }
+
+    private static function installSchema(): void
+    {
+        $statement = self::$pdo->query('SHOW TABLES LIKE ' . self::$pdo->quote('businesses'));
+        if ($statement !== false && $statement->fetch() !== false) {
+            return;
+        }
+        require_once LUMINA_ROOT . '/bin/migrate.php';
+        lumina_migrate(self::$pdo);
+    }
+
+    private static function installDemo(): void
+    {
+        if (PHP_SAPI === 'cli' || PHP_SAPI === 'phpdbg') {
+            return;
+        }
+        $addr = (string) ($_SERVER['REMOTE_ADDR'] ?? '');
+        if ($addr !== '127.0.0.1' && $addr !== '::1') {
+            return;
+        }
+        $name = self::$pdo->query('SELECT DATABASE()');
+        if ($name === false || (string) $name->fetchColumn() !== 'lumina') {
+            return;
+        }
+        $count = self::$pdo->query('SELECT COUNT(*) FROM businesses');
+        if ($count === false || (int) $count->fetchColumn() > 0) {
+            return;
+        }
+        require_once LUMINA_ROOT . '/bin/seed.php';
+        lumina_demo(false);
     }
 
     private static function routes(): Router

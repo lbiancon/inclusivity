@@ -2,16 +2,15 @@
 
 declare(strict_types=1);
 
-require __DIR__ . '/migrate.php';
+require_once __DIR__ . '/migrate.php';
 
 use Lumina\App;
 use Lumina\Clock;
 use Lumina\Db;
 use Lumina\DomainException;
 
-App::boot();
-
-$fresh = in_array('--fresh', $argv ?? [], true);
+function lumina_demo(bool $fresh = false): void
+{
 if ($fresh) {
     lumina_reset(App::$pdo);
     lumina_migrate(App::$pdo);
@@ -24,8 +23,12 @@ try {
     $existing = null;
 }
 if ($existing !== null) {
-    echo "Demo già presente. Usa php bin/seed.php --fresh per ricrearla.\n";
-    exit(0);
+    if (PHP_SAPI === 'cli') {
+        echo "Demo già presente. Usa php bin/seed.php --fresh per ricrearla.\n";
+        exit(0);
+    }
+
+    return;
 }
 
 $clock = App::$clock;
@@ -372,11 +375,22 @@ try {
     $bookings->sellPackage($gym, $sara, $ptCard);
     $book($gym, $pt, $elenaStaff, $sara, $saraDay, 'Primo credito della tessera.', true);
 } catch (DomainException $exception) {
+    if (PHP_SAPI !== 'cli') {
+        throw $exception;
+    }
     fwrite(STDERR, $exception->getMessage() . "\n");
     exit(1);
 }
 
-echo "Demo pronta. Password: Lumina-demo-2026\n";
-echo "Atelier Luce /b/atelier-luce — giulia@atelierluce.test, marco@atelierluce.test\n";
-echo "Palestra Borgo /b/palestra-borgo — elena@palestraborgo.test\n";
-echo "Portale cliente — bianca@email.test\n";
+if (PHP_SAPI === 'cli') {
+    echo "Demo pronta. Password: Lumina-demo-2026\n";
+    echo "Atelier Luce /b/atelier-luce — giulia@atelierluce.test, marco@atelierluce.test\n";
+    echo "Palestra Borgo /b/palestra-borgo — elena@palestraborgo.test\n";
+    echo "Portale cliente — bianca@email.test\n";
+}
+}
+
+if (realpath((string) ($_SERVER['SCRIPT_FILENAME'] ?? '')) === __FILE__) {
+    App::boot();
+    lumina_demo(in_array('--fresh', $argv ?? [], true));
+}

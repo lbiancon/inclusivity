@@ -150,6 +150,11 @@ function fail_page(int $status, string $message): never
     if (!headers_sent()) {
         http_response_code($status);
         header('Content-Type: text/plain; charset=utf-8');
+        header('X-Content-Type-Options: nosniff');
+    }
+    if (strlen($message) < 1024) {
+        $message .= "\n\nChrome, con un errore più corto di 512 byte, nasconde questo testo e mostra «Questa pagina non funziona».\n";
+        $message .= str_repeat(" \n", 500);
     }
     echo $message;
     exit;
