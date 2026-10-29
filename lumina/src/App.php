@@ -124,10 +124,13 @@ final class App
                 . $message;
         }
         if (self::$debug || lumina_private_request()) {
-            return $exception->getMessage();
+            $message = trim($exception->getMessage());
+
+            return ($message !== '' ? $message : $exception::class) . "\n" . $exception->getFile() . ':' . $exception->getLine();
         }
 
-        return 'Qualcosa non ha funzionato. Riprova tra un momento.';
+        return "Qualcosa non ha funzionato. Riprova tra un momento.\n"
+            . "Il motivo è in C:\\xampp\\apache\\logs\\error.log oppure in C:\\xampp\\php\\logs\\php_error_log.";
     }
 
     public static function boot(): void

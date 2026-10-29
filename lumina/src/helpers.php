@@ -135,14 +135,26 @@ function go(string $path): never
 
 function lumina_private_request(): bool
 {
-    $addr = (string) ($_SERVER['REMOTE_ADDR'] ?? '');
-
-    return $addr === ''
+    $addr = strtolower(trim((string) ($_SERVER['REMOTE_ADDR'] ?? '')));
+    if (str_starts_with($addr, '::ffff:')) {
+        $addr = substr($addr, strlen('::ffff:'));
+    }
+    $addr = trim($addr, '[]');
+    if ($addr === ''
         || $addr === '127.0.0.1'
         || $addr === '::1'
+        || $addr === '0:0:0:0:0:0:0:1'
         || str_starts_with($addr, '10.')
         || str_starts_with($addr, '192.168.')
-        || str_starts_with($addr, '172.');
+        || str_starts_with($addr, '172.')
+    ) {
+        return true;
+    }
+    $host = strtolower((string) ($_SERVER['HTTP_HOST'] ?? ''));
+    $host = preg_replace('/:\d+$/', '', $host) ?? $host;
+    $host = trim($host, '[]');
+
+    return $host === 'localhost' || $host === '127.0.0.1' || $host === '::1';
 }
 
 function fail_page(int $status, string $message): never

@@ -142,6 +142,7 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .kicker { text-transform: uppercase; letter-spacing: 0.14em; font-size: 0.72rem; color: var(--saffron); margin: 0 0 0.7rem; font-weight: 650; }
 .hero h1 { font-size: clamp(2.6rem, 5.4vw, 4.5rem); margin: 0; max-width: 12ch; }
 .lede { font-size: 1.12rem; max-width: 38rem; color: var(--muted); }
+.error-detail { white-space: pre-wrap; max-width: 46rem; }
 .hero-card, .card, .panel {
   background: var(--paper-2);
   border: 1px solid var(--line);
