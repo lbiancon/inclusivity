@@ -75,7 +75,7 @@ $instant = static function (DateTimeImmutable $local) use ($clock, $zone): DateT
     return $clock->at($local->format('Y-m-d H:i:s'), $zone);
 };
 
-$userId = static function (string $name, string $email, string $role, string $phone) use ($password): int {
+$userId = static function (string $name, string $email, string $role, string $phone) use ($password, $clock): int {
     Db::run(App::$pdo, 'INSERT INTO users (name, email, password_hash, phone, role, email_verified_at) VALUES (:name, :email, :hash, :phone, :role, :verified)', [
         'name' => $name,
         'email' => $email,
