@@ -19,12 +19,12 @@ if (PHP_VERSION_ID < 80512) {
 }
 
 $luminaExtensions = array_values(array_filter(
-    ['pdo_mysql', 'mbstring', 'intl'],
+    ['pdo_mysql', 'mbstring'],
     static fn (string $name): bool => !extension_loaded($name),
 ));
 if ($luminaExtensions !== []) {
     $message = "A PHP mancano queste estensioni: " . implode(', ', $luminaExtensions) . ".\n"
-        . "Nel php.ini di PHP 8.5 togli il punto e virgola davanti a extension=pdo_mysql, extension=mbstring ed extension=intl.\n"
+        . "Nel php.ini di PHP 8.5 togli il punto e virgola davanti a extension=pdo_mysql ed extension=mbstring.\n"
         . "Controlla anche extension_dir = \"C:\\xampp\\php\\ext\" e che in quella cartella ci siano i file .dll.\n"
         . "Poi riavvia Apache.\n";
     if (PHP_SAPI === 'cli' || PHP_SAPI === 'phpdbg') {

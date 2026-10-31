@@ -30,8 +30,16 @@ final class View
     private static function capture(string $name, array $data): string
     {
         extract($data, EXTR_SKIP);
+        $level = ob_get_level();
         ob_start();
-        require self::path($name);
+        try {
+            require self::path($name);
+        } catch (\Throwable $exception) {
+            while (ob_get_level() > $level) {
+                ob_end_clean();
+            }
+            throw $exception;
+        }
 
         return (string) ob_get_clean();
     }

@@ -41,18 +41,38 @@ function dt(?string $utcSql, string $timezone, string $pattern = 'd MMM y, HH:mm
     if ($utcSql === null || $utcSql === '') {
         return '';
     }
-    $instant = new DateTimeImmutable($utcSql, new DateTimeZone('UTC'));
-    $formatter = new IntlDateFormatter(
-        'it_IT',
-        IntlDateFormatter::NONE,
-        IntlDateFormatter::NONE,
-        $timezone,
-        IntlDateFormatter::GREGORIAN,
-        $pattern,
-    );
-    $formatted = $formatter->format($instant);
+    $zone = in_array($timezone, DateTimeZone::listIdentifiers(), true) ? $timezone : 'Europe/Rome';
+    $local = (new DateTimeImmutable($utcSql, new DateTimeZone('UTC')))->setTimezone(new DateTimeZone($zone));
+    $days = ['lunedì', 'martedì', 'mercoledì', 'giovedì', 'venerdì', 'sabato', 'domenica'];
+    $months = ['gennaio', 'febbraio', 'marzo', 'aprile', 'maggio', 'giugno', 'luglio', 'agosto', 'settembre', 'ottobre', 'novembre', 'dicembre'];
 
-    return $formatted !== false ? $formatted : $instant->setTimezone(new DateTimeZone($timezone))->format('d/m/Y H:i');
+    return preg_replace_callback(
+        '/E{4}|E{1,3}|M{4}|M{3}|M{1,2}|y+|d{1,2}|H{1,2}|m{1,2}|s{1,2}/',
+        static function (array $match) use ($local, $days, $months): string {
+            $token = $match[0];
+            $day = $days[(int) $local->format('N') - 1];
+            $month = $months[(int) $local->format('n') - 1];
+
+            return match (true) {
+                $token === 'EEEE' => $day,
+                $token[0] === 'E' => mb_substr($day, 0, 3),
+                $token === 'MMMM' => $month,
+                $token === 'MMM' => mb_substr($month, 0, 3),
+                $token === 'MM' => $local->format('m'),
+                $token === 'M' => $local->format('n'),
+                $token[0] === 'y' => strlen($token) === 2 ? $local->format('y') : $local->format('Y'),
+                $token === 'dd' => $local->format('d'),
+                $token === 'd' => $local->format('j'),
+                $token === 'HH' => $local->format('H'),
+                $token === 'H' => $local->format('G'),
+                $token === 'mm' => $local->format('i'),
+                $token === 'm' => (string) (int) $local->format('i'),
+                $token === 'ss' => $local->format('s'),
+                default => (string) (int) $local->format('s'),
+            };
+        },
+        $pattern,
+    ) ?? $local->format('d/m/Y H:i');
 }
 
 function category_label(string $category): string
