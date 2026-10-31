@@ -1,0 +1,7 @@
+{
+  "name": "lumina/agenda",
+  "description": "Agenda operativa per appuntamenti e corsi. PHP 8.5 e MySQL.",
+  "require": {
+    "php": ">=8.5.12"
+  }
+}
