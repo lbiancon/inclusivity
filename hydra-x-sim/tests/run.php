@@ -114,7 +114,23 @@ foreach ($lab->workplaces() as $workplace) {
 }
 check($fres !== null && $fres['state'] === 'idle', 'demo chiude il fermo della fresatrice');
 
+$fallbackPath = sys_get_temp_dir() . '/banco-x-fallback-' . getmypid() . '.sqlite';
+@unlink($fallbackPath);
+if (!extension_loaded('pdo_oci')) {
+    $fallback = Lab::open([
+        'driver' => 'oci',
+        'sqlite_path' => $fallbackPath,
+        'oracle_dsn' => 'oci:dbname=//127.0.0.1:1521/X',
+        'oracle_user' => 'HXSIM',
+        'oracle_password' => 'x',
+    ]);
+    check($fallback->status()['driver'] === 'sqlite', 'senza pdo_oci il banco resta su sqlite');
+    check(is_file($fallbackPath), 'senza pdo_oci il file sqlite viene creato');
+    check($fallback->status()['warning'] !== '', 'l\'assenza di pdo_oci è visibile');
+}
+
 @unlink($path);
+@unlink($fallbackPath);
 if ($failed > 0) {
     echo "$failed controlli falliti\n";
     exit(1);

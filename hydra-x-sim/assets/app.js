@@ -91,8 +91,10 @@ function pill(value) {
 async function loadStatus() {
     state.status = await api("/api/status");
     const driver = state.status.driver === "oci" ? "Oracle" : "SQLite";
+    const path = state.status.sqlitePath ? " · " + state.status.sqlitePath : "";
     document.getElementById("driver-line").textContent =
-        driver + " · PHP " + state.status.php + " · orari Europe/Rome";
+        driver + path + " · PHP " + state.status.php + " · orari Europe/Rome";
+    if (state.status.warning) showError(state.status.warning);
 }
 
 async function loadTerminal() {

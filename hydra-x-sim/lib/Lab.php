@@ -6,6 +6,10 @@ final class Lab
     /** @var list<string> */
     private array $effects = [];
 
+    private ?string $sqliteFile = null;
+
+    private string $warning = '';
+
     private function __construct(
         private readonly PDO $pdo,
         private readonly string $driver
@@ -16,33 +20,31 @@ final class Lab
     public static function open(array $config): self
     {
         $driver = (string) ($config['driver'] ?? 'sqlite');
+        $warning = '';
+        if ($driver === 'oci' && !extension_loaded('pdo_oci')) {
+            $warning = 'config.local.php chiede Oracle, ma questo PHP non ha pdo_oci. Il banco usa SQLite. Il file è sim.sqlite nella cartella data, non lo schema HYDRA.';
+            $driver = 'sqlite';
+        }
         if ($driver === 'sqlite') {
-            $path = (string) ($config['sqlite_path'] ?? '');
-            if ($path === '') {
-                throw new LabException('Percorso SQLite mancante.', 500);
+            $path = self::prepareSqliteFile((string) ($config['sqlite_path'] ?? ''));
+            try {
+                $pdo = new PDO('sqlite:' . $path, null, null, [
+                    PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+                    PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+                ]);
+            } catch (PDOException $e) {
+                throw new LabException('SQLite non apre ' . $path . '. ' . $e->getMessage(), 500);
             }
-            $dir = dirname($path);
-            if (!is_dir($dir) && !mkdir($dir, 0775, true) && !is_dir($dir)) {
-                throw new LabException('Cartella dati non creabile.', 500);
-            }
-            $pdo = new PDO('sqlite:' . $path, null, null, [
-                PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-                PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-            ]);
             $pdo->exec('PRAGMA foreign_keys = ON');
             $lab = new self($pdo, 'sqlite');
+            $lab->sqliteFile = $path;
+            $lab->warning = $warning;
             $lab->ensureSqlite();
             $lab->seedIfEmpty();
             return $lab;
         }
         if ($driver !== 'oci') {
             throw new LabException('Driver sconosciuto. Usa sqlite oppure oci.', 500);
-        }
-        if (!extension_loaded('pdo_oci')) {
-            throw new LabException(
-                'Estensione pdo_oci assente. Il banco parte in SQLite finché PHP non ha il driver Oracle (Instant Client + pdo_oci).',
-                500
-            );
         }
         try {
             $pdo = new PDO(
@@ -70,6 +72,39 @@ final class Lab
         return $lab;
     }
 
+    private static function prepareSqliteFile(string $path): string
+    {
+        $path = str_replace('\\', '/', $path);
+        if ($path === '') {
+            throw new LabException('Percorso SQLite mancante.', 500);
+        }
+        if (!extension_loaded('pdo_sqlite')) {
+            throw new LabException(
+                'Manca l\'estensione pdo_sqlite. In C:\\xampp\\php\\php.ini togli il punto e virgola davanti a extension=pdo_sqlite e a extension=sqlite3, salva, poi nel pannello XAMPP fai Stop e Start su Apache.',
+                500
+            );
+        }
+        $dir = dirname($path);
+        if (!is_dir($dir) && !@mkdir($dir, 0775, true) && !is_dir($dir)) {
+            $detail = error_get_last()['message'] ?? 'permesso negato';
+            throw new LabException('Non creo la cartella ' . $dir . '. ' . $detail, 500);
+        }
+        $probe = $dir . '/.write-probe';
+        if (@file_put_contents($probe, '1') === false) {
+            $detail = error_get_last()['message'] ?? 'permesso negato';
+            throw new LabException(
+                'PHP non può scrivere in ' . $dir . '. Il tuo utente Windows può entrare nella cartella, il processo di Apache no. ' . $detail,
+                500
+            );
+        }
+        @unlink($probe);
+        $dirReal = realpath($dir);
+        if ($dirReal !== false) {
+            $path = str_replace('\\', '/', $dirReal) . '/' . basename($path);
+        }
+        return $path;
+    }
+
     /** @return array<string, mixed> */
     public function status(): array
     {
@@ -78,6 +113,9 @@ final class Lab
             'driver' => $this->driver,
             'php' => PHP_VERSION,
             'pdo_oci' => extension_loaded('pdo_oci'),
+            'pdo_sqlite' => extension_loaded('pdo_sqlite'),
+            'sqlitePath' => $this->sqliteFile,
+            'warning' => $this->warning,
             'timezone' => 'Europe/Rome',
             'counts' => [
                 'workplaces' => $this->count('hxs_workplace'),

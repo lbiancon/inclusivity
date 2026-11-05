@@ -14,7 +14,11 @@ Serve PHP 8.1 o successivo, con `pdo_sqlite`.
 2. La cartella `data/` deve essere scrivibile da Apache.
 3. Apri `http://localhost/hydra-x-sim/`.
 
-Senza file di configurazione i dati stanno in `data/sim.sqlite`. Il primo avvio inserisce un tornio, una fresatrice, un assemblaggio e due ordini.
+Senza file di configurazione i dati stanno in `data/sim.sqlite`. Il file nasce al primo accesso **via PHP**, non aprendo la cartella da Esplora risorse. Il primo avvio inserisce un tornio, una fresatrice, un assemblaggio e due ordini.
+
+Se `sim.sqlite` non compare, apri `http://localhost/hydra-x-sim/controllo.php`. Quella pagina dice se PHP è troppo vecchio, se manca `pdo_sqlite`, o se Apache non può scrivere. Una pagina bianca su `index.php` di solito è PHP inferiore a 8.1: lo script si interrompe prima della scrittura.
+
+Su Windows, in `C:\xampp\php\php.ini`, `extension=pdo_sqlite` e `extension=sqlite3` devono essere senza punto e virgola iniziale. Dopo la modifica: Stop e Start di Apache nel pannello XAMPP. In alternativa fai doppio clic su `avvia.bat` e apri `http://localhost:8765/controllo.php`.
 
 Prova rapida senza Apache, da questa cartella:
 
