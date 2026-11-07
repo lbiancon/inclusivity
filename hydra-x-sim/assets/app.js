@@ -613,6 +613,7 @@ function renderBridge() {
         h("p", { text: "HYDRA X sposta lo stesso gesto nel browser: la mApp non tiene una copia dei pezzi, chiama il servizio, e la valutazione rilegge il modello." }),
         h("p", { text: "Banco X allena solo quel gesto. Terminale e Monitor sono due mApp. Non tengono copie private dei pezzi: chiamano gli stessi servizi e rileggono gli stessi oggetti. Il segnale macchina non scrive un versamento a mano. Diventa operation.book oppure un fermo." }),
         h("p", { class: "warn", text: "Non è MIP, non è il MOC, e non va puntato allo schema HYDRA. Tabelle hxs_* su un database dedicato." }),
+        h("p", { text: "La guida di studio è STUDIO.md, nella stessa cartella. Dice che cosa fa ogni servizio, in quale funzione di lib/Lab.php sta la regola, e che cosa di questo gesto ritrovi nel prodotto. I dieci esercizi in fondo si fanno su queste pagine." }),
         h("p", { text: where }),
         h("h2", { text: "MySQL su XAMPP, stesse colonne di Oracle" }),
         h("ol", {},

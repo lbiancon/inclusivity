@@ -2,6 +2,8 @@
 
 Laboratorio locale per allenare il gesto di **HYDRA X** mentre in azienda si è ancora su **HYDRA 8** con Oracle.
 
+La guida di studio è [STUDIO.md](STUDIO.md): che cosa è stato creato, che cosa fa ogni servizio, come è implementato, e che cosa di questo gesto ritrovi in HYDRA X tra qualche mese o a fine 2027.
+
 Non è il software MPDV. Non si collega allo schema HYDRA. Terminale e Monitor sono due pagine sullo stesso modello: un'azione è un servizio, e l'altra pagina rilegge gli stessi oggetti. Un segnale macchina non scrive il versamento da solo: passa dalla stessa logica.
 
 I nomi HYDRA, MOC, MIP e ViPR sono di MPDV. Qui il modello si chiama Banco X e le tabelle hanno il prefisso `hxs_`.
