@@ -8,6 +8,8 @@ final class Lab
 
     private ?string $sqliteFile = null;
 
+    private ?string $mysqlDatabase = null;
+
     private string $warning = '';
 
     private function __construct(
@@ -40,11 +42,48 @@ final class Lab
             $lab->sqliteFile = $path;
             $lab->warning = $warning;
             $lab->ensureSqlite();
-            $lab->seedIfEmpty();
+            $lab->bootData();
+            return $lab;
+        }
+        if ($driver === 'mysql') {
+            if (!extension_loaded('pdo_mysql')) {
+                throw new LabException(
+                    'Manca pdo_mysql. In C:\\xampp\\php\\php.ini togli il punto e virgola davanti a extension=pdo_mysql, salva, poi Stop e Start di Apache.',
+                    500
+                );
+            }
+            $database = (string) ($config['mysql_database'] ?? 'hxs');
+            if (preg_match('/^[A-Za-z0-9_]+$/', $database) !== 1) {
+                throw new LabException('Nome database MySQL non valido.', 500);
+            }
+            $host = (string) ($config['mysql_host'] ?? '127.0.0.1');
+            $port = (int) ($config['mysql_port'] ?? 3306);
+            if ($host === '' || $port < 1 || $port > 65535) {
+                throw new LabException('Host o porta MySQL non validi.', 500);
+            }
+            try {
+                $pdo = new PDO(
+                    'mysql:host=' . $host . ';port=' . $port . ';charset=utf8mb4',
+                    (string) ($config['mysql_user'] ?? 'root'),
+                    (string) ($config['mysql_password'] ?? ''),
+                    [
+                        PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+                        PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+                    ]
+                );
+                $pdo->exec('CREATE DATABASE IF NOT EXISTS `' . $database . '` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci');
+                $pdo->exec('USE `' . $database . '`');
+            } catch (PDOException $e) {
+                throw new LabException('Connessione MySQL fallita: ' . $e->getMessage(), 500);
+            }
+            $lab = new self($pdo, 'mysql');
+            $lab->mysqlDatabase = $database;
+            $lab->ensureMysql();
+            $lab->bootData();
             return $lab;
         }
         if ($driver !== 'oci') {
-            throw new LabException('Driver sconosciuto. Usa sqlite oppure oci.', 500);
+            throw new LabException('Driver sconosciuto. Usa sqlite, mysql oppure oci.', 500);
         }
         try {
             $pdo = new PDO(
@@ -61,14 +100,15 @@ final class Lab
         }
         $lab = new self($pdo, 'oci');
         try {
-            $lab->rows('SELECT COUNT(*) AS n FROM hxs_workplace');
+            $lab->rows('SELECT ideal_sec FROM hxs_workplace WHERE 1 = 0');
+            $lab->rows('SELECT code FROM hxs_list WHERE 1 = 0');
         } catch (PDOException) {
             throw new LabException(
-                'Schema Oracle assente. Esegui sql/oracle.sql con l\'utente dedicato HXSIM, non nello schema HYDRA.',
+                'Schema Oracle assente o vecchio. Esegui sql/oracle.sql con l\'utente dedicato HXSIM, non nello schema HYDRA. Servono ideal_sec e hxs_list.',
                 500
             );
         }
-        $lab->seedIfEmpty();
+        $lab->bootData();
         return $lab;
     }
 
@@ -114,7 +154,9 @@ final class Lab
             'php' => PHP_VERSION,
             'pdo_oci' => extension_loaded('pdo_oci'),
             'pdo_sqlite' => extension_loaded('pdo_sqlite'),
+            'pdo_mysql' => extension_loaded('pdo_mysql'),
             'sqlitePath' => $this->sqliteFile,
+            'mysqlDatabase' => $this->mysqlDatabase,
             'warning' => $this->warning,
             'timezone' => 'Europe/Rome',
             'counts' => [
@@ -124,6 +166,7 @@ final class Lab
                 'bookings' => $this->count('hxs_booking'),
                 'downtimes' => $this->count('hxs_downtime'),
                 'signals' => $this->count('hxs_signal'),
+                'lists' => $this->count('hxs_list'),
             ],
         ];
     }
@@ -174,6 +217,115 @@ final class Lab
             'services' => self::catalog(),
             'scrapReasons' => self::scrapReasons(),
             'downtimeReasons' => self::downtimeReasons(),
+            'listBases' => self::listBases(),
+            'commands' => self::commands(),
+        ];
+    }
+
+    /** @return list<array<string, string>> */
+    public static function commands(): array
+    {
+        return [
+            [
+                'code' => 'DLG',
+                'title' => 'Dialogo',
+                'view' => 'terminal',
+                'today' => 'In VB.NET apri un dialogo e scrivi sulle tabelle Oracle.',
+                'here' => 'Il Terminale è il dialogo. Il bottone chiama un servizio. La stessa chiamata resta valida quando le tabelle passano da MySQL a Oracle.',
+            ],
+            [
+                'code' => 'MST',
+                'title' => 'Anagrafica',
+                'view' => 'objects',
+                'today' => 'Maschera di stammdaten sulla tabella.',
+                'here' => 'Oggetti mostra postazione, persona, ordine, fase. Il tempo ciclo si aggiorna con workplace.cycle, non con un UPDATE nel client.',
+            ],
+            [
+                'code' => 'LST',
+                'title' => 'Lista',
+                'view' => 'lists',
+                'today' => 'Crei LST 11 o LST 16: numero, colonne, filtro.',
+                'here' => 'La definizione sta in hxs_list. Il client non scrive la SELECT. Su MySQL e su Oracle la tabella ha le stesse colonne.',
+            ],
+            [
+                'code' => 'AUN',
+                'title' => 'Valutazione',
+                'view' => 'kpi',
+                'today' => 'Auswertung: OEE e scarti da una query.',
+                'here' => 'KPI legge le stesse tabelle e calcola disponibilità, performance, qualità e scarti. È una mApp di lettura.',
+            ],
+        ];
+    }
+
+    /**
+     * Colonne ammesse per una lista. La chiave è il campo restituito dagli oggetti.
+     *
+     * @return array<string, array{title: string, columns: array<string, string>, filters: list<string>}>
+     */
+    public static function listBases(): array
+    {
+        return [
+            'booking' => [
+                'title' => 'Versamenti',
+                'columns' => [
+                    'createdAt' => 'Ora',
+                    'workplaceCode' => 'Postazione',
+                    'operationCode' => 'Fase',
+                    'kind' => 'Tipo',
+                    'qty' => 'Quantità',
+                    'reason' => 'Causale',
+                    'operatorCode' => 'Operatore',
+                ],
+                'filters' => ['kind'],
+            ],
+            'order' => [
+                'title' => 'Ordini',
+                'columns' => [
+                    'code' => 'Ordine',
+                    'materialName' => 'Materiale',
+                    'status' => 'Stato',
+                    'qtyGood' => 'Buoni',
+                    'qtyScrap' => 'Scarti',
+                    'qtyPlanned' => 'Previsti',
+                    'progress' => 'Avanzamento',
+                ],
+                'filters' => ['status'],
+            ],
+            'operation' => [
+                'title' => 'Fasi',
+                'columns' => [
+                    'code' => 'Fase',
+                    'name' => 'Nome',
+                    'status' => 'Stato',
+                    'orderCode' => 'Ordine',
+                    'workplaceCode' => 'Postazione',
+                    'qtyGood' => 'Buoni',
+                    'qtyScrap' => 'Scarti',
+                ],
+                'filters' => ['status', 'workplaceCode'],
+            ],
+            'downtime' => [
+                'title' => 'Fermi',
+                'columns' => [
+                    'workplaceCode' => 'Postazione',
+                    'reasonText' => 'Causale',
+                    'startedAt' => 'Inizio',
+                    'endedAt' => 'Fine',
+                ],
+                'filters' => ['workplaceCode'],
+            ],
+            'workplace' => [
+                'title' => 'Postazioni',
+                'columns' => [
+                    'code' => 'Codice',
+                    'name' => 'Nome',
+                    'state' => 'Stato',
+                    'idealSec' => 'Ciclo (s)',
+                    'qtyGoodToday' => 'Buoni oggi',
+                    'qtyScrapToday' => 'Scarti oggi',
+                ],
+                'filters' => ['state'],
+            ],
         ];
     }
 
@@ -216,6 +368,30 @@ final class Lab
                 'title' => 'Segnale macchina',
                 'from8' => 'In HYDRA 8 il canale è il PCC. In HYDRA X il corso corrispondente è DT-DEC, driver in C#. Il segnale non salta il servizio.',
                 'example' => ['workplaceCode' => 'TORN-01', 'signal' => 'piece_good', 'value' => '1'],
+            ],
+            [
+                'name' => 'workplace.cycle',
+                'title' => 'Tempo ciclo',
+                'from8' => 'In anagrafica macchina il tempo ciclo è un campo MST. Qui il servizio scrive ideal_sec. La colonna ha lo stesso nome su MySQL e su Oracle.',
+                'example' => ['workplaceCode' => 'TORN-01', 'idealSec' => 60],
+            ],
+            [
+                'name' => 'list.save',
+                'title' => 'Salva lista',
+                'from8' => 'Creare LST 11 o LST 16: numero, titolo, colonne, filtro. La definizione va in hxs_list. Il client non manda SQL.',
+                'example' => [
+                    'code' => '21',
+                    'title' => 'Fasi del tornio',
+                    'base' => 'operation',
+                    'columns' => ['code', 'status', 'qtyGood', 'qtyScrap'],
+                    'filter' => ['workplaceCode' => 'TORN-01'],
+                ],
+            ],
+            [
+                'name' => 'list.delete',
+                'title' => 'Elimina lista',
+                'from8' => 'LST-11 e LST-16 restano. Le altre liste si tolgono con il codice numerico.',
+                'example' => ['code' => '21'],
             ],
             [
                 'name' => 'lab.demo',
@@ -394,6 +570,9 @@ final class Lab
             'downtime.start' => $this->startDowntime($body),
             'downtime.end' => $this->endDowntime($body),
             'edge.signal' => $this->edgeSignal($body),
+            'workplace.cycle' => $this->setCycle($body),
+            'list.save' => $this->saveList($body),
+            'list.delete' => $this->deleteList($body),
             'lab.demo' => $this->demo($body),
             'lab.reset' => $this->reset($body),
         };
@@ -649,7 +828,26 @@ final class Lab
         $this->finishOperation(['operationCode' => 'OF-24081-10']);
         $this->startDowntime(['workplaceCode' => 'FRES-02', 'reasonCode' => 'attesa_materiale']);
         $this->endDowntime(['workplaceCode' => 'FRES-02']);
-        return ['note' => 'Tornitura OF-24081 chiusa con 6 buoni e 1 scarto. La fresatura è pronta.'];
+        $endAt = new DateTimeImmutable('now', new DateTimeZone('Europe/Rome'));
+        $end = $endAt->format('Y-m-d H:i:s');
+        $this->exec(
+            'UPDATE hxs_operation SET started_at = ?, finished_at = ? WHERE code = ?',
+            [$endAt->modify('-10 minutes')->format('Y-m-d H:i:s'), $end, 'OF-24081-10']
+        );
+        $operation = $this->requireOperation(['operationCode' => 'OF-24081-10']);
+        $this->exec('UPDATE hxs_booking SET created_at = ? WHERE operation_id = ?', [$end, (int) $operation['id']]);
+        $down = $this->one('SELECT id FROM hxs_downtime ORDER BY id DESC');
+        if ($down !== null) {
+            $this->exec(
+                'UPDATE hxs_downtime SET started_at = ?, ended_at = ? WHERE id = ?',
+                [
+                    $endAt->modify('-25 minutes')->format('Y-m-d H:i:s'),
+                    $endAt->modify('-10 minutes')->format('Y-m-d H:i:s'),
+                    (int) $down['id'],
+                ]
+            );
+        }
+        return ['note' => 'Tornitura OF-24081 chiusa con 6 buoni e 1 scarto, in 10 minuti. La fresatrice ha 15 minuti di attesa materiale.'];
     }
 
     /** @param array<string, mixed> $body */
@@ -708,9 +906,9 @@ final class Lab
 
     private function seedMaster(): void
     {
-        $this->insert('hxs_workplace', ['code', 'name', 'state'], ['TORN-01', 'Tornio 1', 'idle']);
-        $this->insert('hxs_workplace', ['code', 'name', 'state'], ['FRES-02', 'Fresatrice 2', 'idle']);
-        $this->insert('hxs_workplace', ['code', 'name', 'state'], ['ASSY-03', 'Assemblaggio 3', 'idle']);
+        $this->insert('hxs_workplace', ['code', 'name', 'state', 'ideal_sec'], ['TORN-01', 'Tornio 1', 'idle', 60]);
+        $this->insert('hxs_workplace', ['code', 'name', 'state', 'ideal_sec'], ['FRES-02', 'Fresatrice 2', 'idle', 90]);
+        $this->insert('hxs_workplace', ['code', 'name', 'state', 'ideal_sec'], ['ASSY-03', 'Assemblaggio 3', 'idle', 120]);
         $this->insert('hxs_person', ['code', 'name', 'role'], ['op.01', 'Operatore turno A', 'operatore']);
         $this->insert('hxs_person', ['code', 'name', 'role'], ['op.02', 'Operatore turno B', 'operatore']);
         $flange = $this->insert('hxs_order', ['code', 'material_code', 'material_name', 'qty_planned', 'status'], [
@@ -742,7 +940,8 @@ final class Lab
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 code TEXT NOT NULL UNIQUE,
                 name TEXT NOT NULL,
-                state TEXT NOT NULL
+                state TEXT NOT NULL,
+                ideal_sec INTEGER NOT NULL DEFAULT 90
             );
             CREATE TABLE IF NOT EXISTS hxs_person (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -803,7 +1002,495 @@ final class Lab
                 ok INTEGER NOT NULL,
                 created_at TEXT NOT NULL
             );
+            CREATE TABLE IF NOT EXISTS hxs_list (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                code TEXT NOT NULL UNIQUE,
+                title TEXT NOT NULL,
+                base_object TEXT NOT NULL,
+                columns_json TEXT NOT NULL,
+                filter_json TEXT NOT NULL
+            );
         SQL);
+        $this->ensureIdealSec();
+    }
+
+    private function ensureMysql(): void
+    {
+        $this->runScript('sql/mysql.sql');
+        $this->ensureIdealSec();
+    }
+
+    private function runScript(string $relative): void
+    {
+        $path = dirname(__DIR__) . '/' . $relative;
+        $sql = file_get_contents($path);
+        if ($sql === false) {
+            throw new LabException('Manca ' . $relative . '.', 500);
+        }
+        $sql = preg_replace('/--.*$/m', '', $sql) ?? $sql;
+        foreach (array_filter(array_map('trim', explode(';', $sql))) as $statement) {
+            $this->pdo->exec($statement);
+        }
+    }
+
+    private function ensureIdealSec(): void
+    {
+        if ($this->driver === 'sqlite') {
+            $cols = array_column($this->rows('PRAGMA table_info(hxs_workplace)'), 'name');
+            if (!in_array('ideal_sec', $cols, true)) {
+                $this->pdo->exec('ALTER TABLE hxs_workplace ADD COLUMN ideal_sec INTEGER NOT NULL DEFAULT 90');
+            }
+            return;
+        }
+        if ($this->driver === 'mysql') {
+            $row = $this->one(
+                'SELECT COUNT(*) AS n FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND COLUMN_NAME = ?',
+                ['hxs_workplace', 'ideal_sec']
+            );
+            if ((int) ($row['n'] ?? 0) === 0) {
+                $this->pdo->exec('ALTER TABLE hxs_workplace ADD COLUMN ideal_sec INT NOT NULL DEFAULT 90');
+            }
+        }
+    }
+
+    private function bootData(): void
+    {
+        $this->seedIfEmpty();
+        $this->seedLists();
+    }
+
+    private function seedLists(): void
+    {
+        $examples = [
+            [
+                'LST-11',
+                'Scarti',
+                'booking',
+                ['createdAt', 'workplaceCode', 'operationCode', 'qty', 'reason', 'operatorCode'],
+                ['kind' => 'scrap'],
+            ],
+            [
+                'LST-16',
+                'Avanzamento ordini',
+                'order',
+                ['code', 'materialName', 'status', 'qtyGood', 'qtyScrap', 'qtyPlanned', 'progress'],
+                [],
+            ],
+        ];
+        foreach ($examples as [$code, $title, $base, $columns, $filter]) {
+            $found = $this->one('SELECT id FROM hxs_list WHERE code = ?', [$code]);
+            if ($found !== null) {
+                continue;
+            }
+            $this->insert('hxs_list', ['code', 'title', 'base_object', 'columns_json', 'filter_json'], [
+                $code,
+                $title,
+                $base,
+                json_encode($columns, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR),
+                json_encode($filter, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR),
+            ]);
+        }
+    }
+
+    /** @return array<string, mixed> */
+    public function kpi(): array
+    {
+        $from = $this->parseStamp($this->today() . ' 00:00:00')->getTimestamp();
+        $to = $this->parseStamp($this->now())->getTimestamp();
+        $workplaces = [];
+        $runSec = 0;
+        $downSec = 0;
+        $earnedSec = 0;
+        $good = 0;
+        $scrap = 0;
+        $reasons = [];
+        foreach ($this->rows('SELECT * FROM hxs_workplace ORDER BY code') as $workplace) {
+            $card = $this->workplaceKpi($workplace, $from, $to);
+            $workplaces[] = $card;
+            $runSec += $card['runSec'];
+            $downSec += $card['downSec'];
+            $earnedSec += $card['earnedSec'];
+            $good += $card['good'];
+            $scrap += $card['scrap'];
+            foreach ($card['reasons'] as $reason => $qty) {
+                $reasons[$reason] = ($reasons[$reason] ?? 0) + $qty;
+            }
+        }
+        $pieces = $good + $scrap;
+        $availability = ($runSec + $downSec) === 0 ? null : $runSec / ($runSec + $downSec);
+        $performance = $runSec === 0 ? null : min(1.0, $earnedSec / $runSec);
+        $quality = $pieces === 0 ? null : $good / $pieces;
+        $pareto = [];
+        arsort($reasons);
+        foreach ($reasons as $reason => $qty) {
+            $pareto[] = [
+                'reason' => $reason,
+                'qty' => $qty,
+                'share' => $scrap === 0 ? 0.0 : round($qty * 100 / $scrap, 1),
+            ];
+        }
+        return [
+            'day' => $this->today(),
+            'formula' => 'Disponibilità = lavoro / (lavoro + fermo). Performance = pezzi × ciclo ideale / lavoro, al massimo 100%. Qualità = buoni / (buoni + scarti). OEE è il prodotto. Il reparto somma i tempi di oggi.',
+            'plant' => [
+'oee' => $this->oee($availability, $performance, $quality),
+            'availability' => $this->percent($availability),
+            'performance' => $this->percent($performance),
+            'quality' => $this->percent($quality),
+            'runSec' => $runSec,
+                'downSec' => $downSec,
+                'good' => $good,
+                'scrap' => $scrap,
+                'scrapRate' => $pieces === 0 ? null : round($scrap * 100 / $pieces, 1),
+            ],
+            'workplaces' => array_map(static function (array $card): array {
+                unset($card['reasons'], $card['earnedSec']);
+                return $card;
+            }, $workplaces),
+            'scrap' => [
+                'qty' => $scrap,
+                'good' => $good,
+                'rate' => $pieces === 0 ? null : round($scrap * 100 / $pieces, 1),
+                'reasons' => $pareto,
+            ],
+        ];
+    }
+
+    /**
+     * @param array<string, mixed> $workplace
+     * @return array<string, mixed>
+     */
+    private function workplaceKpi(array $workplace, int $from, int $to): array
+    {
+        $id = (int) $workplace['id'];
+        $ideal = max(0, (int) $workplace['ideal_sec']);
+        $runSec = 0;
+        foreach ($this->rows('SELECT * FROM hxs_operation WHERE workplace_id = ?', [$id]) as $operation) {
+            if ($operation['started_at'] === null) {
+                continue;
+            }
+            $open = $operation['status'] === 'running' || $operation['status'] === 'held';
+            $span = $this->clipInterval((string) $operation['started_at'], $open ? null : $operation['finished_at'], $from, $to);
+            if ($span === null) {
+                continue;
+            }
+            $length = $span[1] - $span[0];
+            $lost = 0;
+            foreach ($this->rows('SELECT * FROM hxs_downtime WHERE workplace_id = ?', [$id]) as $down) {
+                $downSpan = $this->clipInterval((string) $down['started_at'], $down['ended_at'], $from, $to);
+                if ($downSpan !== null) {
+                    $lost += $this->overlapSec($span, $downSpan);
+                }
+            }
+            $runSec += max(0, $length - min($length, $lost));
+        }
+        $downSec = 0;
+        foreach ($this->rows('SELECT * FROM hxs_downtime WHERE workplace_id = ?', [$id]) as $down) {
+            $downSpan = $this->clipInterval((string) $down['started_at'], $down['ended_at'], $from, $to);
+            if ($downSpan !== null) {
+                $downSec += $downSpan[1] - $downSpan[0];
+            }
+        }
+        $today = $this->today() . '%';
+        $bookings = $this->rows(
+            'SELECT kind, qty, reason FROM hxs_booking b
+             JOIN hxs_operation o ON o.id = b.operation_id
+             WHERE o.workplace_id = ? AND b.created_at LIKE ?',
+            [$id, $today]
+        );
+        $good = 0;
+        $scrap = 0;
+        $reasons = [];
+        foreach ($bookings as $booking) {
+            $qty = (int) $booking['qty'];
+            if ($booking['kind'] === 'scrap') {
+                $scrap += $qty;
+                $label = $booking['reason'] !== null && $booking['reason'] !== '' ? (string) $booking['reason'] : 'Senza causale';
+                $reasons[$label] = ($reasons[$label] ?? 0) + $qty;
+            } else {
+                $good += $qty;
+            }
+        }
+        $pieces = $good + $scrap;
+        $availability = ($runSec + $downSec) === 0 ? null : $runSec / ($runSec + $downSec);
+        $earnedSec = $pieces * $ideal;
+        $performance = $runSec === 0 ? null : min(1.0, $earnedSec / $runSec);
+        $quality = $pieces === 0 ? null : $good / $pieces;
+        return [
+            'code' => $workplace['code'],
+            'name' => $workplace['name'],
+            'state' => $workplace['state'],
+            'idealSec' => $ideal,
+            'runSec' => $runSec,
+            'downSec' => $downSec,
+            'earnedSec' => $earnedSec,
+            'good' => $good,
+            'scrap' => $scrap,
+            'reasons' => $reasons,
+            'oee' => $this->oee($availability, $performance, $quality),
+            'availability' => $this->percent($availability),
+            'performance' => $this->percent($performance),
+            'quality' => $this->percent($quality),
+            'performanceCapped' => $performance !== null && $earnedSec > $runSec,
+        ];
+    }
+
+    private function percent(?float $ratio): ?float
+    {
+        if ($ratio === null) {
+            return null;
+        }
+        return round($ratio * 100, 1);
+    }
+
+    private function oee(?float $availability, ?float $performance, ?float $quality): ?float
+    {
+        $parts = [$availability, $performance, $quality];
+        $zero = false;
+        foreach ($parts as $part) {
+            if ($part === 0.0) {
+                $zero = true;
+            }
+        }
+        foreach ($parts as $part) {
+            if ($part === null) {
+                return $zero ? 0.0 : null;
+            }
+        }
+        return round($availability * $performance * $quality * 100, 1);
+    }
+
+    /** @return array{0: int, 1: int}|null */
+    private function clipInterval(string $start, ?string $end, int $from, int $to): ?array
+    {
+        $a = $this->parseStamp($start)->getTimestamp();
+        $b = $end === null || $end === '' ? $to : $this->parseStamp($end)->getTimestamp();
+        $a = max($a, $from);
+        $b = min($b, $to);
+        if ($b <= $a) {
+            return null;
+        }
+        return [$a, $b];
+    }
+
+    /** @param array{0: int, 1: int} $left @param array{0: int, 1: int} $right */
+    private function overlapSec(array $left, array $right): int
+    {
+        $start = max($left[0], $right[0]);
+        $end = min($left[1], $right[1]);
+        return $end > $start ? $end - $start : 0;
+    }
+
+    private function parseStamp(string $stamp): DateTimeImmutable
+    {
+        $parsed = DateTimeImmutable::createFromFormat('Y-m-d H:i:s', $stamp, new DateTimeZone('Europe/Rome'));
+        if ($parsed === false) {
+            throw new LabException('Istante non leggibile: ' . $stamp, 500);
+        }
+        return $parsed;
+    }
+
+    /** @return array<string, mixed> */
+    public function lists(): array
+    {
+        return [
+            'lists' => array_map(static function (array $row): array {
+                return [
+                    'code' => $row['code'],
+                    'title' => $row['title'],
+                    'base' => $row['base_object'],
+                ];
+            }, $this->rows('SELECT code, title, base_object FROM hxs_list ORDER BY code')),
+        ];
+    }
+
+    /** @return array<string, mixed> */
+    public function runList(string $code): array
+    {
+        $code = $this->listCode($code);
+        $row = $this->one('SELECT * FROM hxs_list WHERE code = ?', [$code]);
+        if ($row === null) {
+            throw new LabException('Lista ' . $code . ' assente.', 404);
+        }
+        $columns = json_decode((string) $row['columns_json'], true);
+        $filter = json_decode((string) $row['filter_json'], true);
+        $base = (string) $row['base_object'];
+        $bases = self::listBases();
+        if (!is_array($columns) || !is_array($filter) || !isset($bases[$base])) {
+            throw new LabException('Definizione lista illeggibile.', 500);
+        }
+        $source = $this->listSourceRows($base);
+        foreach ($filter as $key => $expected) {
+            if (!in_array((string) $key, $bases[$base]['filters'], true) || $expected === '' || $expected === null) {
+                continue;
+            }
+            $source = array_values(array_filter(
+                $source,
+                static fn (array $item): bool => (string) ($item[$key] ?? '') === (string) $expected
+            ));
+        }
+        $header = [];
+        foreach ($columns as $column) {
+            $column = (string) $column;
+            if (!isset($bases[$base]['columns'][$column])) {
+                continue;
+            }
+            $header[] = ['key' => $column, 'label' => $bases[$base]['columns'][$column]];
+        }
+        $rows = [];
+        foreach ($source as $item) {
+            $projected = [];
+            foreach ($header as $column) {
+                $value = $item[$column['key']] ?? null;
+                $projected[$column['key']] = is_array($value) ? null : $value;
+            }
+            $rows[] = $projected;
+        }
+        return [
+            'code' => $code,
+            'title' => $row['title'],
+            'base' => $base,
+            'baseTitle' => $bases[$base]['title'],
+            'columns' => $header,
+            'filter' => $filter,
+            'rows' => $rows,
+        ];
+    }
+
+    /** @param array<string, mixed> $body */
+    private function saveList(array $body): array
+    {
+        $code = $this->listCode((string) ($body['code'] ?? ''));
+        $title = trim((string) ($body['title'] ?? ''));
+        if ($title === '' || strlen($title) > 120) {
+            throw new LabException('Serve un titolo, al massimo 120 caratteri.');
+        }
+        $base = (string) ($body['base'] ?? '');
+        $bases = self::listBases();
+        if (!isset($bases[$base])) {
+            throw new LabException('Base lista sconosciuta. Usa: ' . implode(', ', array_keys($bases)) . '.');
+        }
+        $columns = $body['columns'] ?? null;
+        if (!is_array($columns) || $columns === []) {
+            throw new LabException('Scegli almeno una colonna.');
+        }
+        $clean = [];
+        foreach ($columns as $column) {
+            $column = (string) $column;
+            if (!isset($bases[$base]['columns'][$column])) {
+                throw new LabException('Colonna non prevista: ' . $column);
+            }
+            if (!in_array($column, $clean, true)) {
+                $clean[] = $column;
+            }
+        }
+        if (count($clean) > 8) {
+            throw new LabException('Massimo 8 colonne.');
+        }
+        $filter = $body['filter'] ?? [];
+        if (!is_array($filter)) {
+            throw new LabException('Il filtro deve essere un oggetto.');
+        }
+        $cleanFilter = [];
+        foreach ($filter as $key => $value) {
+            $key = (string) $key;
+            if (!in_array($key, $bases[$base]['filters'], true)) {
+                throw new LabException('Filtro non previsto: ' . $key);
+            }
+            $value = trim((string) $value);
+            if ($value === '') {
+                continue;
+            }
+            if ($key === 'kind' && $value !== 'good' && $value !== 'scrap') {
+                throw new LabException('Il filtro kind accetta good oppure scrap.');
+            }
+            if (strlen($value) > 40) {
+                throw new LabException('Filtro troppo lungo.');
+            }
+            $cleanFilter[$key] = $value;
+        }
+        $existing = $this->one('SELECT id FROM hxs_list WHERE code = ?', [$code]);
+        $columnsJson = json_encode($clean, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
+        $filterJson = json_encode($cleanFilter === [] ? new stdClass() : $cleanFilter, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
+        if ($cleanFilter === []) {
+            $filterJson = '{}';
+        }
+        if ($existing === null) {
+            $this->insert('hxs_list', ['code', 'title', 'base_object', 'columns_json', 'filter_json'], [
+                $code, $title, $base, $columnsJson, $filterJson,
+            ]);
+            $this->effect('Lista ' . $code . ' creata su ' . $bases[$base]['title'] . '.');
+        } else {
+            $this->exec(
+                'UPDATE hxs_list SET title = ?, base_object = ?, columns_json = ?, filter_json = ? WHERE id = ?',
+                [$title, $base, $columnsJson, $filterJson, (int) $existing['id']]
+            );
+            $this->effect('Lista ' . $code . ' aggiornata.');
+        }
+        return $this->runList($code);
+    }
+
+    /** @param array<string, mixed> $body */
+    private function deleteList(array $body): array
+    {
+        $code = $this->listCode((string) ($body['code'] ?? ''));
+        if ($code === 'LST-11' || $code === 'LST-16') {
+            throw new LabException('LST-11 e LST-16 restano: sono le liste di esempio.');
+        }
+        $existing = $this->one('SELECT id FROM hxs_list WHERE code = ?', [$code]);
+        if ($existing === null) {
+            throw new LabException('Lista ' . $code . ' assente.', 404);
+        }
+        $this->exec('DELETE FROM hxs_list WHERE id = ?', [(int) $existing['id']]);
+        $this->effect('Lista ' . $code . ' eliminata.');
+        return ['code' => $code];
+    }
+
+    /** @param array<string, mixed> $body */
+    private function setCycle(array $body): array
+    {
+        $workplace = $this->requireWorkplace($body);
+        $seconds = $this->boundedInt($body['idealSec'] ?? null, 1, 3600, 'Il tempo ciclo è in secondi, da 1 a 3600.');
+        $this->exec('UPDATE hxs_workplace SET ideal_sec = ? WHERE id = ?', [$seconds, (int) $workplace['id']]);
+        $this->effect('Tempo ciclo di ' . $workplace['code'] . ' impostato a ' . $seconds . ' secondi.');
+        return ['workplace' => $this->workplaceView((int) $workplace['id'])];
+    }
+
+    private function listCode(string $raw): string
+    {
+        $raw = strtoupper(str_replace(' ', '', trim($raw)));
+        if (preg_match('/^LST-(\d{1,4})$/', $raw, $match) === 1 || preg_match('/^(\d{1,4})$/', $raw, $match) === 1) {
+            return 'LST-' . $match[1];
+        }
+        throw new LabException('Il codice lista è un numero, come 11 o 16.');
+    }
+
+    /** @return list<array<string, mixed>> */
+    private function listSourceRows(string $base): array
+    {
+        return match ($base) {
+            'booking' => $this->bookingRows(),
+            'order' => $this->orders(),
+            'operation' => $this->operations(),
+            'downtime' => $this->downtimeRows(),
+            'workplace' => $this->workplaces(),
+            default => throw new LabException('Base lista sconosciuta.'),
+        };
+    }
+
+    private function boundedInt(mixed $value, int $min, int $max, string $message): int
+    {
+        if (is_int($value)) {
+            $n = $value;
+        } elseif (is_string($value) && preg_match('/^\d+$/', $value) === 1) {
+            $n = (int) $value;
+        } else {
+            throw new LabException($message);
+        }
+        if ($n < $min || $n > $max) {
+            throw new LabException($message);
+        }
+        return $n;
     }
 
     /** @return array<string, string> */
@@ -969,6 +1656,7 @@ final class Lab
             'state' => $row['state'],
             'qtyGoodToday' => (int) ($good['n'] ?? 0),
             'qtyScrapToday' => (int) ($scrap['n'] ?? 0),
+            'idealSec' => (int) ($row['ideal_sec'] ?? 90),
             'currentOperation' => $current['code'] ?? null,
             'currentStatus' => $current['status'] ?? null,
             'downtimeReason' => $open['reason_text'] ?? null,
@@ -1021,6 +1709,7 @@ final class Lab
             return [
                 'id' => (int) $row['id'],
                 'operationCode' => $row['operation_code'],
+                'workplaceCode' => $row['workplace_code'],
                 'kind' => $row['kind'],
                 'qty' => (int) $row['qty'],
                 'reason' => $row['reason'],
@@ -1028,9 +1717,10 @@ final class Lab
                 'createdAt' => $row['created_at'],
             ];
         }, $this->rows(
-            'SELECT b.*, o.code AS operation_code, p.code AS operator_code
+            'SELECT b.*, o.code AS operation_code, w.code AS workplace_code, p.code AS operator_code
              FROM hxs_booking b
              JOIN hxs_operation o ON o.id = b.operation_id
+             JOIN hxs_workplace w ON w.id = o.workplace_id
              LEFT JOIN hxs_person p ON p.id = b.operator_id
              ORDER BY b.id DESC'
         ));
@@ -1145,12 +1835,24 @@ final class Lab
     {
         $this->assertTable($table);
         $place = implode(', ', array_fill(0, count($cols), '?'));
-        $sql = 'INSERT INTO ' . $table . ' (' . implode(', ', $cols) . ') VALUES (' . $place . ')';
+        $quoted = array_map(fn (string $col): string => $this->quoteIdent($col), $cols);
+        $sql = 'INSERT INTO ' . $this->quoteIdent($table) . ' (' . implode(', ', $quoted) . ') VALUES (' . $place . ')';
         $this->pdo->prepare($sql)->execute($vals);
-        if ($this->driver === 'sqlite') {
-            return (int) $this->pdo->lastInsertId();
+        if ($this->driver === 'oci') {
+            return (int) $this->pdo->query('SELECT ' . $table . '_seq.CURRVAL FROM dual')->fetchColumn();
         }
-        return (int) $this->pdo->query('SELECT ' . $table . '_seq.CURRVAL FROM dual')->fetchColumn();
+        return (int) $this->pdo->lastInsertId();
+    }
+
+    private function quoteIdent(string $name): string
+    {
+        if (preg_match('/^[a-z_]+$/', $name) !== 1) {
+            throw new LabException('Identificatore non previsto.', 500);
+        }
+        if ($this->driver === 'mysql') {
+            return '`' . $name . '`';
+        }
+        return $name;
     }
 
     /** @param list<mixed> $params */
@@ -1200,7 +1902,7 @@ final class Lab
     {
         $allowed = [
             'hxs_workplace', 'hxs_person', 'hxs_order', 'hxs_operation',
-            'hxs_booking', 'hxs_downtime', 'hxs_signal', 'hxs_service_log',
+            'hxs_booking', 'hxs_downtime', 'hxs_signal', 'hxs_service_log', 'hxs_list',
         ];
         if (!in_array($table, $allowed, true)) {
             throw new LabException('Tabella non prevista.', 500);

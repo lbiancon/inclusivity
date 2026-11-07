@@ -21,12 +21,14 @@ CREATE SEQUENCE hxs_booking_seq START WITH 1 INCREMENT BY 1;
 CREATE SEQUENCE hxs_downtime_seq START WITH 1 INCREMENT BY 1;
 CREATE SEQUENCE hxs_signal_seq START WITH 1 INCREMENT BY 1;
 CREATE SEQUENCE hxs_service_log_seq START WITH 1 INCREMENT BY 1;
+CREATE SEQUENCE hxs_list_seq START WITH 1 INCREMENT BY 1;
 
 CREATE TABLE hxs_workplace (
     id NUMBER PRIMARY KEY,
     code VARCHAR2(32) NOT NULL UNIQUE,
     name VARCHAR2(120) NOT NULL,
-    state VARCHAR2(16) NOT NULL
+    state VARCHAR2(16) NOT NULL,
+    ideal_sec NUMBER(6) DEFAULT 90 NOT NULL
 );
 
 CREATE TABLE hxs_person (
@@ -95,6 +97,15 @@ CREATE TABLE hxs_service_log (
     created_at VARCHAR2(19) NOT NULL
 );
 
+CREATE TABLE hxs_list (
+    id NUMBER PRIMARY KEY,
+    code VARCHAR2(16) NOT NULL UNIQUE,
+    title VARCHAR2(120) NOT NULL,
+    base_object VARCHAR2(32) NOT NULL,
+    columns_json VARCHAR2(4000) NOT NULL,
+    filter_json VARCHAR2(4000) NOT NULL
+);
+
 CREATE OR REPLACE TRIGGER hxs_workplace_bi
 BEFORE INSERT ON hxs_workplace FOR EACH ROW
 WHEN (new.id IS NULL)
@@ -156,5 +167,13 @@ BEFORE INSERT ON hxs_service_log FOR EACH ROW
 WHEN (new.id IS NULL)
 BEGIN
     SELECT hxs_service_log_seq.NEXTVAL INTO :new.id FROM dual;
+END;
+/
+
+CREATE OR REPLACE TRIGGER hxs_list_bi
+BEFORE INSERT ON hxs_list FOR EACH ROW
+WHEN (new.id IS NULL)
+BEGIN
+    SELECT hxs_list_seq.NEXTVAL INTO :new.id FROM dual;
 END;
 /

@@ -14,7 +14,20 @@ Serve PHP 8.1 o successivo, con `pdo_sqlite`.
 2. La cartella `data/` deve essere scrivibile da Apache.
 3. Apri `http://localhost/hydra-x-sim/`.
 
-Senza file di configurazione i dati stanno in `data/sim.sqlite`. Il file nasce al primo accesso **via PHP**, non aprendo la cartella da Esplora risorse. Il primo avvio inserisce un tornio, una fresatrice, un assemblaggio e due ordini.
+Senza file di configurazione i dati stanno in `data/sim.sqlite`. Il file nasce al primo accesso via PHP. Il primo avvio inserisce un tornio, una fresatrice, un assemblaggio, due ordini e le liste LST-11 (scarti) e LST-16 (avanzamento).
+
+## MySQL, con le stesse colonne di Oracle
+
+Su XAMPP il passo utile è MySQL. Le tabelle di `sql/mysql.sql` hanno gli stessi nomi e le stesse colonne di `sql/oracle.sql`. Quando sposti, esegui lo script Oracle: il banco non cambia schermate.
+
+1. Avvia MySQL dal pannello XAMPP.
+2. In `C:\xampp\php\php.ini` togli il `;` da `extension=pdo_mysql` e riavvia Apache.
+3. Copia `config.example.php` in `config.local.php`.
+4. Riapri `http://localhost/hydra-x-sim/`. La prima richiesta crea il database `hxs` e le tabelle.
+
+Da quel momento i dati non stanno in `sim.sqlite`. La riga in alto dice `MySQL · database hxs`.
+
+DLG è il Terminale, MST sono gli Oggetti, LST sono le Liste (11 e 16 già pronte, altre si salvano con un numero), AUN è la pagina KPI: OEE e scarti. Il dialogo non scrive SQL. Chiama un servizio, e la lista salva solo colonne e filtro.
 
 Se `sim.sqlite` non compare, apri `http://localhost/hydra-x-sim/controllo.php`. Quella pagina dice se PHP è troppo vecchio, se manca `pdo_sqlite`, o se Apache non può scrivere. Una pagina bianca su `index.php` di solito è PHP inferiore a 8.1: lo script si interrompe prima della scrittura.
 

@@ -222,6 +222,33 @@ textarea {
 
 .bar { height: 8px; background: #e4ddd1; border-radius: 99px; overflow: hidden; margin-top: 8px; }
 .bar span { display: block; height: 100%; background: var(--green); }
+.bar span.scrap { background: var(--red); }
+
+.commands { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+.commands button { border-radius: 999px; background: var(--paper); border: 1px solid var(--line); padding: 6px 12px; }
+.commands button.is-on { border-color: var(--green); color: var(--green-deep); }
+.commands small { color: var(--muted); margin-left: 6px; }
+
+.lede { color: var(--muted); max-width: 760px; }
+
+.kpi-grid { display: grid; grid-template-columns: 1.4fr repeat(3, 1fr); gap: 12px; margin: 12px 0 16px; }
+.kpi-hero strong, .kpi-factor strong { display: block; line-height: 1; font-variant-numeric: tabular-nums; }
+.kpi-hero strong { font-size: 56px; margin: 8px 0; }
+.kpi-factor strong { font-size: 32px; margin-top: 8px; }
+.band-good { color: var(--green); }
+.band-mid { color: var(--amber); }
+.band-bad { color: var(--red); }
+.band-na { color: var(--muted); }
+
+.factor { margin-top: 8px; }
+.factor span { display: flex; justify-content: space-between; gap: 8px; font-size: 13px; color: var(--muted); }
+.factor b { color: var(--ink); font-weight: 600; }
+
+.pareto { display: flex; flex-direction: column; gap: 8px; }
+.pareto-row { display: grid; grid-template-columns: minmax(120px, 180px) 1fr 36px; gap: 8px; align-items: center; }
+
+.checks { display: flex; flex-wrap: wrap; gap: 8px 14px; margin: 10px 0; }
+.checks label { display: flex; gap: 6px; align-items: center; color: var(--ink); font-size: 14px; }
 
 table { width: 100%; border-collapse: collapse; font-size: 14px; }
 th, td { text-align: left; padding: 8px 6px; border-bottom: 1px solid var(--line); vertical-align: top; }
@@ -252,6 +279,6 @@ pre.result {
     .shell { grid-template-columns: 1fr; }
     .rail nav { flex-direction: row; overflow-x: auto; }
     .rail button { flex: 0 0 auto; }
-    .layout, .cards { grid-template-columns: 1fr; }
+    .layout, .cards, .kpi-grid { grid-template-columns: 1fr; }
     .main { padding: 16px; }
 }

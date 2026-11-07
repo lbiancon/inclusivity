@@ -10,6 +10,11 @@ function load_config(): array
     $config = [
         'driver' => 'sqlite',
         'sqlite_path' => __DIR__ . '/../data/sim.sqlite',
+        'mysql_host' => '127.0.0.1',
+        'mysql_port' => 3306,
+        'mysql_database' => 'hxs',
+        'mysql_user' => 'root',
+        'mysql_password' => '',
         'oracle_dsn' => 'oci:dbname=//127.0.0.1:1521/FREEPDB1;charset=AL32UTF8',
         'oracle_user' => 'HXSIM',
         'oracle_password' => '',
@@ -83,11 +88,16 @@ if (str_starts_with($route, '/api/')) {
             '/api/people' => ['people' => $lab->people()],
             '/api/operations' => ['operations' => $lab->operations()],
             '/api/monitor' => $lab->monitor(),
+            '/api/kpi' => $lab->kpi(),
+            '/api/lists' => $lab->lists(),
             '/api/log' => ['entries' => $lab->log()],
             default => null,
         };
         if ($payload === null && preg_match('#^/api/objects/([a-z]+)$#', $route, $match) === 1) {
             $payload = $lab->objectList($match[1]);
+        }
+        if ($payload === null && preg_match('#^/api/lists/([A-Za-z0-9-]+)$#', $route, $match) === 1) {
+            $payload = $lab->runList($match[1]);
         }
         if ($payload === null) {
             json_out(['error' => 'Percorso assente.'], 404);
@@ -134,6 +144,8 @@ header('Cache-Control: no-store');
             <nav>
                 <button type="button" data-view="terminal" class="is-on">Terminale</button>
                 <button type="button" data-view="monitor">Monitor</button>
+                <button type="button" data-view="kpi">KPI</button>
+                <button type="button" data-view="lists">Liste</button>
                 <button type="button" data-view="objects">Oggetti</button>
                 <button type="button" data-view="services">Servizi</button>
                 <button type="button" data-view="bridge">Da 8 a X</button>

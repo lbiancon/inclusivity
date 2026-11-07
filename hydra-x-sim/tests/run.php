@@ -114,6 +114,65 @@ foreach ($lab->workplaces() as $workplace) {
 }
 check($fres !== null && $fres['state'] === 'idle', 'demo chiude il fermo della fresatrice');
 
+$kpi = $lab->kpi();
+$byCode = [];
+foreach ($kpi['workplaces'] as $workplace) {
+    $byCode[$workplace['code']] = $workplace;
+}
+check($byCode['TORN-01']['oee'] === 60.0, 'OEE tornio 60');
+check($byCode['TORN-01']['availability'] === 100.0, 'tornio senza fermo');
+check($byCode['TORN-01']['performance'] === 70.0, 'performance 7 pezzi in 10 minuti');
+check($byCode['TORN-01']['quality'] === 85.7, 'qualità 6 su 7');
+check($byCode['FRES-02']['oee'] === 0.0, 'fresatrice ferma: OEE 0');
+check($kpi['plant']['oee'] === 24.0, 'OEE di reparto 24');
+check($kpi['scrap']['qty'] === 1 && $kpi['scrap']['rate'] === 14.3, 'tasso scarto 1 su 7');
+check($kpi['scrap']['reasons'][0]['reason'] === 'Bava', 'pareto causale bava');
+
+$scrapList = $lab->runList('11');
+check($scrapList['code'] === 'LST-11', '11 diventa LST-11');
+check(count($scrapList['rows']) === 1 && $scrapList['rows'][0]['reason'] === 'Bava', 'LST-11 mostra lo scarto');
+$orders = $lab->runList('LST-16');
+check(count($orders['rows']) === 2, 'LST-16 ha i due ordini');
+$saved = $lab->call('list.save', [
+    'code' => '21',
+    'title' => 'Fasi del tornio',
+    'base' => 'operation',
+    'columns' => ['code', 'status'],
+    'filter' => ['workplaceCode' => 'TORN-01'],
+]);
+check(count($saved['rows']) === 2, 'LST-21 filtra le fasi del tornio');
+expectMessage($lab, 'list.delete', ['code' => '11'], 'restano');
+expectMessage($lab, 'list.save', [
+    'code' => '22',
+    'title' => 'x',
+    'base' => 'hxs_booking; drop',
+    'columns' => ['qty'],
+    'filter' => [],
+], 'Base lista');
+$lab->call('list.delete', ['code' => '21']);
+check($lab->status()['counts']['lists'] === 2, 'resta il paio di liste di esempio');
+
+$mysql = file_get_contents(dirname(__DIR__) . '/sql/mysql.sql');
+$oracle = file_get_contents(dirname(__DIR__) . '/sql/oracle.sql');
+foreach (['hxs_workplace', 'hxs_person', 'hxs_order', 'hxs_operation', 'hxs_booking', 'hxs_downtime', 'hxs_signal', 'hxs_service_log', 'hxs_list'] as $table) {
+    check(str_contains($mysql, $table) && str_contains($oracle, $table), "tabella $table su mysql e oracle");
+}
+foreach (['ideal_sec', 'base_object', 'columns_json', 'filter_json'] as $column) {
+    check(str_contains($mysql, $column) && str_contains($oracle, $column), "colonna $column su mysql e oracle");
+}
+
+$old = sys_get_temp_dir() . '/banco-x-old-' . getmypid() . '.sqlite';
+@unlink($old);
+$legacy = new PDO('sqlite:' . $old);
+$legacy->exec('CREATE TABLE hxs_workplace (id INTEGER PRIMARY KEY AUTOINCREMENT, code TEXT NOT NULL UNIQUE, name TEXT NOT NULL, state TEXT NOT NULL)');
+$legacy->exec("INSERT INTO hxs_workplace (code, name, state) VALUES ('OLD-1', 'Vecchia', 'idle')");
+$legacy = null;
+$migrated = Lab::open(['driver' => 'sqlite', 'sqlite_path' => $old]);
+check($migrated->status()['counts']['workplaces'] === 1, 'un file vecchio non viene riseminato');
+check($migrated->status()['counts']['lists'] === 2, 'sul file vecchio arrivano LST-11 e LST-16');
+check($migrated->kpi()['plant']['oee'] === null, 'senza movimenti l\'OEE è vuoto');
+@unlink($old);
+
 $fallbackPath = sys_get_temp_dir() . '/banco-x-fallback-' . getmypid() . '.sqlite';
 @unlink($fallbackPath);
 if (!extension_loaded('pdo_oci')) {
