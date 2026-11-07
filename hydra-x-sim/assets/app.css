@@ -275,6 +275,10 @@ pre.result {
 
 .service-list { display: flex; flex-direction: column; gap: 6px; }
 
+.flow { display: grid; gap: 8px; }
+.flow div { background: #fff; border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; }
+.flow strong { display: block; margin-bottom: 4px; font-size: 12px; letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted); }
+
 @media (max-width: 900px) {
     .shell { grid-template-columns: 1fr; }
     .rail nav { flex-direction: row; overflow-x: auto; }

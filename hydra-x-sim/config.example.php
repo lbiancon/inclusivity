@@ -2,8 +2,10 @@
 declare(strict_types=1);
 
 /**
- * Copia questo file in config.local.php per usare MySQL di XAMPP.
- * Senza quel file il banco resta su SQLite (data/sim.sqlite).
+ * Senza questo file il banco usa già MySQL di XAMPP:
+ * host 127.0.0.1, porta 3306, database hxs, utente root, password vuota.
+ * Copialo in config.local.php solo per cambiare host o password,
+ * oppure per passare a Oracle (driver oci) o a un file (driver sqlite).
  *
  * Le tabelle hanno gli stessi nomi e le stesse colonne di Oracle:
  * oggi MySQL, quando spostate eseguite sql/oracle.sql come utente HXSIM.

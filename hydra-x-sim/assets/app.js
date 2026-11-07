@@ -104,11 +104,7 @@ async function loadStatus() {
     state.status = await api("/api/status");
     const names = { oci: "Oracle", mysql: "MySQL", sqlite: "SQLite" };
     const driver = names[state.status.driver] || state.status.driver;
-    const where = state.status.sqlitePath
-        ? " · " + state.status.sqlitePath
-        : state.status.mysqlDatabase
-            ? " · database " + state.status.mysqlDatabase
-            : "";
+    const where = state.status.place ? " · " + state.status.place : "";
     document.getElementById("driver-line").textContent =
         driver + where + " · PHP " + state.status.php + " · orari Europe/Rome";
     if (state.status.warning) showError(state.status.warning);
@@ -359,6 +355,10 @@ function renderServices() {
         h("section", { class: "stack grow" },
             h("h2", { text: service.name }),
             h("p", { text: service.from8 }),
+            h("div", { class: "flow" },
+                h("div", {}, h("strong", { text: "Come lo passiamo" }), service.pass),
+                h("div", {}, h("strong", { text: "Come lo riceviamo" }), service.receive),
+                h("div", {}, h("strong", { text: "Come lo lavoriamo" }), service.work)),
             h("textarea", { id: "service-body" }, state.serviceBody),
             h("button", {
                 type: "button", class: "go", disabled: state.busy ? "disabled" : null,
@@ -604,7 +604,7 @@ function renderBridge() {
     const where = {
         oci: "Questo banco sta già parlando con Oracle, utente dedicato.",
         mysql: "Questo banco sta su MySQL, database " + (state.status.mysqlDatabase || "hxs") + ". Le tabelle hanno le stesse colonne di sql/oracle.sql.",
-        sqlite: "Questo banco sta su SQLite, il file data/sim.sqlite. Per MySQL di XAMPP copia config.example.php in config.local.php.",
+        sqlite: "Questo banco sta su un file SQLite solo perché config.local.php dice driver sqlite. Senza quel file i dati stanno in MySQL, database hxs.",
     }[state.status && state.status.driver] || "";
     return h("div", {},
         commandStrip(),
@@ -620,7 +620,7 @@ function renderBridge() {
             h("li", { text: "Nel pannello XAMPP avvia MySQL. In C:\\xampp\\php\\php.ini togli il ; da extension=pdo_mysql e riavvia Apache." }),
             h("li", { text: "Copia config.example.php in config.local.php. Il driver è mysql, utente root, password vuota, database hxs." }),
             h("li", { text: "Apri http://localhost/hydra-x-sim/ . La prima pagina crea il database e le tabelle di sql/mysql.sql." }),
-            h("li", { text: "I dati non stanno più in data/sim.sqlite. La riga in alto dice MySQL · database hxs." })),
+            h("li", { text: "Spostare la cartella in htdocs non sposta i dati: restano nel database hxs. La riga in alto deve dire MySQL · database hxs su 127.0.0.1:3306." })),
         h("h2", { text: "Spostarlo su Oracle" }),
         h("ol", {},
             h("li", { text: "Crea l'utente HXSIM con CREATE SESSION, CREATE TABLE, CREATE SEQUENCE, CREATE TRIGGER e quota sullo tablespace. Non usare lo schema HYDRA." }),

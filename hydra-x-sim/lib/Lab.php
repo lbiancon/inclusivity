@@ -10,6 +10,12 @@ final class Lab
 
     private ?string $mysqlDatabase = null;
 
+    private ?string $mysqlHost = null;
+
+    private ?int $mysqlPort = null;
+
+    private ?string $oracleUser = null;
+
     private string $warning = '';
 
     private function __construct(
@@ -21,11 +27,13 @@ final class Lab
     /** @param array<string, mixed> $config */
     public static function open(array $config): self
     {
-        $driver = (string) ($config['driver'] ?? 'sqlite');
+        $driver = (string) ($config['driver'] ?? 'mysql');
         $warning = '';
         if ($driver === 'oci' && !extension_loaded('pdo_oci')) {
-            $warning = 'config.local.php chiede Oracle, ma questo PHP non ha pdo_oci. Il banco usa SQLite. Il file è sim.sqlite nella cartella data, non lo schema HYDRA.';
-            $driver = 'sqlite';
+            throw new LabException(
+                'Manca pdo_oci: questo PHP non parla con Oracle. Il banco non crea un file SQLite al posto del database. Su XAMPP avvia MySQL e in config.local.php metti driver mysql. Lo schema HYDRA non si tocca.',
+                500
+            );
         }
         if ($driver === 'sqlite') {
             $path = self::prepareSqliteFile((string) ($config['sqlite_path'] ?? ''));
@@ -74,10 +82,15 @@ final class Lab
                 $pdo->exec('CREATE DATABASE IF NOT EXISTS `' . $database . '` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci');
                 $pdo->exec('USE `' . $database . '`');
             } catch (PDOException $e) {
-                throw new LabException('Connessione MySQL fallita: ' . $e->getMessage(), 500);
+                throw new LabException(
+                    'Connessione MySQL fallita: ' . $e->getMessage() . ' Avvia MySQL dal pannello XAMPP. I dati stanno nel database ' . $database . ' su ' . $host . ', non in un file della cartella.',
+                    500
+                );
             }
             $lab = new self($pdo, 'mysql');
             $lab->mysqlDatabase = $database;
+            $lab->mysqlHost = $host;
+            $lab->mysqlPort = $port;
             $lab->ensureMysql();
             $lab->bootData();
             return $lab;
@@ -99,6 +112,7 @@ final class Lab
             throw new LabException('Connessione Oracle fallita: ' . $e->getMessage(), 500);
         }
         $lab = new self($pdo, 'oci');
+        $lab->oracleUser = (string) ($config['oracle_user'] ?? 'HXSIM');
         try {
             $lab->rows('SELECT ideal_sec FROM hxs_workplace WHERE 1 = 0');
             $lab->rows('SELECT code FROM hxs_list WHERE 1 = 0');
@@ -145,6 +159,17 @@ final class Lab
         return $path;
     }
 
+    private function placeLabel(): string
+    {
+        if ($this->driver === 'mysql') {
+            return 'database ' . $this->mysqlDatabase . ' su ' . $this->mysqlHost . ':' . (string) $this->mysqlPort;
+        }
+        if ($this->driver === 'oci') {
+            return 'schema ' . $this->oracleUser . ' su Oracle';
+        }
+        return (string) $this->sqliteFile;
+    }
+
     /** @return array<string, mixed> */
     public function status(): array
     {
@@ -157,6 +182,10 @@ final class Lab
             'pdo_mysql' => extension_loaded('pdo_mysql'),
             'sqlitePath' => $this->sqliteFile,
             'mysqlDatabase' => $this->mysqlDatabase,
+            'mysqlHost' => $this->mysqlHost,
+            'mysqlPort' => $this->mysqlPort,
+            'oracleUser' => $this->oracleUser,
+            'place' => $this->placeLabel(),
             'warning' => $this->warning,
             'timezone' => 'Europe/Rome',
             'counts' => [
@@ -337,48 +366,72 @@ final class Lab
                 'name' => 'operation.start',
                 'title' => 'Avvia operazione',
                 'from8' => 'Nel MOC è il dialogo di inizio lavorazione. Qui è un servizio: Terminale e Monitor leggono lo stesso effetto.',
+                'pass' => 'Il Terminale manda POST /api/services/operation.start. Nel JSON ci sono operationCode e operatorCode.',
+                'receive' => 'app.php accetta solo POST e un oggetto JSON. Lab::call apre la transazione e chiama startOperation.',
+                'work' => 'Se la fase è ready e la postazione è idle, scrive status running su hxs_operation e hxs_workplace. Se l\'ordine è released diventa in_progress. Poi commit e una riga ok nel giornale. Le altre pagine rileggono.',
                 'example' => ['operationCode' => 'OF-24081-10', 'operatorCode' => 'op.01'],
             ],
             [
                 'name' => 'operation.book',
                 'title' => 'Versa pezzi',
                 'from8' => 'Nel MOC è la dichiarazione di quantità o scarto. Il servizio rifiuta lo scarto senza causale e rifiuta il versamento se la fase è ferma.',
+                'pass' => 'Il bottone Buoni o Scarto manda POST /api/services/operation.book con operationCode, operatorCode, kind (good o scrap), qty. Lo scarto aggiunge reason.',
+                'receive' => 'bookOperation riceve il corpo già decodificato. kind diverso da good o scrap, quantità non intera, fase non running: rifiuto.',
+                'work' => 'Inserisce una riga in hxs_booking. La causale dello scarto deve essere bava, quota, materiale o attrezzaggio. Se la fase è held il versamento non si scrive e la transazione torna indietro.',
                 'example' => ['operationCode' => 'OF-24081-10', 'operatorCode' => 'op.01', 'kind' => 'good', 'qty' => 5],
             ],
             [
                 'name' => 'operation.finish',
                 'title' => 'Chiudi operazione',
                 'from8' => 'Chiusura fase. Se tutte le fasi dell\'ordine sono chiuse, l\'ordine passa a done. Nessuna mApp ricalcola per conto suo.',
+                'pass' => 'Il bottone Chiudi fase manda POST /api/services/operation.finish con operationCode.',
+                'receive' => 'finishOperation rifiuta se la fase è held o se non è running.',
+                'work' => 'Mette la fase a done, la postazione a idle. Se non restano fasi aperte, l\'ordine passa a done. Monitor e KPI lo vedono alla lettura successiva.',
                 'example' => ['operationCode' => 'OF-24081-10'],
             ],
             [
                 'name' => 'downtime.start',
                 'title' => 'Apri fermo',
                 'from8' => 'Causale di fermo. Se c\'è una fase in corso, diventa held: il versamento si blocca finché il fermo non si chiude.',
+                'pass' => 'POST /api/services/downtime.start con workplaceCode e reasonCode (guasto, attesa_materiale, attrezzaggio, mancanza_operatore).',
+                'receive' => 'startDowntime rifiuta se su quella postazione c\'è già un fermo con ended_at vuoto, o se la causale non è nell\'elenco.',
+                'work' => 'Inserisce hxs_downtime. Se c\'è una fase running la porta a held e la postazione a down. Da quel momento operation.book rifiuta.',
                 'example' => ['workplaceCode' => 'TORN-01', 'reasonCode' => 'guasto'],
             ],
             [
                 'name' => 'downtime.end',
                 'title' => 'Chiudi fermo',
                 'from8' => 'Fine fermo. La fase held torna running e la postazione pure.',
+                'pass' => 'POST /api/services/downtime.end con workplaceCode.',
+                'receive' => 'endDowntime cerca il fermo aperto. Se non c\'è, rifiuta.',
+                'work' => 'Scrive ended_at. La fase held torna running e la postazione anche. Senza fase sospesa la postazione torna idle.',
                 'example' => ['workplaceCode' => 'TORN-01'],
             ],
             [
                 'name' => 'edge.signal',
                 'title' => 'Segnale macchina',
                 'from8' => 'In HYDRA 8 il canale è il PCC. In HYDRA X il corso corrispondente è DT-DEC, driver in C#. Il segnale non salta il servizio.',
+                'pass' => 'POST /api/services/edge.signal con workplaceCode, signal e value. signal è piece_good, piece_scrap, fault o clear.',
+                'receive' => 'edgeSignal legge il nome del segnale. Un nome sconosciuto o un value vuoto viene rifiutato prima di scrivere.',
+                'work' => 'piece_good e piece_scrap chiamano la stessa insert di operation.book sulla fase running. fault chiama downtime.start, clear chiama downtime.end. Poi resta la traccia in hxs_signal. Se la fase non è running, si annulla anche la traccia.',
                 'example' => ['workplaceCode' => 'TORN-01', 'signal' => 'piece_good', 'value' => '1'],
             ],
             [
                 'name' => 'workplace.cycle',
                 'title' => 'Tempo ciclo',
                 'from8' => 'In anagrafica macchina il tempo ciclo è un campo MST. Qui il servizio scrive ideal_sec. La colonna ha lo stesso nome su MySQL e su Oracle.',
+                'pass' => 'La card KPI manda POST /api/services/workplace.cycle con workplaceCode e idealSec, in secondi da 1 a 3600.',
+                'receive' => 'setCycle rifiuta un numero fuori intervallo o una postazione assente.',
+                'work' => 'Aggiorna ideal_sec su hxs_workplace. Non tocca i versamenti. Il KPI, alla GET successiva, ricalcola la performance con il ciclo nuovo.',
                 'example' => ['workplaceCode' => 'TORN-01', 'idealSec' => 60],
             ],
             [
                 'name' => 'list.save',
                 'title' => 'Salva lista',
                 'from8' => 'Creare LST 11 o LST 16: numero, titolo, colonne, filtro. La definizione va in hxs_list. Il client non manda SQL.',
+                'pass' => 'Salva lista manda POST /api/services/list.save con code (21 o LST-21), title, base, columns e filter. Nel JSON non c\'è una SELECT.',
+                'receive' => 'saveList normalizza il codice a LST-21. Base, colonne e filtri devono essere quelli ammessi da listBases. Il resto si rifiuta.',
+                'work' => 'Insert o update di hxs_list: solo la definizione. Le righe che vedi dopo sono una lettura, non una copia dei pezzi dentro la lista.',
                 'example' => [
                     'code' => '21',
                     'title' => 'Fasi del tornio',
@@ -391,18 +444,27 @@ final class Lab
                 'name' => 'list.delete',
                 'title' => 'Elimina lista',
                 'from8' => 'LST-11 e LST-16 restano. Le altre liste si tolgono con il codice numerico.',
+                'pass' => 'POST /api/services/list.delete con code, per esempio 21.',
+                'receive' => 'deleteList rifiuta LST-11 e LST-16. Un numero assente risponde 404.',
+                'work' => 'Cancella la riga in hxs_list. Versamenti, fasi e ordini restano.',
                 'example' => ['code' => '21'],
             ],
             [
                 'name' => 'lab.demo',
                 'title' => 'Carica un turno',
                 'from8' => 'Solo laboratorio. Parte dai dati anagrafici puliti e lascia un ordine a metà, così Monitor e Oggetti hanno movimenti.',
+                'pass' => 'Il bottone del turno manda POST /api/services/lab.demo con confirm uguale a DEMO.',
+                'receive' => 'Senza quella conferma, o se OF-24081-10 non è più ready, il servizio rifiuta e chiede lab.reset.',
+                'work' => 'Nella stessa transazione avvia la tornitura, versa 6 buoni e 1 scarto, chiude la fase, apre e chiude un fermo di 15 minuti sulla fresatrice, poi fissa gli orari: 10 minuti di lavoro sul tornio.',
                 'example' => ['confirm' => 'DEMO'],
             ],
             [
                 'name' => 'lab.reset',
                 'title' => 'Ripristina anagrafiche',
                 'from8' => 'Cancella i movimenti del banco e rimette i due ordini di esempio. Non tocca altri schemi.',
+                'pass' => 'POST /api/services/lab.reset con confirm uguale a RESET.',
+                'receive' => 'Senza quella conferma il servizio rifiuta. Non parte da un bottone nascosto.',
+                'work' => 'Svuota segnali, giornale, versamenti, fermi, fasi, ordini, persone e postazioni, poi reinserisce le anagrafiche. Le liste restano. Non tocca altri database oltre a quello configurato.',
                 'example' => ['confirm' => 'RESET'],
             ],
         ];
@@ -1095,8 +1157,9 @@ final class Lab
     /** @return array<string, mixed> */
     public function kpi(): array
     {
-        $from = $this->parseStamp($this->today() . ' 00:00:00')->getTimestamp();
-        $to = $this->parseStamp($this->now())->getTimestamp();
+        $now = new DateTimeImmutable('now', new DateTimeZone('Europe/Rome'));
+        $from = $now->modify('-12 hours')->getTimestamp();
+        $to = $now->getTimestamp();
         $workplaces = [];
         $runSec = 0;
         $downSec = 0;
@@ -1131,7 +1194,7 @@ final class Lab
         }
         return [
             'day' => $this->today(),
-            'formula' => 'Disponibilità = lavoro / (lavoro + fermo). Performance = pezzi × ciclo ideale / lavoro, al massimo 100%. Qualità = buoni / (buoni + scarti). OEE è il prodotto. Il reparto somma i tempi di oggi.',
+            'formula' => 'Disponibilità = lavoro / (lavoro + fermo). Performance = pezzi × ciclo ideale / lavoro, al massimo 100%. Qualità = buoni / (buoni + scarti). OEE è il prodotto. Il reparto somma i tempi delle ultime 12 ore.',
             'plant' => [
 'oee' => $this->oee($availability, $performance, $quality),
             'availability' => $this->percent($availability),

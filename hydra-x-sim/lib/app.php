@@ -8,7 +8,7 @@ require __DIR__ . '/Lab.php';
 function load_config(): array
 {
     $config = [
-        'driver' => 'sqlite',
+        'driver' => 'mysql',
         'sqlite_path' => __DIR__ . '/../data/sim.sqlite',
         'mysql_host' => '127.0.0.1',
         'mysql_port' => 3306,

@@ -10,13 +10,16 @@ I nomi HYDRA, MOC, MIP e ViPR sono di MPDV. Qui il modello si chiama Banco X e l
 
 ## In htdocs
 
-Serve PHP 8.1 o successivo, con `pdo_sqlite`.
+Serve PHP 8.1 o successivo, con `pdo_mysql`. Il database non nasce nella cartella del sito.
 
-1. Copia questa cartella in htdocs. Su XAMPP: `C:\xampp\htdocs\hydra-x-sim`.
-2. La cartella `data/` deve essere scrivibile da Apache.
-3. Apri `http://localhost/hydra-x-sim/`.
+1. Nel pannello XAMPP avvia MySQL e Apache.
+2. In `C:\xampp\php\php.ini` togli il `;` da `extension=pdo_mysql` e riavvia Apache.
+3. Copia questa cartella in htdocs, per esempio `C:\xampp\htdocs\hydra-x-sim`.
+4. Apri `http://localhost/hydra-x-sim/`.
 
-Senza file di configurazione i dati stanno in `data/sim.sqlite`. Il file nasce al primo accesso via PHP. Il primo avvio inserisce un tornio, una fresatrice, un assemblaggio, due ordini e le liste LST-11 (scarti) e LST-16 (avanzamento).
+La prima richiesta crea il database MySQL `hxs` su `127.0.0.1:3306`, utente `root`, password vuota, e ci mette tornio, fresatrice, assemblaggio, due ordini e le liste LST-11 e LST-16. Spostare la cartella non sposta questi dati e non crea un altro database: la riga in alto deve dire `MySQL · database hxs su 127.0.0.1:3306`.
+
+Un file `config.local.php` serve solo per un host o una password diversi, oppure per passare a Oracle (`driver` impostato a `oci`, poi `sql/oracle.sql` eseguito come utente `HXSIM`). `driver` impostato a `sqlite` è l'unica scelta che scrive `data/sim.sqlite`.
 
 ## MySQL, con le stesse colonne di Oracle
 
@@ -27,7 +30,7 @@ Su XAMPP il passo utile è MySQL. Le tabelle di `sql/mysql.sql` hanno gli stessi
 3. Copia `config.example.php` in `config.local.php`.
 4. Riapri `http://localhost/hydra-x-sim/`. La prima richiesta crea il database `hxs` e le tabelle.
 
-Da quel momento i dati non stanno in `sim.sqlite`. La riga in alto dice `MySQL · database hxs`.
+Se la riga in alto dice ancora un percorso che finisce in `sim.sqlite`, nella cartella c'è un `config.local.php` con `driver` sqlite. Toglilo, oppure metti `mysql`.
 
 DLG è il Terminale, MST sono gli Oggetti, LST sono le Liste (11 e 16 già pronte, altre si salvano con un numero), AUN è la pagina KPI: OEE e scarti. Il dialogo non scrive SQL. Chiama un servizio, e la lista salva solo colonne e filtro.
 
@@ -55,7 +58,7 @@ ALTER USER HXSIM QUOTA UNLIMITED ON USERS;
 
 Connesso come `HXSIM`, esegui `sql/oracle.sql` (SQL*Plus o SQLcl). Poi copia `config.example.php` in `config.local.php` e metti DSN, utente e password.
 
-PHP deve avere `pdo_oci` e Oracle Instant Client. XAMPP spesso non li ha: in quel caso il banco resta su SQLite e il modello non cambia. Al primo avvio, se le tabelle `hxs_*` sono vuote, partono le anagrafiche di esempio.
+PHP deve avere `pdo_oci` e Oracle Instant Client. Se mancano, la pagina lo dice e non crea un file SQLite al posto di Oracle. Al primo avvio, se le tabelle `hxs_*` sono vuote, partono le anagrafiche di esempio.
 
 ## Cosa simula, e cosa no
 

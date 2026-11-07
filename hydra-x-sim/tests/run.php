@@ -176,16 +176,19 @@ check($migrated->kpi()['plant']['oee'] === null, 'senza movimenti l\'OEE è vuot
 $fallbackPath = sys_get_temp_dir() . '/banco-x-fallback-' . getmypid() . '.sqlite';
 @unlink($fallbackPath);
 if (!extension_loaded('pdo_oci')) {
-    $fallback = Lab::open([
-        'driver' => 'oci',
-        'sqlite_path' => $fallbackPath,
-        'oracle_dsn' => 'oci:dbname=//127.0.0.1:1521/X',
-        'oracle_user' => 'HXSIM',
-        'oracle_password' => 'x',
-    ]);
-    check($fallback->status()['driver'] === 'sqlite', 'senza pdo_oci il banco resta su sqlite');
-    check(is_file($fallbackPath), 'senza pdo_oci il file sqlite viene creato');
-    check($fallback->status()['warning'] !== '', 'l\'assenza di pdo_oci è visibile');
+    try {
+        Lab::open([
+            'driver' => 'oci',
+            'sqlite_path' => $fallbackPath,
+            'oracle_dsn' => 'oci:dbname=//127.0.0.1:1521/X',
+            'oracle_user' => 'HXSIM',
+            'oracle_password' => 'x',
+        ]);
+        check(false, 'senza pdo_oci Oracle non deve aprire un file');
+    } catch (LabException $e) {
+        check(str_contains($e->getMessage(), 'pdo_oci'), 'senza pdo_oci il messaggio nomina il driver');
+        check(!is_file($fallbackPath), 'senza pdo_oci non nasce sim.sqlite');
+    }
 }
 
 @unlink($path);

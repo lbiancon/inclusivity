@@ -4,6 +4,10 @@ Banco X è il gesto di HYDRA X, messo in una cartella che gira in htdocs. Le sch
 
 HYDRA, MOC, MIP e ViPR sono nomi di MPDV. Questo banco non è il loro software e non si collega allo schema HYDRA di produzione.
 
+I dati non stanno nella cartella del sito. Spostare `hydra-x-sim` dentro htdocs non crea un database nuovo e non cambia le tabelle. Senza `config.local.php` il banco apre MySQL su `127.0.0.1:3306`, database `hxs`, utente `root`, password vuota, e lì crea le tabelle. La riga in alto della pagina deve dire `MySQL · database hxs su 127.0.0.1:3306`. Se dice un percorso che finisce in `sim.sqlite`, nella cartella c'è un `config.local.php` con `driver` sqlite: cancellalo o metti `mysql`.
+
+Per Oracle crei `config.local.php` con `driver` uguale a `oci`, esegui `sql/oracle.sql` come utente `HXSIM` e metti DSN, utente e password. Se manca `pdo_oci`, la pagina si ferma. Non ripiega su un file nella cartella.
+
 ## Cosa resta uguale, e cosa cambia nome
 
 | Qui, oggi | Nel prodotto, quando ci arrivi |
@@ -33,7 +37,7 @@ Tutto sta in questa cartella. Copiata in `C:\xampp\htdocs\hydra-x-sim`, Apache e
 | `assets/app.css` | Impaginazione. |
 | `sql/mysql.sql` | Tabelle per MySQL di XAMPP. All'avvio con `driver = mysql` il banco le crea nel database `hxs`. |
 | `sql/oracle.sql` | Le stesse tabelle e le stesse colonne, tipi Oracle, sequenze e trigger per l'id. Si esegue a mano come utente `HXSIM`. |
-| `config.example.php` | Diventa `config.local.php` quando passi a MySQL o a Oracle. Senza quel file il banco usa SQLite in `data/sim.sqlite`. |
+| `config.example.php` | Modello di `config.local.php`. Senza quel file i dati stanno già in MySQL, database `hxs` su `127.0.0.1:3306`. Il file serve per Oracle (`driver` = `oci`) o per forzare un file SQLite. |
 | `controllo.php` | Dice perché il file SQLite non nasce: PHP vecchio, `pdo_sqlite` spento, cartella non scrivibile da Apache. |
 | `tests/run.php` | Le regole, lanciate da riga di comando. |
 | `STUDIO.md` | Questa guida. |
@@ -84,6 +88,32 @@ Questo è il pezzo da riconoscere nel prodotto. Cambieranno il verbo HTTP precis
 Le letture non passano da `call`. Sono GET e non scrivono. KPI e liste sono modelli di lettura.
 
 Nel codice, le regole stanno nelle funzioni private di `lib/Lab.php` (`startOperation`, `bookOperation`, `finishOperation`, `startDowntime`, `endDowntime`, `edgeSignal`, `setCycle`, `saveList`, `deleteList`). Il catalogo che la pagina Servizi mostra è `Lab::catalog`. Se aggiungi un servizio, lo aggiungi lì e in `dispatch`: altrimenti la pagina non lo elenca e la URL risponde «servizio sconosciuto».
+
+## Ogni comando: come lo passiamo, come lo riceviamo, come lo lavoriamo
+
+DLG, MST, LST e AUN non sono comandi che viaggiano in rete. Sono le pagine. Il comando che muove i dati è il servizio sotto il bottone. La pagina Servizi mostra, per ciascuno, le tre frasi qui sotto.
+
+Tutti i servizi di scrittura fanno la stessa strada.
+
+1. Il browser passa un POST a `index.php?r=/api/services/` più il nome, con `Content-Type: application/json` e il corpo dell'esempio.
+2. `lib/app.php` riceve il nome e il JSON. Se il metodo non è POST o il corpo non è un oggetto, risponde 400 e `Lab` non parte. Se il nome non è nel catalogo, `Lab::call` risponde 404 prima di aprire la transazione.
+3. `dispatch` lavora il corpo nel metodo dedicato, dentro una transazione. Il rifiuto annulla le scritture e lascia una riga `ok = 0` in `hxs_service_log`. L'esito ok fa commit, aggiunge `service` ed `effects` alla risposta, e scrive il giornale con `ok = 1`. Il browser poi rifà le GET.
+
+| Comando | Lo passiamo così | Lo riceviamo così | Lo lavoriamo così |
+| --- | --- | --- | --- |
+| `operation.start` | POST, `operationCode`, `operatorCode` | `startOperation` | Fase `ready` e postazione `idle`: aggiorna fase, postazione e, se serve, l'ordine |
+| `operation.book` | POST, `kind` `good` o `scrap`, `qty`, `reason` se scarto | `bookOperation` | Solo fase `running`: insert in `hxs_booking` |
+| `operation.finish` | POST, `operationCode` | `finishOperation` | Solo fase `running`: fase `done`, postazione `idle`, ordine `done` se non restano fasi |
+| `downtime.start` | POST, `workplaceCode`, `reasonCode` | `startDowntime` | Insert fermo; fase `running` diventa `held` |
+| `downtime.end` | POST, `workplaceCode` | `endDowntime` | Chiude il fermo; la fase `held` torna `running` |
+| `edge.signal` | POST, `signal`, `value` | `edgeSignal` | `piece_good` e `piece_scrap` diventano un versamento; `fault` e `clear` diventano il fermo |
+| `workplace.cycle` | POST, `idealSec` | `setCycle` | Aggiorna `ideal_sec`. Il KPI cambia alla lettura dopo |
+| `list.save` | POST, numero, titolo, base, colonne, filtro. Nessun SQL | `saveList` | Insert o update di `hxs_list` |
+| `list.delete` | POST, `code` | `deleteList` | Cancella la definizione. LST-11 e LST-16 restano |
+| `lab.demo` | POST, `confirm` = `DEMO` | `demo` | Turno noto: 6 buoni, 1 scarto, 10 minuti, fermo di 15 |
+| `lab.reset` | POST, `confirm` = `RESET` | `reset` | Rimette le anagrafiche. Non tocca le liste né altri schemi |
+
+Le letture non sono comandi di scrittura. Sono GET: `/api/status`, `/api/model`, `/api/workplaces`, `/api/orders`, `/api/people`, `/api/operations`, `/api/monitor`, `/api/kpi`, `/api/lists`, `/api/lists/LST-11`, `/api/objects/booking`, `/api/log`. Non aprono la transazione di un servizio e non inseriscono versamenti.
 
 ## I servizi, uno per uno
 
@@ -200,7 +230,7 @@ La GET `/api/lists/LST-11` non è un servizio di scrittura. `runList` legge la d
 
 Formula usata dal banco, in `Lab::kpi`:
 
-- Disponibilità = tempo in lavoro / (tempo in lavoro + tempo di fermo), ritagliato su oggi, fuso Europe/Rome.
+- Disponibilità = tempo in lavoro / (tempo in lavoro + tempo di fermo), sulle ultime 12 ore, fuso Europe/Rome. Un turno caricato poco dopo mezzanotte resta intero.
 - Performance = pezzi × tempo ciclo ideale / tempo in lavoro, al massimo 100%.
 - Qualità = buoni / (buoni + scarti).
 - OEE = prodotto dei tre.
@@ -230,7 +260,7 @@ Nel MES vero il denominatore della disponibilità è spesso il tempo pianificato
 
 ## MySQL e Oracle
 
-Le schermate non cambiano col database. Cambia solo `config.local.php`.
+Le schermate non cambiano col database. Il default è MySQL, anche se sposti la cartella. `config.local.php` serve per un altro host, per Oracle, o per tornare a un file.
 
 Su MySQL il banco crea da solo il database `hxs` e lancia `sql/mysql.sql`. Gli id sono `AUTO_INCREMENT`. La colonna `signal` è quotata perché in MySQL è una parola riservata.
 
