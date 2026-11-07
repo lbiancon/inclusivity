@@ -600,6 +600,36 @@ function renderLists() {
                     }, "Elimina questo numero")))));
 }
 
+function glossaryTable() {
+    const rows = [
+        ["MOC, il client di ufficio", "La pagina Da 8 a X non è il MOC", "Le funzioni di ufficio diventano mApp sulla MIP", "Work Order Management, Work Order Controlling"],
+        ["AIP, il client di officina", "Terminale", "Shop floor terminal: l'operatore raccoglie qui", "Work Order Execution"],
+        ["DLG di inizio, versamento, fermo", "Il bottone chiama operation.start, operation.book, downtime.start", "Log on, quantity posting, downtime. Il codice DLG non viaggia", "Work Order Execution chiama un servizio di ViPR"],
+        ["Postazione, e spesso la macchina insieme", "workplace", "workplace. Se la macchina è un'anagrafica a parte, è machine", "Machine Monitoring assegna il dato al workplace"],
+        ["Operatore sulla fase", "person", "person. È chi firma log on e quantità", "Work Order Execution"],
+        ["Utente con cui entri nel MOC", "Qui non c'è un login", "L'identità con cui apri le mApp. Resta distinta dalla person di officina", "Accesso alle mApp"],
+        ["Ordine di produzione", "order", "production order. X ha anche overhead order e rework order", "Work Order Management. Spesso arriva dall'ERP. Il work plan genera l'ordine"],
+        ["Fase, Arbeitsgang", "operation", "operation", "Work Order Management la pianifica. Work Order Execution la raccoglie"],
+        ["Fase pianificata, non ancora avviata", "ready", "planned", "Lista delle operation pianificate"],
+        ["Fase in lavoro", "running", "logged on", "Work Order Execution"],
+        ["Fase sospesa da un fermo", "held", "interrupt. Il fermo macchina è anche un machine status", "Work Order Execution per l'interrupt. Machine Monitoring per lo status"],
+        ["Fase chiusa", "done", "completed, logged off", "Work Order Execution"],
+        ["Pezzi buoni", "booking kind good", "yield", "Work Order Execution in raccolta. Work Order Controlling in valutazione"],
+        ["Scarto con causale", "booking kind scrap, reason", "scrap, con reason. X registra anche rework e open quantity", "Work Order Execution"],
+        ["Fermo", "downtime", "downtime, come machine status su un time account", "Machine Monitoring lo raccoglie. Machine Status Analysis lo valuta"],
+        ["LST 11, LST 16", "list, solo la definizione", "Una vista della mApp. Il filtro è tuo. La query è della piattaforma", "Work Order Controlling, Machine Status Analysis"],
+        ["AUN, OEE", "KPI sulle ultime 12 ore", "OEE e gli altri indici di macchina. Quantità e tempi per workplace", "Machine Performance KPIs. Work Order Controlling"],
+        ["PCC, segnale macchina", "edge.signal", "Distributed Edge Computing. Il driver consegna il segnale al servizio", "Machine Monitoring"],
+    ];
+    return h("table", { class: "glossary" },
+        h("thead", {}, h("tr", {},
+            h("th", { text: "Sul MOC, oggi" }),
+            h("th", { text: "Nel banco" }),
+            h("th", { text: "In HYDRA X" }),
+            h("th", { text: "mApp" }))),
+        h("tbody", {}, rows.map((row) => h("tr", {}, row.map((cell) => h("td", { text: cell }))))));
+}
+
 function renderBridge() {
     const where = {
         oci: "Questo banco sta già parlando con Oracle, utente dedicato.",
@@ -612,7 +642,19 @@ function renderBridge() {
         h("p", { text: "Oggi il gesto è un comando sul client: DLG per il dialogo, MST per l'anagrafica, LST 11 o LST 16 per la lista, AUN per la valutazione. In VB.NET quel comando legge e scrive tabelle Oracle. Qui il dialogo e la lista chiamano un servizio, e le tabelle hanno gli stessi nomi su MySQL e su Oracle." }),
         h("p", { text: "HYDRA X sposta lo stesso gesto nel browser: la mApp non tiene una copia dei pezzi, chiama il servizio, e la valutazione rilegge il modello." }),
         h("p", { text: "Banco X allena solo quel gesto. Terminale e Monitor sono due mApp. Non tengono copie private dei pezzi: chiamano gli stessi servizi e rileggono gli stessi oggetti. Il segnale macchina non scrive un versamento a mano. Diventa operation.book oppure un fermo." }),
-        h("p", { class: "warn", text: "Non è MIP, non è il MOC, e non va puntato allo schema HYDRA. Tabelle hxs_* su un database dedicato." }),
+        h("p", { class: "warn", text: "I nomi operation.book e hxs_* restano del laboratorio. In HYDRA X il catalogo servizi ha i nomi della piattaforma. Gli oggetti, invece, si chiamano come in questa tabella: production order, operation, workplace, person, yield, scrap, downtime." }),
+        h("h2", { text: "Gli stessi oggetti, col nome di X" }),
+        h("p", { text: "HYDRA, MOC, AIP, MIP, ViPR e i nomi delle mApp sono di MPDV. Il banco li usa come dizionario. Non si collega al MOC e non apre lo schema HYDRA." }),
+        glossaryTable(),
+        h("h2", { text: "Sul MOC che hai già, senza scrivere" }),
+        h("ol", {},
+            h("li", { text: "Apri un ordine di produzione. Accanto scrivi production order. La mApp che lo gestirà è Work Order Management." }),
+            h("li", { text: "Apri le fasi. Accanto scrivi operation. Pianificata = planned, in lavoro = logged on, chiusa = completed." }),
+            h("li", { text: "Leggi la postazione della fase: workplace. Se l'anagrafica ha la macchina come oggetto distinto, quella è machine. Nel banco i due coincidono." }),
+            h("li", { text: "Apri un versamento. Buoni = yield, scarti = scrap, la causale = reason. Se compare la rilavorazione, è rework: X la ha, questo banco no." }),
+            h("li", { text: "Apri un fermo o uno stato macchina: downtime, machine status. La lista che lo mostra non è quella che lo ha scritto." }),
+            h("li", { text: "L'utente con cui sei entrato nel MOC non è l'operatore. La person è il nominativo sulla fase." }),
+            h("li", { text: "Il DLG che hai lanciato per il versamento è la maschera di oggi. Su X quella maschera è un'azione di Work Order Execution. Il codice DLG non lo cerchi più." })),
         h("p", { text: "La guida di studio è STUDIO.md, nella stessa cartella. Dice che cosa fa ogni servizio, in quale funzione di lib/Lab.php sta la regola, e che cosa di questo gesto ritrovi nel prodotto. I dieci esercizi in fondo si fanno su queste pagine." }),
         h("p", { text: where }),
         h("h2", { text: "MySQL su XAMPP, stesse colonne di Oracle" }),

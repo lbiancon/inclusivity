@@ -23,6 +23,45 @@ Per Oracle crei `config.local.php` con `driver` uguale a `oci`, esegui `sql/orac
 
 Quello che non devi memorizzare come se fosse il prodotto: i nomi `hxs_*`, i nomi `operation.start` e simili, il file `lib/Lab.php`, il fatto che sotto ci sia PHP. Nel prodotto il modello si chiama ViPR, i servizi si modellano nel disegno oggetti/servizi (corso DT-OSD, in XML), le mApp si costruiscono con la UI Development Suite (DT-UI), il modello di business si studia in DT-MBO. Questo banco non sostituisce quei corsi. Ti fa arrivare al corso sapendo già che cosa stai guardando.
 
+## Dizionario: il termine che ritrovi su X
+
+I comandi di questo banco allenano il gesto del DLG. Il nome `operation.book` è del laboratorio: in HYDRA X il servizio ha il nome del catalogo della piattaforma, quello che disegnerai in DT-OSD. Il nome dell'oggetto, invece, è già quello del prodotto. Quando passi, cerchi queste parole, non DLG, MST, LST, AUN.
+
+HYDRA 8 ha due client. Il MOC (MES Operation Center) è l'ufficio, dove lavori tu. L'AIP (Acquisition & Information Panel) è l'officina: lì l'operatore fa log on, quantità e fermi. In HYDRA X l'officina resta uno shop floor terminal; il software di raccolta è la mApp Work Order Execution. L'ufficio diventa un insieme di mApp sulla MIP. I dati comuni stanno in ViPR.
+
+| Sul MOC, oggi | Nel banco | In HYDRA X | mApp |
+| --- | --- | --- | --- |
+| MOC, client di ufficio | La pagina Da 8 a X descrive il passaggio. Non è il MOC | Funzioni di ufficio come mApp | Work Order Management, Work Order Controlling |
+| AIP, client di officina | Terminale | Shop floor terminal | Work Order Execution |
+| DLG di inizio, versamento, fermo | `operation.start`, `operation.book`, `downtime.start` | Log on, quantity posting, downtime. Il codice DLG non si riusa | Work Order Execution chiama un servizio di ViPR |
+| Postazione, spesso fusa con la macchina | `workplace` | `workplace`. Se la macchina è un'anagrafica distinta, è `machine` | Machine Monitoring assegna il dato al workplace |
+| Operatore firmato sulla fase | `person` | `person` | Work Order Execution |
+| Utente con cui entri nel MOC | Nessun login | Identità di accesso alle mApp, distinta dalla person | Accesso alle mApp |
+| Ordine di produzione | `order` | `production order`. X ha anche overhead order e rework order | Work Order Management. Il work plan genera l'ordine, spesso l'ERP lo scarica |
+| Fase, Arbeitsgang | `operation` | `operation` | Work Order Management la pianifica, Work Order Execution la raccoglie |
+| Fase non avviata | `ready` | `planned` | Lista operation pianificate |
+| Fase in lavoro | `running` | `logged on` | Work Order Execution |
+| Fase sospesa dal fermo | `held` | `interrupt`. Lo stato macchina è un machine status | Work Order Execution e Machine Monitoring |
+| Fase chiusa | `done` | `completed`, logged off | Work Order Execution |
+| Pezzi buoni | `booking` `good` | `yield` | Raccolta in Work Order Execution, lettura in Work Order Controlling |
+| Scarto con causale | `booking` `scrap`, `reason` | `scrap` con reason. X ha anche rework e open quantity, qui assenti | Work Order Execution |
+| Fermo | `downtime` | downtime, come machine status su un time account e una status class | Machine Monitoring raccoglie. Machine Status Analysis valuta |
+| LST 11, LST 16 | `list`, solo la definizione | Vista della mApp. Il filtro è tuo, la query è della piattaforma | Work Order Controlling, Machine Status Analysis |
+| AUN, OEE | KPI | OEE e indici di macchina; quantità e tempi per workplace | Machine Performance KPIs, Work Order Controlling |
+| PCC, segnale macchina | `edge.signal` | Distributed Edge Computing: il driver consegna il segnale al servizio | Machine Monitoring |
+
+La pagina Da 8 a X mostra la stessa tabella. Sotto c'è un giro da fare sul MOC che hai già, solo leggendo.
+
+1. Apri un ordine di produzione e scrivi accanto `production order`.
+2. Apri le fasi e scrivi `operation`. Pianificata, in lavoro, chiusa diventano planned, logged on, completed.
+3. La postazione della fase è `workplace`. Se la macchina è un oggetto a parte, è `machine`.
+4. Un versamento: buoni = `yield`, scarti = `scrap`, causale = `reason`. La rilavorazione, se c'è, è `rework`.
+5. Un fermo o uno stato macchina è `downtime` / machine status. La lista lo mostra. Il servizio lo ha scritto.
+6. L'utente del MOC non è l'operatore. La `person` è il nominativo sulla fase.
+7. Il DLG del versamento è la maschera di oggi. Su X è un'azione di Work Order Execution.
+
+Questo giro si fa su un client di test quando il passo scrive qualcosa. Su un client di linea ci si limita a aprire e leggere. Il banco non va puntato allo schema HYDRA: i due mondi restano affiancati, e tu traduci i nomi.
+
 ## Cosa è stato creato
 
 Tutto sta in questa cartella. Copiata in `C:\xampp\htdocs\hydra-x-sim`, Apache esegue `index.php`.
