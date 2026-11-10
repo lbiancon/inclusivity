@@ -27,12 +27,16 @@ readonly class AziendaConfig
         public bool $permettiDoppioContorno,
         public string $limiteOggi,
         public string $limiteDomani,
+        public string $modalita = 'intranet',
     ) {
         if ($this->id < 1) {
             throw new \InvalidArgumentException('Identificativo azienda non valido.');
         }
         if ($this->maxScelte < 1 || $this->maxScelte > 10) {
             throw new \InvalidArgumentException('Il numero massimo di scelte deve essere compreso tra 1 e 10.');
+        }
+        if (!in_array($this->modalita, ['intranet', 'internet'], true)) {
+            throw new \InvalidArgumentException('Modalità azienda non valida.');
         }
     }
 
@@ -49,6 +53,7 @@ readonly class AziendaConfig
             permettiDoppioContorno: (int) $riga['permetti_doppio_contorno'] === 1,
             limiteOggi: self::normalizzaOrario((string) $riga['limite_oggi']),
             limiteDomani: self::normalizzaOrario((string) $riga['limite_domani']),
+            modalita: self::modalita((string) ($riga['modalita'] ?? 'intranet')),
         );
     }
 
@@ -56,7 +61,7 @@ readonly class AziendaConfig
     {
         $stmt = $pdo->prepare(
             'SELECT id, nome, slug, tipo_pagamento, max_scelte, permetti_doppio_primo,
-                    permetti_doppio_contorno, limite_oggi, limite_domani
+                    permetti_doppio_contorno, limite_oggi, limite_domani, modalita
              FROM aziende
              WHERE id = :id'
         );
@@ -102,7 +107,19 @@ readonly class AziendaConfig
             'permetti_doppio_contorno' => $this->permettiDoppioContorno,
             'limite_oggi' => substr($this->limiteOggi, 0, 5),
             'limite_domani' => substr($this->limiteDomani, 0, 5),
+            'modalita' => $this->modalita,
+            'modalita_etichetta' => $this->modalita === 'internet' ? 'Internet' : 'Intranet',
         ];
+    }
+
+    private static function modalita(string $valore): string
+    {
+        $modalita = strtolower(trim($valore));
+        if (!in_array($modalita, ['intranet', 'internet'], true)) {
+            throw new \InvalidArgumentException('Modalità azienda non valida.');
+        }
+
+        return $modalita;
     }
 
     private static function normalizzaOrario(string $orario): string

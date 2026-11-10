@@ -24,6 +24,7 @@ use MenuCraft\Services\OrderService;
 use MenuCraft\Services\SpreadsheetMenuParser;
 use MenuCraft\Support\CodicePiatto;
 use MenuCraft\Support\Money;
+use MenuCraft\Services\StoricoPrenotazioni;
 
 set_error_handler(static function (int $severity, string $message, string $file, int $line): never {
     throw new ErrorException($message, 0, $severity, $file, $line);
@@ -103,6 +104,17 @@ attesaEccezione('DATA_PASSATA', fn () => $validator->validaCutoff(
     new DateTimeImmutable('2026-11-10', $fuso),
     $mercoledi,
 ), 'data passata');
+$daInternet = new AziendaConfig(4, 'Web', 'web', PagamentoType::Dipendente, 5, false, false, '09:30:00', '18:00:00', 'internet');
+attesaEccezione('OGGI_SOLO_INTRANET', fn () => $validator->validaCutoff(
+    $daInternet,
+    new DateTimeImmutable('2026-11-11', $fuso),
+    new DateTimeImmutable('2026-11-11 08:00:00', $fuso),
+), 'internet blocca il pasto di oggi');
+$validator->validaCutoff(
+    $daInternet,
+    new DateTimeImmutable('2026-11-12', $fuso),
+    new DateTimeImmutable('2026-11-11 08:00:00', $fuso),
+);
 
 verifica($validator->motivoWeekend(new DateTimeImmutable('2026-11-14', $fuso)) !== null, 'sabato chiuso');
 verifica($validator->motivoWeekend(new DateTimeImmutable('2026-11-15', $fuso)) !== null, 'domenica chiusa');
@@ -350,6 +362,16 @@ attesaEccezione('DATA_NON_VALIDA', fn () => $ordini->invia($rossiUser, $rossiId,
 verifica((int) $pdo->query("SELECT COUNT(*) FROM ordini")->fetchColumn() > 0, 'tabella ordini ancora presente');
 
 $annullo = $ordini->invia($rossiUser, $rossiId, '2026-11-13', [], $adesso);
+$storico = new StoricoPrenotazioni($pdo);
+$storicoAurora = $storico->perUtente($auroraId, $auroraUser);
+$storicoRossi = $storico->perUtente($rossiId, $rossiUser);
+verifica(
+    count($storicoAurora) === 1
+    && $storicoAurora[0]['data'] === '2026-11-13'
+    && $storicoAurora[0]['piatti'] !== []
+    && $storicoRossi === [],
+    'lo storico mostra solo le prenotazioni del dipendente',
+);
 verifica($annullo['annullato'] === true, 'annullo prenotazione');
 
 $pdo->prepare('INSERT INTO calendario_chiusure (azienda_id, data_chiusura, descrizione) VALUES (?, ?, ?)')
@@ -416,7 +438,16 @@ $regoleNuove = $regoleServizio->salva($auroraId, [
     'limite_oggi' => '08:15',
     'limite_domani' => '17:45',
 ]);
-verifica($regoleNuove->maxScelte === 3 && $regoleNuove->permettiDoppioContorno && $regoleNuove->limiteOggi === '08:15:00', 'regole salvate sull\'azienda');
+verifica($regoleNuove->maxScelte === 3 && $regoleNuove->permettiDoppioContorno && $regoleNuove->limiteOggi === '08:15:00' && $regoleNuove->modalita === 'intranet', 'regole salvate sull\'azienda');
+$modalitaInternet = $regoleServizio->salva($auroraId, [
+    'max_scelte' => 3,
+    'permetti_doppio_primo' => false,
+    'permetti_doppio_contorno' => true,
+    'limite_oggi' => '08:15',
+    'limite_domani' => '17:45',
+    'modalita' => 'internet',
+]);
+verifica($modalitaInternet->modalita === 'internet' && AziendaConfig::trova($pdo, $rossiId)->modalita === 'intranet', 'la modalità resta nel tenant');
 $rossiIntatto = AziendaConfig::trova($pdo, $rossiId);
 verifica($rossiIntatto->maxScelte === 5 && $rossiIntatto->limiteOggi === '09:30:00', 'le regole restano nel tenant');
 attesaEccezione('REGOLA_NON_VALIDA', fn () => $regoleServizio->salva($auroraId, [

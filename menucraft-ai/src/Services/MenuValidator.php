@@ -121,6 +121,14 @@ final class MenuValidator
             );
         }
 
+        if ($chiavePasto === $chiaveOggi && $azienda->modalita === 'internet') {
+            throw new MenuRuleException(
+                'OGGI_SOLO_INTRANET',
+                'Da internet il pasto di oggi non si prenota. Si prenota solo dalla rete aziendale, entro le '
+                . substr($azienda->limiteOggi, 0, 5) . '.',
+            );
+        }
+
         if ($chiavePasto === $chiaveOggi) {
             $limite = $this->combina($oggi, $azienda->limiteOggi);
             if ($now > $limite) {

@@ -28,6 +28,10 @@ final class RegoleAzienda
 
         $oggi = $this->orario((string) ($input['limite_oggi'] ?? ''), 'L\'orario di chiusura di oggi non è valido.');
         $domani = $this->orario((string) ($input['limite_domani'] ?? ''), 'L\'orario di blocco del giorno prima non è valido.');
+        $attuale = AziendaConfig::trova($this->pdo, $aziendaId);
+        $modalita = array_key_exists('modalita', $input)
+            ? $this->modalita($input['modalita'])
+            : $attuale->modalita;
 
         $stmt = $this->pdo->prepare(
             'UPDATE aziende
@@ -35,7 +39,8 @@ final class RegoleAzienda
                  permetti_doppio_primo = :primo,
                  permetti_doppio_contorno = :contorno,
                  limite_oggi = :oggi,
-                 limite_domani = :domani
+                 limite_domani = :domani,
+                 modalita = :modalita
              WHERE id = :id'
         );
         $stmt->execute([
@@ -44,10 +49,21 @@ final class RegoleAzienda
             'contorno' => $this->flag($input['permetti_doppio_contorno'] ?? false) ? 1 : 0,
             'oggi' => $oggi,
             'domani' => $domani,
+            'modalita' => $modalita,
             'id' => $aziendaId,
         ]);
 
         return AziendaConfig::trova($this->pdo, $aziendaId);
+    }
+
+    private function modalita(mixed $valore): string
+    {
+        $modalita = strtolower(trim((string) $valore));
+        if (!in_array($modalita, ['intranet', 'internet'], true)) {
+            throw new MenuRuleException('REGOLA_NON_VALIDA', 'La modalità è intranet oppure internet.');
+        }
+
+        return $modalita;
     }
 
     private function flag(mixed $valore): bool

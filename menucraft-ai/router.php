@@ -14,6 +14,11 @@ if ($bloccato) {
     return true;
 }
 
+if (preg_match('#^/(frontend|backend)/?$#', $path, $sezione) === 1) {
+    require __DIR__ . '/' . $sezione[1] . '/index.php';
+    return true;
+}
+
 if ($path !== '/' && is_file(__DIR__ . $path)) {
     return false;
 }

@@ -42,6 +42,7 @@ final class Installer
     public function install(): void
     {
         $this->creaTabelle();
+        $this->assicuraModalita();
         $this->semeFestivita();
         $conteggio = (int) $this->pdo->query('SELECT COUNT(*) FROM aziende')->fetchColumn();
         if ($conteggio > 0) {
@@ -73,10 +74,12 @@ final class Installer
                 permetti_doppio_contorno TINYINT(1) NOT NULL DEFAULT 0,
                 limite_oggi TIME NOT NULL,
                 limite_domani TIME NOT NULL,
+                modalita VARCHAR(20) NOT NULL DEFAULT \'intranet\',
                 PRIMARY KEY (id),
                 UNIQUE KEY uq_aziende_slug (slug),
                 CONSTRAINT chk_tipo_pagamento CHECK (tipo_pagamento IN (\'welfare\', \'dipendente\')),
-                CONSTRAINT chk_max_scelte CHECK (max_scelte BETWEEN 1 AND 10)
+                CONSTRAINT chk_max_scelte CHECK (max_scelte BETWEEN 1 AND 10),
+                CONSTRAINT chk_modalita CHECK (modalita IN (\'intranet\', \'internet\'))
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci',
 
             'CREATE TABLE IF NOT EXISTS utenti (
@@ -205,6 +208,22 @@ final class Installer
         }
     }
 
+    private function assicuraModalita(): void
+    {
+        $colonna = $this->pdo->query("SHOW COLUMNS FROM aziende LIKE 'modalita'")->fetch();
+        if ($colonna !== false) {
+            return;
+        }
+
+        $this->pdo->exec(
+            "ALTER TABLE aziende
+             ADD COLUMN modalita VARCHAR(20) NOT NULL DEFAULT 'intranet' AFTER limite_domani"
+        );
+        $this->pdo->exec(
+            "UPDATE aziende SET modalita = 'internet' WHERE slug = 'officine-rossi'"
+        );
+    }
+
     private function semeFestivita(): void
     {
         $fuso = new DateTimeZone(MenuValidator::FUSO);
@@ -251,6 +270,7 @@ final class Installer
             5,
             true,
             true,
+            'internet',
         );
 
         $this->inserisciUtente($aurora, 'A100', 'Giulia Bianchi', $hash, 'dipendente', null);
@@ -286,11 +306,12 @@ final class Installer
         int $maxScelte,
         bool $doppioPrimo,
         bool $doppioContorno,
+        string $modalita = 'intranet',
     ): int {
         $stmt = $this->pdo->prepare(
             'INSERT INTO aziende
-                (nome, slug, tipo_pagamento, max_scelte, permetti_doppio_primo, permetti_doppio_contorno, limite_oggi, limite_domani)
-             VALUES (:nome, :slug, :pagamento, :max, :primo, :contorno, :oggi, :domani)'
+                (nome, slug, tipo_pagamento, max_scelte, permetti_doppio_primo, permetti_doppio_contorno, limite_oggi, limite_domani, modalita)
+             VALUES (:nome, :slug, :pagamento, :max, :primo, :contorno, :oggi, :domani, :modalita)'
         );
         $stmt->execute([
             'nome' => $nome,
@@ -301,6 +322,7 @@ final class Installer
             'contorno' => $doppioContorno ? 1 : 0,
             'oggi' => '09:30:00',
             'domani' => '18:00:00',
+            'modalita' => $modalita,
         ]);
 
         return (int) $this->pdo->lastInsertId();
