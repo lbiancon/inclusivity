@@ -49,9 +49,9 @@ if (PHP_SAPI !== 'cli') {
     header('Cache-Control: no-store, max-age=0');
     header(
         "Content-Security-Policy: default-src 'self'; "
-        . "script-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com; "
-        . "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.tailwindcss.com; "
-        . "font-src 'self' https://fonts.gstatic.com data:; "
+        . "script-src 'self' 'unsafe-inline'; "
+        . "style-src 'self' 'unsafe-inline'; "
+        . "font-src 'self' data:; "
         . "img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; "
         . "base-uri 'self'; form-action 'self'"
     );

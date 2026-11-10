@@ -7,6 +7,7 @@ namespace MenuCraft\Services;
 use DateTimeImmutable;
 use MenuCraft\Enums\PortataType;
 use MenuCraft\Models\AziendaConfig;
+use MenuCraft\Support\CodicePiatto;
 use PDO;
 
 if (!defined('MENUCRAFT_APP')) {
@@ -248,7 +249,7 @@ final class BookingBoard
             $categoria = PortataType::from((string) $riga['categoria']);
             $gruppi[$categoria->value][] = [
                 'id' => (int) $riga['id'],
-                'codice' => (string) $riga['codice'],
+                'codice' => CodicePiatto::etichetta((string) $riga['codice']),
                 'nome' => (string) $riga['nome'],
                 'categoria' => $categoria->value,
                 'prezzo' => $azienda->prezzoApplicato((string) $riga['prezzo']),

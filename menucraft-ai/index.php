@@ -12,28 +12,7 @@ header('Content-Type: text/html; charset=utf-8');
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>MenuCraft AI</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@560;700&family=Source+Sans+3:wght@400;600;700&display=swap" rel="stylesheet">
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    fontFamily: {
-                        serif: ['Fraunces', 'Georgia', 'serif'],
-                        sans: ['Outfit', 'ui-sans-serif', 'system-ui', 'sans-serif'],
-                    },
-                    colors: {
-                        ink: '#1d2420',
-                        cream: '#efe6d2',
-                        terracotta: '#b6402c',
-                        moss: '#1d4a38',
-                    },
-                },
-            },
-        };
-    </script>
+    <link rel="stylesheet" href="assets/app.css">
     <style>
         [hidden] { display: none !important; }
         body { font-family: "Source Sans 3", ui-sans-serif, sans-serif; background: #efe6d2; color: #1d2420; }
@@ -166,15 +145,15 @@ header('Content-Type: text/html; charset=utf-8');
                     </section>
                     <section class="rounded-3xl border border-[#d5cbb8] bg-white p-5">
                         <h2 class="font-serif text-3xl uppercase">File per la cucina</h2>
-                        <p class="mt-1 text-sm text-ink/70">Il backend non invia email. Compone il CSV dei buoni di questa azienda per il giorno selezionato: porzioni totali e dettaglio per matricola. Alle 18:00 il giorno dopo è già chiuso, poi scarichi il file e lo mandi in cucina.</p>
+                        <p class="mt-1 text-sm text-ink/70">Alle 18:00 il giorno dopo è chiuso. Scarichi il CSV di questa azienda, con le porzioni e il dettaglio per matricola, e lo mandi con l’applicazione che usi già. MenuCraft resta in intranet e non spedisce il file.</p>
                         <button id="scarica-riepilogo" type="button" class="mt-4 rounded-xl bg-terracotta px-4 py-3 text-sm font-semibold text-white">Scarica riepilogo del giorno</button>
                     </section>
                 <div id="upload-card" class="rounded-3xl border border-[#d5cbb8] bg-white p-5">
                     <h2 class="font-serif text-3xl uppercase">Pubblica il menu</h2>
                     <p id="upload-window" class="mt-2 text-sm text-ink/70"></p>
-                    <p class="mt-2 text-sm text-ink/60">Colonne: data, codice, nome, categoria, prezzo. Il file sostituisce i giorni indicati. CSV con virgola o punto e virgola, oppure xlsx.</p>
+                    <p class="mt-2 text-sm text-ink/60">Il giovedì, dopo le 19:00, carica il template Excel della settimana: giorni in colonna, portata a sinistra, codice e nome del piatto. Va bene anche un CSV con le colonne data, codice, nome, categoria, prezzo. Se il file arriva come .xls vecchio, salvalo come .xlsx. I vincoli di scelta restano nelle regole dell’azienda, non nel foglio.</p>
                     <form id="upload-form" class="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center">
-                        <input id="menu-file" name="menu" type="file" accept=".csv,.txt,.xlsx,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" class="block w-full text-sm">
+                        <input id="menu-file" name="menu" type="file" accept=".csv,.txt,.xlsx,.xls,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" class="block w-full text-sm">
                         <button type="submit" class="rounded-2xl bg-ink px-4 py-3 text-sm text-white">Carica menu</button>
                     </form>
                 </div>
@@ -736,7 +715,7 @@ header('Content-Type: text/html; charset=utf-8');
             event.preventDefault();
             const input = document.getElementById('menu-file');
             if (!input.files || !input.files[0]) {
-                mostraBanner('errore', 'Seleziona un file .xlsx o .csv.', 'FILE_MANCANTE', []);
+                mostraBanner('errore', 'Seleziona il template Excel del giovedì oppure un CSV.', 'FILE_MANCANTE', []);
                 return;
             }
             const body = new FormData();

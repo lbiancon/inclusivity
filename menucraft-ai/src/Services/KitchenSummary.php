@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MenuCraft\Services;
 
 use MenuCraft\Enums\PortataType;
+use MenuCraft\Support\CodicePiatto;
 use PDO;
 
 if (!defined('MENUCRAFT_APP')) {
@@ -71,7 +72,7 @@ final class KitchenSummary
         $elenco = [];
         foreach ($porzioni->fetchAll() as $riga) {
             $elenco[] = [
-                'codice' => (string) $riga['codice'],
+                'codice' => CodicePiatto::etichetta((string) $riga['codice']),
                 'categoria' => (string) $riga['categoria'],
                 'nome' => (string) $riga['nome'],
                 'porzioni' => (int) $riga['porzioni'],
@@ -89,7 +90,7 @@ final class KitchenSummary
             $dettaglio[] = [
                 'matricola' => (string) $riga['matricola'],
                 'dipendente' => (string) $riga['dipendente'],
-                'codice' => (string) $riga['codice'],
+                'codice' => CodicePiatto::etichetta((string) $riga['codice']),
                 'categoria' => (string) $riga['categoria'],
                 'nome' => (string) $riga['nome'],
             ];

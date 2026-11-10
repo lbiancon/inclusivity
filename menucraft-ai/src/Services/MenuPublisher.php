@@ -38,7 +38,18 @@ final class MenuPublisher
         }
 
         $finestra = $this->validator->finestraPubblicazione($adesso);
-        $righe = $this->parser->parse($path, $filename);
+        $lette = $this->parser->parse($path, $filename);
+        $righe = [];
+        foreach ($lette as $riga) {
+            if ($this->validator->motivoCalendario($aziendaId, $riga->data) !== null) {
+                continue;
+            }
+            $righe[] = $riga;
+        }
+        if ($righe === []) {
+            throw new MenuRuleException('FILE_VUOTO', 'Il file non contiene giorni aperti da pubblicare.');
+        }
+
         $errori = [];
         $definiti = [];
         $visti = [];
@@ -74,27 +85,74 @@ final class MenuPublisher
         try {
             $idPerCodice = [];
             $cerca = $this->pdo->prepare(
-                'SELECT id FROM piatti WHERE azienda_id = :azienda AND codice = :codice'
+                'SELECT id, prezzo FROM piatti WHERE azienda_id = :azienda AND codice = :codice'
             );
-            $scrivi = $this->pdo->prepare(
+            $inserisciPiatto = $this->pdo->prepare(
                 'INSERT INTO piatti (azienda_id, codice, nome, categoria, prezzo)
-                 VALUES (:azienda, :codice, :nome, :categoria, :prezzo)
-                 ON DUPLICATE KEY UPDATE nome = VALUES(nome), categoria = VALUES(categoria), prezzo = VALUES(prezzo)'
+                 VALUES (:azienda, :codice, :nome, :categoria, :prezzo)'
+            );
+            $aggiorna = $this->pdo->prepare(
+                'UPDATE piatti
+                 SET nome = :nome, categoria = :categoria, prezzo = :prezzo
+                 WHERE id = :id AND azienda_id = :azienda'
+            );
+            $aggiornaSenzaPrezzo = $this->pdo->prepare(
+                'UPDATE piatti
+                 SET nome = :nome, categoria = :categoria
+                 WHERE id = :id AND azienda_id = :azienda'
+            );
+            $prezzoNoto = $this->pdo->prepare(
+                'SELECT prezzo FROM piatti
+                 WHERE azienda_id = :azienda AND nome = :nome AND categoria = :categoria
+                 ORDER BY id DESC
+                 LIMIT 1'
             );
 
             foreach ($righe as $riga) {
                 if (isset($idPerCodice[$riga->codice])) {
                     continue;
                 }
-                $scrivi->execute([
+                $cerca->execute(['azienda' => $aziendaId, 'codice' => $riga->codice]);
+                $esistente = $cerca->fetch();
+                if ($esistente !== false) {
+                    if ($riga->prezzo === '') {
+                        $aggiornaSenzaPrezzo->execute([
+                            'nome' => $riga->nome,
+                            'categoria' => $riga->categoria->value,
+                            'id' => (int) $esistente['id'],
+                            'azienda' => $aziendaId,
+                        ]);
+                    } else {
+                        $aggiorna->execute([
+                            'nome' => $riga->nome,
+                            'categoria' => $riga->categoria->value,
+                            'prezzo' => $riga->prezzo,
+                            'id' => (int) $esistente['id'],
+                            'azienda' => $aziendaId,
+                        ]);
+                    }
+                    $idPerCodice[$riga->codice] = (int) $esistente['id'];
+                    continue;
+                }
+
+                $prezzo = $riga->prezzo;
+                if ($prezzo === '') {
+                    $prezzoNoto->execute([
+                        'azienda' => $aziendaId,
+                        'nome' => $riga->nome,
+                        'categoria' => $riga->categoria->value,
+                    ]);
+                    $trovato = $prezzoNoto->fetchColumn();
+                    $prezzo = $trovato === false ? '0.00' : (string) $trovato;
+                }
+                $inserisciPiatto->execute([
                     'azienda' => $aziendaId,
                     'codice' => $riga->codice,
                     'nome' => $riga->nome,
                     'categoria' => $riga->categoria->value,
-                    'prezzo' => $riga->prezzo,
+                    'prezzo' => $prezzo,
                 ]);
-                $cerca->execute(['azienda' => $aziendaId, 'codice' => $riga->codice]);
-                $idPerCodice[$riga->codice] = (int) $cerca->fetchColumn();
+                $idPerCodice[$riga->codice] = (int) $this->pdo->lastInsertId();
             }
 
             $dateChiavi = array_keys($date);

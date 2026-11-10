@@ -23,7 +23,7 @@ JsonResponse::guard(static function (): void {
 
     $file = $_FILES['menu'] ?? null;
     if (!is_array($file)) {
-        throw new MenuRuleException('FILE_MANCANTE', 'Seleziona un file .xlsx o .csv.', 400);
+        throw new MenuRuleException('FILE_MANCANTE', 'Seleziona il template Excel del giovedì oppure un CSV.', 400);
     }
 
     $errore = (int) ($file['error'] ?? UPLOAD_ERR_NO_FILE);

@@ -10,6 +10,7 @@ use DOMDocument;
 use DOMXPath;
 use MenuCraft\Enums\PortataType;
 use MenuCraft\Models\RigaMenu;
+use MenuCraft\Support\CodicePiatto;
 use MenuCraft\Support\Money;
 use ZipArchive;
 
@@ -46,13 +47,31 @@ final class SpreadsheetMenuParser
         $tabella = match ($estensione) {
             'csv', 'txt' => $this->leggiCsv($path),
             'xlsx' => $this->leggiXlsx($path, $intestazione),
+            'xls' => $this->leggiXls($path, $intestazione),
             default => throw new MenuRuleException(
                 'FORMATO_FILE',
-                'Carica un file .xlsx oppure .csv con le colonne data, codice, nome, categoria, prezzo.',
+                'Carica il template Excel del giovedì (.xlsx) oppure un file con le colonne data, codice, nome, categoria, prezzo.',
             ),
         };
 
+        if ($this->sembraGriglia($tabella)) {
+            return $this->mappaGriglia($tabella);
+        }
+
         return $this->mappa($tabella);
+    }
+
+    /** @return list<list<string>> */
+    private function leggiXls(string $path, string $intestazione): array
+    {
+        if (str_starts_with($intestazione, 'PK')) {
+            return $this->leggiXlsx($path, $intestazione);
+        }
+
+        throw new MenuRuleException(
+            'FORMATO_XLS',
+            'Questo file è un Excel .xls del formato vecchio. Aprilo, salvalo come .xlsx (Cartella di lavoro Excel) e caricalo di nuovo.',
+        );
     }
 
     /** @return list<list<string>> */
@@ -236,6 +255,358 @@ final class SpreadsheetMenuParser
 
         return $contenuto;
     }
+
+    /** @param list<list<string>> $tabella */
+    private function sembraGriglia(array $tabella): bool
+    {
+        $giorni = [];
+        foreach ($tabella as $riga) {
+            foreach ($riga as $cella) {
+                $giorno = $this->giornoNellaCella($cella);
+                if ($giorno !== null) {
+                    $giorni[$giorno] = true;
+                }
+            }
+        }
+
+        return count($giorni) >= 2;
+    }
+
+    /**
+     * @param list<list<string>> $tabella
+     * @return list<RigaMenu>
+     */
+    private function mappaGriglia(array $tabella): array
+    {
+        $periodo = $this->periodoGriglia($tabella);
+        $header = $this->rigaIntestazioneGiorni($tabella);
+        $giorni = $this->colonneGiorni($tabella[$header], $periodo);
+        $categoria = null;
+        $righe = [];
+        $errori = [];
+
+        foreach ($tabella as $indice => $celle) {
+            if ($indice <= $header) {
+                continue;
+            }
+            $letta = $this->categoriaCella($celle[0] ?? '');
+            if ($letta !== null) {
+                $categoria = $letta;
+            }
+            if ($categoria === null) {
+                continue;
+            }
+
+            foreach ($giorni as $giorno) {
+                $codiceGrezzo = trim($celle[$giorno['col']] ?? '');
+                $nomeGrezzo = $giorno['nomeCol'] === null ? '' : trim($celle[$giorno['nomeCol']] ?? '');
+                $prezzoGrezzo = $giorno['prezzoCol'] === null ? '' : trim($celle[$giorno['prezzoCol']] ?? '');
+                if ($codiceGrezzo === '' && $nomeGrezzo === '' && $prezzoGrezzo === '') {
+                    continue;
+                }
+                try {
+                    [$lettera, $nome, $prezzo] = $this->spezzaPiatto($codiceGrezzo, $nomeGrezzo, $prezzoGrezzo);
+                    $righe[] = new RigaMenu(
+                        data: $giorno['data'],
+                        codice: CodicePiatto::daLettera($lettera, $giorno['data']),
+                        nome: $this->parseNome($nome),
+                        categoria: $categoria,
+                        prezzo: $prezzo,
+                        riga: $indice + 1,
+                    );
+                } catch (MenuRuleException $e) {
+                    $errori[] = 'Riga ' . ($indice + 1) . ': ' . $e->getMessage();
+                }
+            }
+            if (count($righe) > self::MAX_RIGHE) {
+                throw new MenuRuleException('FILE_TROPPO_GRANDE', 'Il file supera le 2000 righe.');
+            }
+        }
+
+        if ($errori !== []) {
+            throw new MenuRuleException('FILE_NON_VALIDO', 'Il template settimanale contiene celle non valide.', 422, $errori);
+        }
+        if ($righe === []) {
+            throw new MenuRuleException('FILE_VUOTO', 'Il template settimanale non contiene piatti.');
+        }
+
+        return $righe;
+    }
+
+    /**
+     * @param list<list<string>> $tabella
+     * @return array{dal: DateTimeImmutable, al: DateTimeImmutable}
+     */
+    private function periodoGriglia(array $tabella): array
+    {
+        foreach ($tabella as $riga) {
+            foreach ($riga as $cella) {
+                $periodo = $this->parseIntervallo($cella);
+                if ($periodo !== null) {
+                    return $periodo;
+                }
+            }
+        }
+
+        throw new MenuRuleException(
+            'PERIODO_MANCANTE',
+            'Nel template manca il periodo, per esempio «Menu Mensa dal 09 al 13 novembre 2026».',
+        );
+    }
+
+    /** @return array{dal: DateTimeImmutable, al: DateTimeImmutable}|null */
+    private function parseIntervallo(string $testo): ?array
+    {
+        $normalizzato = mb_strtolower(trim($testo));
+        $normalizzato = strtr($normalizzato, [
+            'à' => 'a', 'á' => 'a', 'è' => 'e', 'é' => 'e', 'ì' => 'i', 'í' => 'i', 'ò' => 'o', 'ó' => 'o', 'ù' => 'u', 'ú' => 'u',
+        ]);
+
+        if (preg_match(
+            '/dal\s+(\d{1,2})\/(\d{1,2})(?:\/(\d{2,4}))?\s+al\s+(\d{1,2})\/(\d{1,2})(?:\/(\d{2,4}))?(?:\s+(\d{4}))?/u',
+            $normalizzato,
+            $parti,
+        ) === 1) {
+            $anno = (int) ($parti[7] !== '' ? $parti[7] : ($parti[6] !== '' ? $parti[6] : ($parti[3] !== '' ? $parti[3] : 0)));
+            if ($anno === 0) {
+                return null;
+            }
+            if ($anno < 100) {
+                $anno += 2000;
+            }
+            $dal = $this->dataCivile((int) $parti[1], (int) $parti[2], $parti[3] !== '' ? $this->annoBreve($parti[3]) : $anno);
+            $al = $this->dataCivile((int) $parti[4], (int) $parti[5], $parti[6] !== '' ? $this->annoBreve($parti[6]) : $anno);
+            if ($dal === null || $al === null || $al < $dal) {
+                return null;
+            }
+
+            return ['dal' => $dal, 'al' => $al];
+        }
+
+        if (preg_match(
+            '/dal\s+(\d{1,2})(?:\s+([a-z]+))?\s+al\s+(\d{1,2})\s+([a-z]+)(?:\s+(\d{4}))?/u',
+            $normalizzato,
+            $parti,
+        ) === 1) {
+            $meseAl = self::MESI[$parti[4]] ?? null;
+            $meseDal = $parti[2] !== '' ? (self::MESI[$parti[2]] ?? null) : $meseAl;
+            $anno = (int) ($parti[5] ?? 0);
+            if ($meseAl === null || $meseDal === null || $anno < 2000) {
+                return null;
+            }
+            $giornoDal = (int) $parti[1];
+            $giornoAl = (int) $parti[3];
+            if ($meseDal === $meseAl && $giornoDal > $giornoAl) {
+                $meseDal = $meseDal === 1 ? 12 : $meseDal - 1;
+                if ($meseDal === 12) {
+                    $annoDal = $anno - 1;
+                } else {
+                    $annoDal = $anno;
+                }
+            } else {
+                $annoDal = $anno;
+            }
+            $dal = $this->dataCivile($giornoDal, $meseDal, $annoDal);
+            $al = $this->dataCivile($giornoAl, $meseAl, $anno);
+            if ($dal === null || $al === null || $al < $dal) {
+                return null;
+            }
+
+            return ['dal' => $dal, 'al' => $al];
+        }
+
+        return null;
+    }
+
+    private function annoBreve(string $anno): int
+    {
+        $valore = (int) $anno;
+
+        return $valore < 100 ? $valore + 2000 : $valore;
+    }
+
+    private function dataCivile(int $giorno, int $mese, int $anno): ?DateTimeImmutable
+    {
+        if (!checkdate($mese, $giorno, $anno)) {
+            return null;
+        }
+
+        return new DateTimeImmutable(sprintf('%04d-%02d-%02d', $anno, $mese, $giorno), $this->fuso);
+    }
+
+    /** @param list<list<string>> $tabella */
+    private function rigaIntestazioneGiorni(array $tabella): int
+    {
+        $migliore = null;
+        $conteggio = 0;
+        foreach ($tabella as $indice => $riga) {
+            $giorni = [];
+            foreach ($riga as $cella) {
+                $giorno = $this->giornoNellaCella($cella);
+                if ($giorno !== null) {
+                    $giorni[$giorno] = true;
+                }
+            }
+            if (count($giorni) > $conteggio) {
+                $conteggio = count($giorni);
+                $migliore = $indice;
+            }
+        }
+
+        if ($migliore === null || $conteggio < 2) {
+            throw new MenuRuleException(
+                'INTESTAZIONE',
+                'Nel template non trovo i giorni (lunedì–venerdì oppure C_LU, C_MA, C_ME, C_GI, C_VE).',
+            );
+        }
+
+        return $migliore;
+    }
+
+    /**
+     * @param list<string> $intestazione
+     * @param array{dal: DateTimeImmutable, al: DateTimeImmutable} $periodo
+     * @return list<array{col: int, nomeCol: ?int, prezzoCol: ?int, data: DateTimeImmutable}>
+     */
+    private function colonneGiorni(array $intestazione, array $periodo): array
+    {
+        $date = $this->datePerGiorno($periodo['dal'], $periodo['al']);
+        $colonne = [];
+        foreach ($intestazione as $indice => $cella) {
+            $giorno = $this->giornoNellaCella($cella);
+            if ($giorno === null) {
+                continue;
+            }
+            if (!isset($date[$giorno])) {
+                throw new MenuRuleException(
+                    'PERIODO_MANCANTE',
+                    'Il periodo del template non contiene il giorno indicato in colonna.',
+                );
+            }
+            $colonne[] = ['col' => $indice, 'giorno' => $giorno, 'data' => $date[$giorno]];
+        }
+
+        $uscite = [];
+        $totale = count($colonne);
+        for ($i = 0; $i < $totale; $i++) {
+            $col = $colonne[$i]['col'];
+            $prossima = $colonne[$i + 1]['col'] ?? ($col + 3);
+            $gap = $prossima - $col;
+            $uscite[] = [
+                'col' => $col,
+                'nomeCol' => $gap >= 2 ? $col + 1 : null,
+                'prezzoCol' => $gap >= 3 ? $col + 2 : null,
+                'data' => $colonne[$i]['data'],
+            ];
+        }
+
+        return $uscite;
+    }
+
+    /**
+     * @return array<int, DateTimeImmutable>
+     */
+    private function datePerGiorno(DateTimeImmutable $dal, DateTimeImmutable $al): array
+    {
+        $mappa = [];
+        for ($giorno = $dal; $giorno <= $al; $giorno = $giorno->modify('+1 day')) {
+            $numero = (int) $giorno->format('N');
+            if (isset($mappa[$numero])) {
+                throw new MenuRuleException(
+                    'PERIODO_MANCANTE',
+                    'Il periodo copre più di una settimana. Nel titolo indica i giorni, per esempio dal 09 al 13 novembre 2026.',
+                );
+            }
+            $mappa[$numero] = $giorno;
+        }
+
+        return $mappa;
+    }
+
+    private function giornoNellaCella(string $testo): ?int
+    {
+        $n = mb_strtolower($testo);
+        $n = strtr($n, [
+            'à' => 'a', 'á' => 'a', 'è' => 'e', 'é' => 'e', 'ì' => 'i', 'í' => 'i', 'ò' => 'o', 'ó' => 'o', 'ù' => 'u', 'ú' => 'u',
+            "'" => '', '’' => '',
+        ]);
+        $controlli = [
+            1 => '/lunedi|(?:^|[^a-z])c_?lu(?:[^a-z]|$)/',
+            2 => '/martedi|(?:^|[^a-z])c_?ma(?:[^a-z]|$)/',
+            3 => '/mercoledi|(?:^|[^a-z])c_?me(?:[^a-z]|$)/',
+            4 => '/giovedi|(?:^|[^a-z])c_?gi(?:[^a-z]|$)/',
+            5 => '/venerdi|(?:^|[^a-z])c_?ve(?:[^a-z]|$)/',
+            6 => '/sabato|(?:^|[^a-z])c_?sa(?:[^a-z]|$)/',
+            7 => '/domenica|(?:^|[^a-z])c_?do(?:[^a-z]|$)/',
+        ];
+        foreach ($controlli as $numero => $pattern) {
+            if (preg_match($pattern, $n) === 1) {
+                return $numero;
+            }
+        }
+
+        return null;
+    }
+
+    private function categoriaCella(string $valore): ?PortataType
+    {
+        $diretta = PortataType::interpreta($valore);
+        if ($diretta !== null) {
+            return $diretta;
+        }
+        if (preg_match('/^\s*(primi|primo|secondi|secondo|contorni|contorno|frutta|frutto|frutti|yogurt|dessert|dolce|dolci|bevande|bevanda)\b/iu', $valore, $parti) === 1) {
+            return PortataType::interpreta($parti[1]);
+        }
+
+        return null;
+    }
+
+    /** @return array{0: string, 1: string, 2: string} */
+    private function spezzaPiatto(string $codice, string $nome, string $prezzo): array
+    {
+        if ($nome === '' && preg_match('/^([A-Za-z][A-Za-z0-9]{0,2})\s+(.+)$/u', $codice, $parti) === 1) {
+            $codice = $parti[1];
+            $nome = $parti[2];
+        }
+        if (preg_match('/^[A-Za-z][A-Za-z0-9]{0,2}$/', $codice) !== 1) {
+            throw new MenuRuleException('CODICE_NON_VALIDO', 'codice piatto non valido.');
+        }
+        $prezzoTrovato = $this->prezzoInCella($prezzo);
+        if ($prezzoTrovato === '' && preg_match('/^(.*?)(?:\s+|€\s*)(\d+[.,]\d{2})\s*€?$/u', $nome, $parti) === 1) {
+            $nome = trim($parti[1]);
+            $prezzoTrovato = Money::normalizza($parti[2]);
+        }
+
+        return [strtoupper($codice), $nome, $prezzoTrovato];
+    }
+
+    private function prezzoInCella(string $valore): string
+    {
+        if ($valore === '') {
+            return '';
+        }
+        if (preg_match('/^\d+(?:[.,]\d{1,2})?\s*€?$/', $valore) !== 1) {
+            return '';
+        }
+
+        return Money::normalizza($valore);
+    }
+
+    /** @var array<string, int> */
+    private const MESI = [
+        'gennaio' => 1,
+        'febbraio' => 2,
+        'marzo' => 3,
+        'aprile' => 4,
+        'maggio' => 5,
+        'giugno' => 6,
+        'luglio' => 7,
+        'agosto' => 8,
+        'settembre' => 9,
+        'ottobre' => 10,
+        'novembre' => 11,
+        'dicembre' => 12,
+    ];
 
     /**
      * @param list<list<string>> $tabella

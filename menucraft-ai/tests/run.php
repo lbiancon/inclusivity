@@ -22,6 +22,7 @@ use MenuCraft\Services\MenuRuleException;
 use MenuCraft\Services\MenuValidator;
 use MenuCraft\Services\OrderService;
 use MenuCraft\Services\SpreadsheetMenuParser;
+use MenuCraft\Support\CodicePiatto;
 use MenuCraft\Support\Money;
 
 set_error_handler(static function (int $severity, string $message, string $file, int $line): never {
@@ -152,7 +153,50 @@ $zip->addFromString('xl/worksheets/sheet1.xml', '<?xml version="1.0" encoding="U
 $zip->close();
 $righeXlsx = $parser->parse($xlsx, 'menu.xlsx');
 verifica($righeXlsx[0]->data->format('Y-m-d') === '2026-11-17' && $righeXlsx[0]->codice === 'SE-XLS', 'parser xlsx');
+$xlsRinominato = tempnam(sys_get_temp_dir(), 'mc') . '.xls';
+copy($xlsx, $xlsRinominato);
+$righeXls = $parser->parse($xlsRinominato, 'menu.xls');
+verifica($righeXls[0]->codice === 'SE-XLS', 'xlsx rinominato in xls');
 unlink($xlsx);
+unlink($xlsRinominato);
+$xlsVecchio = tempnam(sys_get_temp_dir(), 'mc') . '.xls';
+file_put_contents($xlsVecchio, hex2bin('D0CF11E0A1B11AE1'));
+attesaEccezione('FORMATO_XLS', fn () => $parser->parse($xlsVecchio, 'vecchio.xls'), 'xls binario rifiutato');
+unlink($xlsVecchio);
+
+$griglia = tempnam(sys_get_temp_dir(), 'mc') . '.xlsx';
+scriviXlsx($griglia, [
+    ['Menu Mensa dal 09 al 13 Novembre 2026'],
+    ['', 'C_LU', '', 'C_MA', '', 'C_ME', '', 'C_GI', '', 'C_VE'],
+    ['PRIMO', 'A', 'Pasta al pomodoro', 'A', 'Risotto allo zafferano', 'A', 'Minestrone', 'A', 'Tortellini', 'A', 'Passato di verdure'],
+    ['', 'B', 'Lasagne', 'B', 'Pastina'],
+    ['SECONDO', 'D', 'Pollo arrosto 9,90', 'D', 'Merluzzo'],
+    ['FRUTTO', 'H', 'Mela', 'H', 'Pera'],
+]);
+$righeGriglia = $parser->parse($griglia, 'menu-settimana.xlsx');
+unlink($griglia);
+$perChiave = [];
+foreach ($righeGriglia as $rigaGriglia) {
+    $perChiave[$rigaGriglia->data->format('Y-m-d') . '|' . $rigaGriglia->codice] = $rigaGriglia;
+}
+verifica(
+    ($perChiave['2026-11-09|A-20261109']->nome ?? '') === 'Pasta al pomodoro'
+    && ($perChiave['2026-11-09|A-20261109']->categoria ?? null) === PortataType::Primo
+    && ($perChiave['2026-11-09|A-20261109']->prezzo ?? null) === '',
+    'griglia lunedì codice A',
+);
+verifica(($perChiave['2026-11-10|B-20261110']->nome ?? '') === 'Pastina', 'griglia martedì codice B');
+verifica(
+    ($perChiave['2026-11-09|D-20261109']->categoria ?? null) === PortataType::Secondo
+    && ($perChiave['2026-11-09|D-20261109']->prezzo ?? '') === '9.90',
+    'prezzo nel nome del template',
+);
+verifica(
+    ($perChiave['2026-11-13|A-20261113']->nome ?? '') === 'Passato di verdure'
+    && ($perChiave['2026-11-09|H-20261109']->categoria ?? null) === PortataType::Frutta,
+    'venerdì e frutto',
+);
+verifica(CodicePiatto::etichetta('A-20261109') === 'A' && CodicePiatto::etichetta('SE2') === 'SE2', 'etichetta codice cucina');
 
 $csvMale = tempnam(sys_get_temp_dir(), 'mc');
 file_put_contents($csvMale, "data,codice,nome,categoria,prezzo\n2026-11-16,BAD,Piatto,zuppa,1.00\n");
@@ -340,6 +384,24 @@ $conteggioRossi = (int) $pdo->query('SELECT COUNT(*) FROM piatti WHERE azienda_i
 $conteggioAurora = (int) $pdo->query('SELECT COUNT(*) FROM piatti WHERE azienda_id = ' . $auroraId . " AND codice = 'NX-1'")->fetchColumn();
 verifica($conteggioRossi > 0 && $conteggioAurora === 0, 'il menu caricato resta nel tenant');
 
+$pdo->prepare('INSERT INTO piatti (azienda_id, codice, nome, categoria, prezzo) VALUES (?, ?, ?, ?, ?)')
+    ->execute([$rossiId, 'OLD-POLLO', 'Pollo arrosto', 'secondo', '9.90']);
+$settimana = tempnam(sys_get_temp_dir(), 'mc') . '.xlsx';
+scriviXlsx($settimana, [
+    ['Menu Mensa dal 16 al 20 novembre 2026'],
+    ['', "C_LU\nLUNEDI'", '', 'C_MA'],
+    ['PRIMO', 'A', 'Tortelli di zucca', 'A', 'Riso in bianco'],
+    ['SECONDO', 'D', 'Pollo arrosto', 'D', 'Pollo arrosto'],
+]);
+$pubblicataGriglia = $publisher->pubblica($rossiId, $rossiCaterer, $settimana, 'template-giovedi.xlsx', $giovediSera);
+verifica($pubblicataGriglia['giorni'] === 2, 'template settimanale pubblicato');
+$prezzoRiusato = (string) $pdo->query('SELECT prezzo FROM piatti WHERE azienda_id = ' . $rossiId . " AND codice = 'D-20261116'")->fetchColumn();
+$prezzoNuovo = (string) $pdo->query('SELECT prezzo FROM piatti WHERE azienda_id = ' . $rossiId . " AND codice = 'A-20261116'")->fetchColumn();
+verifica($prezzoRiusato === '9.90' && $prezzoNuovo === '0.00', 'prezzo noto riusato, piatto nuovo a 0,00');
+$pubblicataAurora = $publisher->pubblica($auroraId, $auroraCaterer, $settimana, 'template-giovedi.xlsx', $giovediSera);
+verifica($pubblicataAurora['giorni'] === 1 && $pubblicataAurora['valido_dal'] === '2026-11-17', 'il lunedì chiuso non entra nel menu');
+unlink($settimana);
+
 $cucina = new KitchenSummary($pdo);
 $auroraCucina = $cucina->perGiorno($auroraId, '2026-11-13');
 verifica($auroraCucina['buoni'] === 1 && $auroraCucina['porzioni'][0]['codice'] === 'SE2', 'riepilogo cucina del tenant');
@@ -365,6 +427,48 @@ attesaEccezione('REGOLA_NON_VALIDA', fn () => $regoleServizio->salva($auroraId, 
 
 $pulizia->execute(['slug' => 'qa-%']);
 $pdo->prepare('DELETE FROM login_tentativi WHERE azienda_slug LIKE :slug')->execute(['slug' => 'qa-%']);
+
+function scriviXlsx(string $path, array $righe): void
+{
+    $strings = [];
+    $index = [];
+    $sheet = '';
+    foreach ($righe as $r => $celle) {
+        $n = $r + 1;
+        $xml = '';
+        foreach ($celle as $c => $valore) {
+            if ($valore === '') {
+                continue;
+            }
+            $col = '';
+            $nCol = $c;
+            do {
+                $col = chr(65 + ($nCol % 26)) . $col;
+                $nCol = intdiv($nCol, 26) - 1;
+            } while ($nCol >= 0);
+            if (!isset($index[$valore])) {
+                $index[$valore] = count($strings);
+                $strings[] = $valore;
+            }
+            $xml .= '<c r="' . $col . $n . '" t="s"><v>' . $index[$valore] . '</v></c>';
+        }
+        if ($xml !== '') {
+            $sheet .= '<row r="' . $n . '">' . $xml . '</row>';
+        }
+    }
+    $sst = '';
+    foreach ($strings as $stringa) {
+        $sst .= '<si><t>' . htmlspecialchars($stringa, ENT_XML1) . '</t></si>';
+    }
+    $zip = new ZipArchive();
+    if ($zip->open($path, ZipArchive::CREATE) !== true) {
+        throw new RuntimeException('xlsx di test non creato');
+    }
+    $zip->addFromString('[Content_Types].xml', '<?xml version="1.0" encoding="UTF-8"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"></Types>');
+    $zip->addFromString('xl/sharedStrings.xml', '<?xml version="1.0" encoding="UTF-8"?><sst xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">' . $sst . '</sst>');
+    $zip->addFromString('xl/worksheets/sheet1.xml', '<?xml version="1.0" encoding="UTF-8"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData>' . $sheet . '</sheetData></worksheet>');
+    $zip->close();
+}
 
 if ($falliti > 0) {
     fwrite(STDERR, "{$falliti} controlli falliti\n");

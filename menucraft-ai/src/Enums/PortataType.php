@@ -53,6 +53,7 @@ enum PortataType: string
             'secondi' => self::Secondo->value,
             'contorni' => self::Contorno->value,
             'dolce', 'dolci' => self::Dessert->value,
+            'frutto', 'frutti' => self::Frutta->value,
             'bevande' => self::Bevanda->value,
             default => $normalizzato,
         };
