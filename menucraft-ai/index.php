@@ -14,7 +14,7 @@ header('Content-Type: text/html; charset=utf-8');
     <title>MenuCraft AI</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,560;9..144,680&family=Outfit:wght@380;500;640&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@560;700&family=Source+Sans+3:wght@400;600;700&display=swap" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
@@ -25,10 +25,10 @@ header('Content-Type: text/html; charset=utf-8');
                         sans: ['Outfit', 'ui-sans-serif', 'system-ui', 'sans-serif'],
                     },
                     colors: {
-                        ink: '#241c16',
-                        cream: '#f4efe6',
-                        terracotta: '#c4491d',
-                        moss: '#1f6b4a',
+                        ink: '#1d2420',
+                        cream: '#efe6d2',
+                        terracotta: '#b6402c',
+                        moss: '#1d4a38',
                     },
                 },
             },
@@ -36,17 +36,37 @@ header('Content-Type: text/html; charset=utf-8');
     </script>
     <style>
         [hidden] { display: none !important; }
-        body { font-family: Outfit, ui-sans-serif, system-ui, sans-serif; background: #f4efe6; color: #241c16; }
-        h1, h2, .font-serif { font-family: Fraunces, Georgia, serif; }
+        body { font-family: "Source Sans 3", ui-sans-serif, sans-serif; background: #efe6d2; color: #1d2420; }
+        h1, h2, h3, .font-serif { font-family: "Barlow Condensed", Impact, sans-serif; letter-spacing: 0.01em; }
+        .counter { background: #1d4a38; color: #f6f3ea; }
+        .scontrino {
+            background:
+                radial-gradient(circle at 12px 0, transparent 10px, #fffdf8 11px) left top / 24px 12px repeat-x,
+                #fffdf8;
+            border: 1px solid #d5cbb8;
+        }
+        .day.is-skip { background: repeating-linear-gradient(-45deg, #f4efe4, #f4efe4 6px, #e7e0d2 6px, #e7e0d2 12px); }
+        .dish { display: flex; align-items: center; gap: 0.75rem; text-align: left; }
+        .dish .code {
+            font-family: "Barlow Condensed", sans-serif;
+            background: #1d4a38;
+            color: #f6f3ea;
+            min-width: 4.5rem;
+            padding: 0.7rem 0.4rem;
+            text-align: center;
+            letter-spacing: 0.04em;
+        }
+        .dish.is-on { background: #e7f3ec; border-color: #1d4a38; }
+        .dish.is-on .code { background: #b6402c; }
     </style>
 </head>
 <body class="min-h-screen bg-cream text-ink font-sans antialiased">
     <div id="login-view" class="mx-auto flex min-h-screen max-w-6xl items-center px-4 py-10">
         <div class="grid w-full gap-8 lg:grid-cols-[1.1fr_0.9fr]">
-            <section class="rounded-[2rem] bg-ink px-8 py-10 text-[#f6f1e8] shadow-2xl">
-                <p class="text-xs uppercase tracking-[0.28em] text-[#e7b59a]">MenuCraft AI</p>
-                <h1 class="mt-4 max-w-xl font-serif text-5xl leading-tight">La mensa aziendale, con le regole del turno già dentro.</h1>
-                <p class="mt-5 max-w-lg text-lg text-[#f0e6da]/80">Prenotazioni isolate per azienda, tetto di scelte, un solo secondo, doppio primo solo se il tenant lo consente, e chiusure automatiche su weekend, feste nazionali e patroni.</p>
+            <section class="counter rounded-[2rem] px-8 py-10 shadow-2xl">
+                <p class="text-xs uppercase tracking-[0.28em] text-[#d7eadf]">Linea mensa</p>
+                <h1 class="mt-4 max-w-xl font-serif text-5xl uppercase leading-none">Prenota il vassoio prima che chiuda la linea.</h1>
+                <p class="mt-5 max-w-lg text-lg text-[#f6f3ea]/80">Ogni azienda ha il suo menu e le sue regole. Il dipendente compone il buono, la cucina riceve il riepilogo del giorno.</p>
                 <dl class="mt-8 grid gap-4 sm:grid-cols-3">
                     <div class="rounded-2xl bg-white/5 p-4">
                         <dt class="text-xs uppercase tracking-wider text-[#e7b59a]">Oggi</dt>
@@ -63,8 +83,8 @@ header('Content-Type: text/html; charset=utf-8');
                 </dl>
             </section>
             <section class="rounded-[2rem] bg-white p-8 shadow-xl shadow-ink/5">
-                <h2 class="font-serif text-3xl">Entra in mensa</h2>
-                <p class="mt-2 text-sm text-ink/70">Ogni matricola vede solo i piatti della propria azienda.</p>
+                <h2 class="font-serif text-4xl uppercase">Badge mensa</h2>
+                <p class="mt-2 text-sm text-ink/70">Matricola e azienda. Vedi solo i piatti del tuo stabilimento.</p>
                 <form id="login-form" class="mt-6 space-y-4">
                     <label class="block text-sm font-medium" for="slug">Azienda
                         <input id="slug" name="slug" autocomplete="organization" required class="mt-1 w-full rounded-2xl border border-ink/10 bg-cream px-4 py-3 outline-none ring-terracotta focus:ring-2" placeholder="aurora-welfare">
@@ -75,7 +95,7 @@ header('Content-Type: text/html; charset=utf-8');
                     <label class="block text-sm font-medium" for="password">Password
                         <input id="password" name="password" type="password" autocomplete="current-password" required class="mt-1 w-full rounded-2xl border border-ink/10 bg-cream px-4 py-3 outline-none ring-terracotta focus:ring-2">
                     </label>
-                    <button type="submit" class="w-full rounded-2xl bg-terracotta px-4 py-3 font-medium text-white transition hover:bg-[#a63b16]">Accedi</button>
+                    <button type="submit" class="w-full rounded-2xl bg-moss px-4 py-3 font-semibold text-white transition hover:bg-[#163c2d]">Entra in linea</button>
                 </form>
                 <div id="login-error" hidden class="mt-4 rounded-2xl border border-red-200 bg-red-50 p-4 text-red-900" role="alert"></div>
                 <div class="mt-6">
@@ -104,18 +124,18 @@ header('Content-Type: text/html; charset=utf-8');
     </div>
 
     <div id="app-view" hidden>
-        <header class="sticky top-0 z-20 border-b border-ink/10 bg-cream/90 backdrop-blur">
+        <header class="counter sticky top-0 z-20">
             <div class="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-4">
                 <div>
-                    <p class="text-xs uppercase tracking-[0.22em] text-terracotta">MenuCraft AI</p>
-                    <h1 id="azienda-nome" class="font-serif text-2xl"></h1>
+                    <p class="text-xs uppercase tracking-[0.22em] text-[#d7eadf]">MenuCraft · linea</p>
+                    <h1 id="azienda-nome" class="font-serif text-3xl uppercase"></h1>
                 </div>
                 <div class="flex items-center gap-3">
                     <div class="text-right">
-                        <p id="utente-nome" class="text-sm font-medium"></p>
-                        <p id="utente-meta" class="text-xs text-ink/60"></p>
+                        <p id="utente-nome" class="text-sm font-semibold text-white"></p>
+                        <p id="utente-meta" class="text-xs text-[#d7eadf]"></p>
                     </div>
-                    <button id="logout" type="button" class="rounded-full border border-ink/15 px-4 py-2 text-sm hover:border-terracotta">Esci</button>
+                    <button id="logout" type="button" class="rounded-full border border-white/30 px-4 py-2 text-sm text-white hover:bg-white/10">Esci</button>
                 </div>
             </div>
         </header>
@@ -123,8 +143,34 @@ header('Content-Type: text/html; charset=utf-8');
         <main class="mx-auto grid max-w-6xl gap-6 px-4 py-6 lg:grid-cols-[minmax(0,1fr)_320px]">
             <section class="space-y-5">
                 <div id="banner" hidden role="alert" class="rounded-3xl border p-4"></div>
-                <div id="upload-card" hidden class="rounded-3xl bg-white p-5 shadow-sm shadow-ink/5">
-                    <h2 class="font-serif text-2xl">Pubblica il menu</h2>
+                <div id="banco" hidden class="space-y-4">
+                    <section class="rounded-3xl border border-[#d5cbb8] bg-white p-5">
+                        <h2 class="font-serif text-3xl uppercase">Regole di questa azienda</h2>
+                        <p class="mt-1 text-sm text-ink/70">Si salvano sul tenant. Il validatore le applica a ogni buono, senza leggerle dal foglio Excel.</p>
+                        <form id="regole-form" class="mt-4 grid gap-3 sm:grid-cols-2">
+                            <label class="text-sm font-semibold">Scelte massime per buono
+                                <input id="regola-max" name="max_scelte" type="number" min="1" max="10" required class="mt-1 w-full rounded-xl border border-ink/15 bg-cream px-3 py-2">
+                            </label>
+                            <label class="text-sm font-semibold">Chiusura dello stesso giorno
+                                <input id="regola-oggi" name="limite_oggi" type="time" required class="mt-1 w-full rounded-xl border border-ink/15 bg-cream px-3 py-2">
+                            </label>
+                            <label class="text-sm font-semibold">Blocco del giorno prima
+                                <input id="regola-domani" name="limite_domani" type="time" required class="mt-1 w-full rounded-xl border border-ink/15 bg-cream px-3 py-2">
+                            </label>
+                            <div class="flex flex-col justify-end gap-2 text-sm">
+                                <label class="flex items-center gap-2"><input id="regola-primo" name="permetti_doppio_primo" type="checkbox"> Doppio primo consentito</label>
+                                <label class="flex items-center gap-2"><input id="regola-contorno" name="permetti_doppio_contorno" type="checkbox"> Doppio contorno consentito</label>
+                            </div>
+                            <button type="submit" class="rounded-xl bg-moss px-4 py-3 text-sm font-semibold text-white sm:col-span-2">Salva regole sul backend</button>
+                        </form>
+                    </section>
+                    <section class="rounded-3xl border border-[#d5cbb8] bg-white p-5">
+                        <h2 class="font-serif text-3xl uppercase">File per la cucina</h2>
+                        <p class="mt-1 text-sm text-ink/70">Il backend non invia email. Compone il CSV dei buoni di questa azienda per il giorno selezionato: porzioni totali e dettaglio per matricola. Alle 18:00 il giorno dopo è già chiuso, poi scarichi il file e lo mandi in cucina.</p>
+                        <button id="scarica-riepilogo" type="button" class="mt-4 rounded-xl bg-terracotta px-4 py-3 text-sm font-semibold text-white">Scarica riepilogo del giorno</button>
+                    </section>
+                <div id="upload-card" class="rounded-3xl border border-[#d5cbb8] bg-white p-5">
+                    <h2 class="font-serif text-3xl uppercase">Pubblica il menu</h2>
                     <p id="upload-window" class="mt-2 text-sm text-ink/70"></p>
                     <p class="mt-2 text-sm text-ink/60">Colonne: data, codice, nome, categoria, prezzo. Il file sostituisce i giorni indicati. CSV con virgola o punto e virgola, oppure xlsx.</p>
                     <form id="upload-form" class="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center">
@@ -132,18 +178,19 @@ header('Content-Type: text/html; charset=utf-8');
                         <button type="submit" class="rounded-2xl bg-ink px-4 py-3 text-sm text-white">Carica menu</button>
                     </form>
                 </div>
+                </div>
                 <div id="weeks" class="space-y-4"></div>
                 <div id="menu" class="space-y-4"></div>
             </section>
-            <aside class="h-fit rounded-[2rem] bg-white p-5 shadow-xl shadow-ink/5 lg:sticky lg:top-24">
-                <p class="text-xs uppercase tracking-[0.18em] text-ink/50">Buono pasto</p>
+            <aside class="scontrino h-fit rounded-[2rem] p-5 lg:sticky lg:top-24">
+                <p class="text-xs uppercase tracking-[0.18em] text-ink/50">Scontrino vassoio</p>
                 <h2 id="summary-title" class="mt-1 font-serif text-3xl">Vassoio</h2>
                 <p id="summary-reason" class="mt-2 text-sm text-ink/70"></p>
                 <div id="pips" class="mt-4 flex gap-2" aria-hidden="true"></div>
                 <ul id="summary-lines" class="mt-4 space-y-2 text-sm"></ul>
                 <div id="bill" class="mt-5 rounded-2xl bg-cream p-4" aria-live="polite"></div>
                 <div class="mt-4 grid gap-2">
-                    <button id="submit-order" type="button" class="rounded-2xl bg-terracotta px-4 py-3 font-medium text-white disabled:cursor-not-allowed disabled:bg-ink/20">Conferma prenotazione</button>
+                    <button id="submit-order" type="button" class="rounded-2xl bg-moss px-4 py-3 font-semibold text-white disabled:cursor-not-allowed disabled:bg-ink/20">Conferma prenotazione</button>
                     <button id="cancel-order" type="button" hidden class="rounded-2xl border border-ink/15 px-4 py-3 text-sm">Annulla buono</button>
                 </div>
             </aside>
@@ -265,8 +312,12 @@ header('Content-Type: text/html; charset=utf-8');
             document.getElementById('utente-nome').textContent = payload.utente.nome;
             const pagamento = payload.azienda.tipo_pagamento === 'welfare' ? 'Welfare · 0,00 €' : 'Quota dipendente';
             document.getElementById('utente-meta').textContent = payload.utente.matricola + ' · ' + pagamento;
-            const upload = document.getElementById('upload-card');
-            upload.hidden = payload.utente.ruolo !== 'caterer';
+            document.getElementById('banco').hidden = payload.utente.ruolo !== 'caterer';
+            document.getElementById('regola-max').value = payload.azienda.max_scelte;
+            document.getElementById('regola-oggi').value = payload.azienda.limite_oggi;
+            document.getElementById('regola-domani').value = payload.azienda.limite_domani;
+            document.getElementById('regola-primo').checked = payload.azienda.permetti_doppio_primo === true;
+            document.getElementById('regola-contorno').checked = payload.azienda.permetti_doppio_contorno === true;
         }
 
         async function entra(payload) {
@@ -371,12 +422,12 @@ header('Content-Type: text/html; charset=utf-8');
                         nodo.type = 'button';
                         nodo.dataset.giorno = giorno.data;
                     }
-                    nodo.className = 'rounded-2xl border px-3 py-3 text-left ' + (
+                    nodo.className = 'day rounded-2xl border px-3 py-3 text-left ' + (
                         giorno.saltato
-                            ? 'border-dashed border-ink/15 bg-cream text-ink/40'
+                            ? 'is-skip border-dashed border-ink/15 text-ink/40'
                             : attivo
-                                ? 'border-terracotta bg-terracotta text-white'
-                                : 'border-ink/10 hover:border-terracotta'
+                                ? 'border-moss bg-moss text-white'
+                                : 'border-ink/10 bg-white hover:border-moss'
                     );
                     const nome = document.createElement('span');
                     nome.className = 'block text-xs uppercase tracking-wider ' + (giorno.saltato ? 'line-through' : '');
@@ -451,16 +502,20 @@ header('Content-Type: text/html; charset=utf-8');
                     bottone.dataset.piatto = String(piatto.id);
                     bottone.setAttribute('aria-pressed', scelto ? 'true' : 'false');
                     bottone.disabled = !giorno.selezionabile || state.utente.ruolo !== 'dipendente';
-                    bottone.className = 'rounded-2xl border px-4 py-3 text-left disabled:cursor-default ' + (
-                        scelto ? 'border-terracotta bg-[#fff4ef]' : 'border-ink/10 hover:border-terracotta'
-                    );
+                    bottone.className = 'dish w-full overflow-hidden rounded-2xl border border-ink/10 disabled:cursor-default ' + (scelto ? 'is-on' : '');
+                    const codice = document.createElement('span');
+                    codice.className = 'code text-sm';
+                    codice.textContent = piatto.codice;
+                    const testo = document.createElement('span');
+                    testo.className = 'min-w-0 flex-1 py-2 pr-3';
                     const nome = document.createElement('span');
-                    nome.className = 'block font-medium';
+                    nome.className = 'block font-semibold';
                     nome.textContent = piatto.nome;
                     const meta = document.createElement('span');
-                    meta.className = 'mt-1 block text-sm text-ink/60';
-                    meta.textContent = piatto.codice + ' · ' + euro(cents(piatto.prezzo));
-                    bottone.append(nome, meta);
+                    meta.className = 'block text-sm text-ink/60';
+                    meta.textContent = euro(cents(piatto.prezzo));
+                    testo.append(nome, meta);
+                    bottone.append(codice, testo);
                     griglia.append(bottone);
                 });
                 blocco.append(intestazione, griglia);
@@ -620,6 +675,61 @@ header('Content-Type: text/html; charset=utf-8');
             state.csrf = null;
             appView.hidden = true;
             loginView.hidden = false;
+        });
+
+        document.getElementById('regole-form').addEventListener('submit', async (event) => {
+            event.preventDefault();
+            try {
+                const payload = await api('api/regole.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        max_scelte: Number(document.getElementById('regola-max').value),
+                        limite_oggi: document.getElementById('regola-oggi').value,
+                        limite_domani: document.getElementById('regola-domani').value,
+                        permetti_doppio_primo: document.getElementById('regola-primo').checked,
+                        permetti_doppio_contorno: document.getElementById('regola-contorno').checked,
+                    }),
+                });
+                state.azienda = payload.azienda;
+                state.regole = payload.regole;
+                mostraBanner('ok', payload.messaggio, null, []);
+                disegna();
+            } catch (error) {
+                mostraBanner('errore', error.message, error.codice, error.dettagli);
+            }
+        });
+
+        document.getElementById('scarica-riepilogo').addEventListener('click', async () => {
+            const data = state.giorno?.data;
+            if (!data) {
+                mostraBanner('errore', 'Seleziona prima il giorno da mandare in cucina.', 'DATA_NON_VALIDA', []);
+                return;
+            }
+            try {
+                const response = await fetch('api/riepilogo.php?data=' + encodeURIComponent(data), {
+                    credentials: 'same-origin',
+                    headers: { Accept: 'text/csv, application/json' },
+                });
+                const tipo = response.headers.get('Content-Type') || '';
+                if (!response.ok || tipo.includes('application/json')) {
+                    const payload = await response.json();
+                    const errore = new Error(payload?.errore?.messaggio || 'Riepilogo non disponibile.');
+                    errore.codice = payload?.errore?.codice || 'ERRORE';
+                    errore.dettagli = [];
+                    throw errore;
+                }
+                const blob = await response.blob();
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = 'riepilogo-cucina-' + data + '.csv';
+                link.click();
+                URL.revokeObjectURL(url);
+                mostraBanner('ok', 'Riepilogo cucina scaricato per il ' + data + '.', null, []);
+            } catch (error) {
+                mostraBanner('errore', error.message, error.codice, error.dettagli);
+            }
         });
 
         document.getElementById('upload-form').addEventListener('submit', async (event) => {

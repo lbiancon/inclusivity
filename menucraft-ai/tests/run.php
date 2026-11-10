@@ -14,6 +14,8 @@ use MenuCraft\Enums\PagamentoType;
 use MenuCraft\Enums\PortataType;
 use MenuCraft\Models\AziendaConfig;
 use MenuCraft\Services\AuthService;
+use MenuCraft\Services\KitchenSummary;
+use MenuCraft\Services\RegoleAzienda;
 use MenuCraft\Services\ItalianHolidayCalendar;
 use MenuCraft\Services\MenuPublisher;
 use MenuCraft\Services\MenuRuleException;
@@ -337,6 +339,29 @@ attesaEccezione('CARICAMENTO_GIORNO', fn () => $publisher->pubblica(
 $conteggioRossi = (int) $pdo->query('SELECT COUNT(*) FROM piatti WHERE azienda_id = ' . $rossiId)->fetchColumn();
 $conteggioAurora = (int) $pdo->query('SELECT COUNT(*) FROM piatti WHERE azienda_id = ' . $auroraId . " AND codice = 'NX-1'")->fetchColumn();
 verifica($conteggioRossi > 0 && $conteggioAurora === 0, 'il menu caricato resta nel tenant');
+
+$cucina = new KitchenSummary($pdo);
+$auroraCucina = $cucina->perGiorno($auroraId, '2026-11-13');
+verifica($auroraCucina['buoni'] === 1 && $auroraCucina['porzioni'][0]['codice'] === 'SE2', 'riepilogo cucina del tenant');
+verifica($cucina->perGiorno($rossiId, '2026-11-13')['buoni'] === 0, 'riepilogo isolato per azienda');
+verifica(str_contains($cucina->csv($auroraId, 'QA Aurora', '2026-11-13'), 'SE2;'), 'csv porzioni');
+
+$regoleServizio = new RegoleAzienda($pdo);
+$regoleNuove = $regoleServizio->salva($auroraId, [
+    'max_scelte' => 3,
+    'permetti_doppio_primo' => false,
+    'permetti_doppio_contorno' => true,
+    'limite_oggi' => '08:15',
+    'limite_domani' => '17:45',
+]);
+verifica($regoleNuove->maxScelte === 3 && $regoleNuove->permettiDoppioContorno && $regoleNuove->limiteOggi === '08:15:00', 'regole salvate sull\'azienda');
+$rossiIntatto = AziendaConfig::trova($pdo, $rossiId);
+verifica($rossiIntatto->maxScelte === 5 && $rossiIntatto->limiteOggi === '09:30:00', 'le regole restano nel tenant');
+attesaEccezione('REGOLA_NON_VALIDA', fn () => $regoleServizio->salva($auroraId, [
+    'max_scelte' => 0,
+    'limite_oggi' => '09:30',
+    'limite_domani' => '18:00',
+]), 'scelte fuori scala');
 
 $pulizia->execute(['slug' => 'qa-%']);
 $pdo->prepare('DELETE FROM login_tentativi WHERE azienda_slug LIKE :slug')->execute(['slug' => 'qa-%']);
