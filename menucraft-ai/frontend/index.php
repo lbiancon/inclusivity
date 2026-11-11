@@ -452,7 +452,7 @@ header('Content-Type: text/html; charset=utf-8');
             document.getElementById('utente-meta').textContent = state.utente.matricola + ' · ' + paga;
             const nota = document.getElementById('modalita-nota');
             const acqua = payload.regole.bevanda_obbligatoria
-                ? ' Acqua obbligatoria a parte: ' + payload.regole.max_scelte + ' pietanze + 1 bevanda.'
+                ? ' Acqua obbligatoria nelle ' + payload.regole.max_scelte + ' scelte (minimo ' + (payload.regole.min_scelte || payload.regole.max_scelte) + ').'
                 : '';
             const campoAllergie = document.getElementById('allergie');
             if (document.activeElement !== campoAllergie) {
@@ -515,12 +515,15 @@ header('Content-Type: text/html; charset=utf-8');
 
         function limiteMessaggio(ids) {
             const regole = state.regole;
-            const pietanze = regole.bevanda_obbligatoria
-                ? ids.filter((id) => state.catalogo.get(id)?.categoria !== 'bevanda')
-                : ids;
-            if (pietanze.length > regole.max_scelte) {
+            const minimo = regole.min_scelte || (regole.bevanda_obbligatoria ? regole.max_scelte : 1);
+            const bevande = contaBevande(ids);
+            const pietanze = ids.length - bevande;
+            if (regole.bevanda_obbligatoria && bevande > 1) {
+                return 'L’acqua è una sola e conta nelle ' + regole.max_scelte + ' scelte.';
+            }
+            if (ids.length > regole.max_scelte) {
                 return regole.bevanda_obbligatoria
-                    ? 'Puoi scegliere al massimo ' + regole.max_scelte + ' pietanze. L’acqua è a parte.'
+                    ? 'Puoi scegliere al massimo ' + regole.max_scelte + ' piatti, acqua compresa.'
                     : 'Puoi scegliere al massimo ' + regole.max_scelte + ' piatti per buono pasto.';
             }
             const perPiatto = {};
@@ -550,8 +553,26 @@ header('Content-Type: text/html; charset=utf-8');
                         : 'Sono consentiti al massimo ' + massimo + ' ' + nomi[categoria] + '.';
                 }
             }
-            if (regole.bevanda_obbligatoria && contaBevande(ids) > 1) {
-                return 'L’acqua è una sola, ed è a parte.';
+            return null;
+        }
+
+        function messaggioCompleto(ids) {
+            const regole = state.regole;
+            const minimo = regole.min_scelte || (regole.bevanda_obbligatoria ? regole.max_scelte : 1);
+            const limite = limiteMessaggio(ids);
+            if (limite) {
+                return limite;
+            }
+            if (regole.bevanda_obbligatoria && contaBevande(ids) !== 1) {
+                return 'L’acqua è obbligatoria e conta nelle ' + regole.max_scelte + ' scelte.';
+            }
+            if (regole.bevanda_obbligatoria && contaBevande(ids) === 1 && (ids.length - contaBevande(ids)) < 1) {
+                return 'L’acqua da sola non basta: servono da ' + minimo + ' a ' + regole.max_scelte + ' scelte, acqua compresa.';
+            }
+            if (ids.length > 0 && ids.length < minimo) {
+                return regole.bevanda_obbligatoria
+                    ? 'Servono almeno ' + minimo + ' scelte, acqua compresa.'
+                    : 'Servono almeno ' + minimo + ' piatti per il buono pasto.';
             }
             return null;
         }
@@ -730,12 +751,13 @@ header('Content-Type: text/html; charset=utf-8');
 
             document.getElementById('summary-title').textContent = giorno.etichetta + ' ' + giorno.numero;
             const ids = selezione();
+            const minimo = state.regole.min_scelte || (state.regole.bevanda_obbligatoria ? state.regole.max_scelte : 1);
             const acqua = state.regole.bevanda_obbligatoria
-                ? 'Massimo ' + state.regole.max_scelte + ' pietanze + 1 acqua a parte. '
-                : 'Massimo ' + state.regole.max_scelte + ' scelte. ';
-            const mancaAcqua = state.regole.bevanda_obbligatoria && ids.length > 0 && contaBevande(ids) !== 1;
+                ? 'Da ' + minimo + ' a ' + state.regole.max_scelte + ' scelte, acqua obbligatoria compresa. '
+                : 'Da ' + minimo + ' a ' + state.regole.max_scelte + ' scelte. ';
+            const incompleto = ids.length > 0 ? messaggioCompleto(ids) : null;
             document.getElementById('summary-reason').textContent = giorno.selezionabile
-                ? acqua + (mancaAcqua ? 'Manca l’acqua. ' : '') + 'Oggi chiude alle ' + state.azienda.limite_oggi + ', il giorno prima alle ' + state.azienda.limite_domani + '.'
+                ? acqua + (incompleto ? incompleto + ' ' : '') + 'Oggi chiude alle ' + state.azienda.limite_oggi + ', il giorno prima alle ' + state.azienda.limite_domani + '.'
                 : (giorno.motivo || '');
             document.getElementById('modo-mio').className = 'rounded-2xl border px-3 py-2 font-semibold ' + (state.modo === 'mio' ? 'border-moss bg-moss text-white' : 'border-ink/15');
             document.getElementById('modo-ospite').className = 'rounded-2xl border px-3 py-2 font-semibold ' + (state.modo === 'ospite' ? 'border-moss bg-moss text-white' : 'border-ink/15');
@@ -743,19 +765,12 @@ header('Content-Type: text/html; charset=utf-8');
 
             const pips = document.getElementById('pips');
             pips.replaceChildren();
-            const posti = state.regole.bevanda_obbligatoria
-                ? ids.filter((id) => state.catalogo.get(id)?.categoria !== 'bevanda').length
-                : ids.length;
             for (let i = 0; i < state.regole.max_scelte; i += 1) {
                 const pip = document.createElement('span');
-                pip.className = 'h-2 flex-1 rounded-full ' + (i < posti ? 'bg-terracotta' : 'bg-ink/10');
+                const piena = i < ids.length;
+                const obbligatoria = i < minimo;
+                pip.className = 'h-2 flex-1 rounded-full ' + (piena ? 'bg-terracotta' : (obbligatoria ? 'bg-ink/25' : 'bg-ink/10'));
                 pips.append(pip);
-            }
-            if (state.regole.bevanda_obbligatoria) {
-                const acquaPip = document.createElement('span');
-                acquaPip.className = 'h-2 w-6 rounded-full ' + (contaBevande(ids) === 1 ? 'bg-moss' : 'bg-ink/10');
-                acquaPip.title = 'Acqua';
-                pips.append(acquaPip);
             }
 
             const lines = document.getElementById('summary-lines');
@@ -830,7 +845,8 @@ header('Content-Type: text/html; charset=utf-8');
             const puoOrdinare = state.utente.ruolo === 'dipendente' && giorno.selezionabile && !state.pending;
             submit.hidden = state.utente.ruolo !== 'dipendente';
             cancel.hidden = state.utente.ruolo !== 'dipendente' || !attivo;
-            submit.disabled = !puoOrdinare || ids.length === 0 || oltreWallet || mancaAcqua || !ospitePronto;
+            const vassoioIncompleto = ids.length === 0 || messaggioCompleto(ids) !== null;
+            submit.disabled = !puoOrdinare || vassoioIncompleto || oltreWallet || !ospitePronto;
             cancel.disabled = !puoOrdinare;
             const verbo = state.modo === 'ospite' ? 'ospite' : 'prenotazione';
             submit.textContent = attivo ? 'Aggiorna ' + verbo : 'Conferma ' + verbo;

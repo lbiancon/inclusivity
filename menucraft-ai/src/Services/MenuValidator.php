@@ -72,17 +72,37 @@ final class MenuValidator
         $totale = array_sum($conteggi);
         $bevande = $conteggi[PortataType::Bevanda->value];
         $pietanze = $totale - $bevande;
+        $minimo = $azienda->minimoScelte();
+        $massimo = $azienda->maxScelte;
+
         if ($azienda->bevandaObbligatoria) {
-            if ($pietanze > $azienda->maxScelte) {
+            if ($bevande !== 1) {
                 throw new MenuRuleException(
-                    'LIMITE_SCELTE',
-                    sprintf('Puoi scegliere al massimo %d pietanze. L\'acqua è a parte.', $azienda->maxScelte),
+                    'BEVANDA_OBBLIGATORIA',
+                    sprintf(
+                        'L\'acqua è obbligatoria e conta nelle %d scelte: scegline una sola.',
+                        $massimo,
+                    ),
                 );
             }
-        } elseif ($totale > $azienda->maxScelte) {
+            if ($pietanze < 1) {
+                throw new MenuRuleException(
+                    'SCELTE_INCOMPLETE',
+                    sprintf(
+                        'L\'acqua da sola non basta: servono da %d a %d scelte, acqua compresa.',
+                        $minimo,
+                        $massimo,
+                    ),
+                );
+            }
+        }
+
+        if ($totale > $massimo) {
             throw new MenuRuleException(
                 'LIMITE_SCELTE',
-                sprintf('Puoi scegliere al massimo %d piatti per buono pasto.', $azienda->maxScelte),
+                $azienda->bevandaObbligatoria
+                    ? sprintf('Puoi scegliere al massimo %d piatti, acqua compresa.', $massimo)
+                    : sprintf('Puoi scegliere al massimo %d piatti per buono pasto.', $massimo),
             );
         }
 
@@ -92,13 +112,12 @@ final class MenuValidator
         $this->limitePortata($azienda, PortataType::Frutta, $conteggi[PortataType::Frutta->value], 'LIMITE_FRUTTA', 'frutta', 'frutti');
         $this->limitePortata($azienda, PortataType::Dessert, $conteggi[PortataType::Dessert->value], 'LIMITE_DOLCE', 'dolce', 'dolci');
 
-        if ($azienda->bevandaObbligatoria && $bevande !== 1) {
+        if ($totale < $minimo) {
             throw new MenuRuleException(
-                'BEVANDA_OBBLIGATORIA',
-                sprintf(
-                    'L\'acqua è obbligatoria ed è a parte: al massimo %d pietanze più una bevanda.',
-                    $azienda->maxScelte,
-                ),
+                'SCELTE_INCOMPLETE',
+                $azienda->bevandaObbligatoria
+                    ? sprintf('Servono almeno %d scelte, acqua compresa.', $minimo)
+                    : sprintf('Servono almeno %d piatti per il buono pasto.', $minimo),
             );
         }
     }

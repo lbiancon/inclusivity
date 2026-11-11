@@ -137,8 +137,8 @@ attesaEccezione('LIMITE_SCELTE', fn () => $validator->validaComposizione($aziend
     PortataType::Yogurt,
     PortataType::Bevanda,
 ]), 'sesta scelta');
-$conAcqua = new AziendaConfig(9, 'Acqua', 'acqua', PagamentoType::Welfare, 4, false, false, '09:30:00', '18:00:00', 'intranet', true);
-$ampio = new AziendaConfig(10, 'Ampio', 'ampio', PagamentoType::Dipendente, 4, true, true, '09:30:00', '18:00:00', 'intranet', true, false, 2, 1, 3);
+$conAcqua = new AziendaConfig(9, 'Acqua', 'acqua', PagamentoType::Welfare, 5, false, false, '09:30:00', '18:00:00', 'intranet', true, false, 0, 0, 0, false, false, 0, 0, null, 5);
+$ampio = new AziendaConfig(10, 'Ampio', 'ampio', PagamentoType::Dipendente, 5, true, true, '09:30:00', '18:00:00', 'intranet', true, false, 2, 1, 3);
 $validator->validaComposizione($ampio, [PortataType::Contorno, PortataType::Contorno, PortataType::Contorno, PortataType::Secondo, PortataType::Bevanda]);
 $validator->validaQuantita($ampio, [
     ['id' => 1, 'nome' => 'Patate', 'categoria' => PortataType::Contorno],
@@ -158,6 +158,12 @@ attesaEccezione('LIMITE_PRIMO', fn () => $validator->validaComposizione($ampio, 
 $validator->validaComposizione($conAcqua, [PortataType::Primo, PortataType::Secondo, PortataType::Contorno, PortataType::Frutta, PortataType::Bevanda]);
 attesaEccezione('BEVANDA_OBBLIGATORIA', fn () => $validator->validaComposizione($conAcqua, [PortataType::Primo, PortataType::Secondo]), 'manca l\'acqua');
 attesaEccezione('BEVANDA_OBBLIGATORIA', fn () => $validator->validaComposizione($conAcqua, [PortataType::Bevanda, PortataType::Bevanda]), 'due bevande');
+attesaEccezione('SCELTE_INCOMPLETE', fn () => $validator->validaComposizione($conAcqua, [PortataType::Bevanda]), 'solo acqua non basta');
+attesaEccezione('SCELTE_INCOMPLETE', fn () => $validator->validaComposizione($conAcqua, [
+    PortataType::Primo,
+    PortataType::Secondo,
+    PortataType::Bevanda,
+]), 'sotto il minimo con acqua');
 attesaEccezione('LIMITE_SCELTE', fn () => $validator->validaComposizione($conAcqua, [
     PortataType::Primo,
     PortataType::Secondo,
@@ -165,7 +171,7 @@ attesaEccezione('LIMITE_SCELTE', fn () => $validator->validaComposizione($conAcq
     PortataType::Dessert,
     PortataType::Frutta,
     PortataType::Bevanda,
-]), 'quattro piatti più acqua più un extra');
+]), 'oltre il massimo con acqua');
 verifica($welfare->prezzoApplicato('8.20') === '0.00', 'welfare azzera il prezzo');
 verifica($azienda->prezzoApplicato('8.20') === '8.20', 'dipendente paga il listino');
 
@@ -538,10 +544,16 @@ $pagante = $anagrafica->creaUtente($auroraId, [
     'matricola' => 'ADA',
     'password' => 'MenuCraft!2026',
     'pagamento' => 'pagante',
-    'saldo' => '10,00',
+    'saldo' => '20,00',
 ]);
-$esitoPagante = $ordini->invia((int) $pagante['id'], $auroraId, '2026-11-13', [$idsAurora[3], $idsAurora[7]], $adesso);
-verifica($esitoPagante['ordine']['totale'] === '9.00' && $esitoPagante['saldo'] === '1.00', 'in welfare un pagante usa il listino');
+$esitoPagante = $ordini->invia(
+    (int) $pagante['id'],
+    $auroraId,
+    '2026-11-13',
+    [$idsAurora[0], $idsAurora[2], $idsAurora[4], $idsAurora[6], $idsAurora[7]],
+    $adesso,
+);
+verifica($esitoPagante['ordine']['totale'] === '14.30' && $esitoPagante['saldo'] === '5.70', 'in welfare un pagante usa il listino');
 verifica(count(array_filter(
     $anagrafica->elencoUtenti($rossiId),
     static fn (array $utente): bool => $utente['matricola'] === 'ADA',
@@ -576,7 +588,7 @@ attesaEccezione('SLUG_ESISTENTE', fn () => $anagrafica->creaSocieta([
 $anagrafica->segnalaAllergie($auroraId, $auroraUser, 'Lattosio');
 $pdo->prepare('INSERT INTO portafogli (azienda_id, utente_id, saldo_centesimi) VALUES (?, ?, 2000) ON DUPLICATE KEY UPDATE saldo_centesimi = 2000')
     ->execute([$auroraId, $auroraUser]);
-$ordini->invia($auroraUser, $auroraId, '2026-11-13', [$idsAurora[3], $idsAurora[7]], $adesso);
+$ordini->invia($auroraUser, $auroraId, '2026-11-13', [$idsAurora[0], $idsAurora[2], $idsAurora[4], $idsAurora[6], $idsAurora[7]], $adesso);
 $segnalate = array_values(array_filter(
     (new PrenotazioniAzienda($pdo))->delGiorno($auroraId, '2026-11-13'),
     static fn (array $riga): bool => $riga['matricola'] === 'DIP' && $riga['nota_cucina'] === 'Lattosio' && $riga['ospite'] === false,
@@ -585,10 +597,10 @@ verifica(count($segnalate) === 1, 'la cucina vede l\'allergia sulla prenotazione
 $ruoloPiattaforma = (string) $pdo->query("SELECT u.ruolo FROM utenti u INNER JOIN aziende a ON a.id = u.azienda_id WHERE a.slug = 'menucraft' AND u.matricola = 'ADMIN'")->fetchColumn();
 verifica($ruoloPiattaforma === 'piattaforma', 'operatore del servizio');
 
-$stretta = new AziendaConfig(11, 'Stretta', 'stretta', PagamentoType::Welfare, 4, false, false, '09:30:00', '18:00:00', 'intranet', true);
-attesaEccezione('LIMITE_FRUTTA', fn () => $validator->validaComposizione($stretta, [PortataType::Frutta, PortataType::Frutta, PortataType::Bevanda]), 'una sola frutta');
-attesaEccezione('LIMITE_DOLCE', fn () => $validator->validaComposizione($stretta, [PortataType::Dessert, PortataType::Dessert, PortataType::Bevanda]), 'un solo dolce');
-$aperta = new AziendaConfig(12, 'Aperta', 'aperta', PagamentoType::Welfare, 4, false, false, '09:30:00', '18:00:00', 'intranet', true, false, 0, 0, 0, true, true, 2, 2);
+$stretta = new AziendaConfig(11, 'Stretta', 'stretta', PagamentoType::Welfare, 5, false, false, '09:30:00', '18:00:00', 'intranet', true, false, 0, 0, 0, false, false, 0, 0, null, 3);
+attesaEccezione('LIMITE_FRUTTA', fn () => $validator->validaComposizione($stretta, [PortataType::Primo, PortataType::Frutta, PortataType::Frutta, PortataType::Bevanda]), 'una sola frutta');
+attesaEccezione('LIMITE_DOLCE', fn () => $validator->validaComposizione($stretta, [PortataType::Primo, PortataType::Dessert, PortataType::Dessert, PortataType::Bevanda]), 'un solo dolce');
+$aperta = new AziendaConfig(12, 'Aperta', 'aperta', PagamentoType::Welfare, 5, false, false, '09:30:00', '18:00:00', 'intranet', true, false, 0, 0, 0, true, true, 2, 2, null, 5);
 $validator->validaComposizione($aperta, [PortataType::Frutta, PortataType::Frutta, PortataType::Dessert, PortataType::Dessert, PortataType::Bevanda]);
 $validator->validaQuantita($aperta, [
     ['id' => 1, 'nome' => 'Mela', 'categoria' => PortataType::Frutta],

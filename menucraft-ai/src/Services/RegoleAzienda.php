@@ -23,7 +23,13 @@ final class RegoleAzienda
     {
         $max = filter_var($input['max_scelte'] ?? null, FILTER_VALIDATE_INT);
         if ($max === false || $max < 1 || $max > 10) {
-            throw new MenuRuleException('REGOLA_NON_VALIDA', 'Il numero di scelte deve essere compreso tra 1 e 10.');
+            throw new MenuRuleException('REGOLA_NON_VALIDA', 'Il numero massimo di scelte deve essere compreso tra 1 e 10.');
+        }
+        $min = array_key_exists('min_scelte', $input)
+            ? filter_var($input['min_scelte'], FILTER_VALIDATE_INT)
+            : null;
+        if ($min === false || ($min !== null && ($min < 1 || $min > $max))) {
+            throw new MenuRuleException('REGOLA_NON_VALIDA', 'Il minimo delle scelte deve stare tra 1 e il massimo.');
         }
 
         $oggi = $this->orario((string) ($input['limite_oggi'] ?? ''), 'L\'orario di chiusura di oggi non è valido.');
@@ -38,6 +44,9 @@ final class RegoleAzienda
         $bevanda = array_key_exists('bevanda_obbligatoria', $input)
             ? ($this->flag($input['bevanda_obbligatoria']) ? 1 : 0)
             : ($attuale->bevandaObbligatoria ? 1 : 0);
+        if ($min === null) {
+            $min = $bevanda === 1 ? $max : max(1, $attuale->minimoScelte());
+        }
         $doppioPrimo = array_key_exists('permetti_doppio_primo', $input)
             ? ($this->flag($input['permetti_doppio_primo']) ? 1 : 0)
             : ($attuale->permettiDoppioPrimo ? 1 : 0);
@@ -72,6 +81,7 @@ final class RegoleAzienda
         $stmt = $this->pdo->prepare(
             'UPDATE aziende
              SET max_scelte = :max,
+                 min_scelte = :min,
                  permetti_doppio_primo = :primo,
                  permetti_doppio_secondo = :secondo,
                  permetti_doppio_contorno = :contorno,
@@ -91,6 +101,7 @@ final class RegoleAzienda
         );
         $stmt->execute([
             'max' => $max,
+            'min' => $min,
             'primo' => $doppioPrimo,
             'secondo' => $doppioSecondo,
             'contorno' => $doppioContorno,

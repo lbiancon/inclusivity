@@ -63,7 +63,7 @@ final class AuthService
 
             $stmt = $this->pdo->prepare(
                 'SELECT u.id, u.azienda_id, u.matricola, u.nome, u.password_hash, u.ruolo,
-                        a.nome AS azienda_nome, a.slug, a.tipo_pagamento, a.max_scelte,
+                        a.nome AS azienda_nome, a.slug, a.tipo_pagamento, a.max_scelte, a.min_scelte,
                         a.permetti_doppio_primo, a.permetti_doppio_contorno, a.permetti_doppio_secondo,
                         a.permetti_doppio_frutta, a.permetti_doppio_dessert,
                         a.max_primo, a.max_secondo, a.max_contorno, a.max_frutta, a.max_dessert, a.logo,
@@ -122,6 +122,7 @@ final class AuthService
             'slug' => $utente['slug'],
             'tipo_pagamento' => $utente['tipo_pagamento'],
             'max_scelte' => $utente['max_scelte'],
+            'min_scelte' => $utente['min_scelte'] ?? 0,
             'permetti_doppio_primo' => $utente['permetti_doppio_primo'],
             'permetti_doppio_contorno' => $utente['permetti_doppio_contorno'],
             'permetti_doppio_secondo' => $utente['permetti_doppio_secondo'] ?? 0,

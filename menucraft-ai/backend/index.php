@@ -139,7 +139,10 @@ header('Content-Type: text/html; charset=utf-8');
                 <section class="rounded-3xl border border-[#d5cbb8] bg-white p-5">
                     <h2 class="font-serif text-3xl uppercase">Regole del vassoio</h2>
                     <div class="mt-4 grid gap-3 sm:grid-cols-2">
-                        <label class="text-sm font-semibold">Pietanze massime, acqua a parte
+                        <label class="text-sm font-semibold">Minimo scelte, acqua inclusa se obbligatoria
+                            <input id="regola-min" name="min_scelte" type="number" min="1" max="10" required class="mt-1 w-full rounded-xl border border-ink/15 bg-cream px-3 py-2">
+                        </label>
+                        <label class="text-sm font-semibold">Massimo scelte, acqua inclusa se obbligatoria
                             <input id="regola-max" name="max_scelte" type="number" min="1" max="10" required class="mt-1 w-full rounded-xl border border-ink/15 bg-cream px-3 py-2">
                         </label>
                         <label class="text-sm font-semibold">Chiusura di oggi, solo intranet
@@ -148,7 +151,7 @@ header('Content-Type: text/html; charset=utf-8');
                         <label class="text-sm font-semibold">Blocco del giorno prima
                             <input id="regola-domani" name="limite_domani" type="time" required class="mt-1 w-full rounded-xl border border-ink/15 bg-cream px-3 py-2">
                         </label>
-                        <label class="flex items-center gap-2 text-sm"><input id="regola-bevanda" type="checkbox"> Acqua obbligatoria, a parte</label>
+                        <label class="flex items-center gap-2 text-sm sm:col-span-2"><input id="regola-bevanda" type="checkbox"> Acqua obbligatoria e conta nelle scelte</label>
                     </div>
                     <div class="mt-4 overflow-x-auto">
                         <table class="w-full text-left text-sm">
@@ -188,7 +191,7 @@ header('Content-Type: text/html; charset=utf-8');
                             </tbody>
                         </table>
                     </div>
-                    <p class="mt-3 text-sm text-ink/60">Il numero è quante porzioni di quella portata entrano nel vassoio. La casella consente due volte lo stesso piatto. Un clic su un piatto già scelto, se non c’è posto per un’altra porzione, lo toglie.</p>
+                    <p class="mt-3 text-sm text-ink/60">Con acqua obbligatoria, minimo e massimo valgono acqua inclusa: per il gestore senza pagamento al bancone di solito sono 5 e 5. L’acqua da sola non chiude il buono. Nella tabella, il numero è quante porzioni di quella portata entrano; la casella consente due volte lo stesso piatto.</p>
                     <div class="mt-4 grid gap-3 sm:grid-cols-2 text-sm">
                         <label class="rounded-2xl border border-ink/10 bg-cream p-4">
                             <input id="paga-azienda" name="tipo_pagamento" type="radio" value="welfare" class="mr-2"> A carico dell’azienda
@@ -271,8 +274,10 @@ header('Content-Type: text/html; charset=utf-8');
                     <label class="text-sm font-semibold">Pagamento
                         <select id="utente-pagamento" class="mt-1 w-full rounded-xl border border-ink/15 bg-cream px-3 py-2">
                             <option value="eredita">Eredita dall’azienda</option>
+                            <option value="busta">Impiegato · scala in busta paga</option>
+                            <option value="buono">Operaio · paga con buono</option>
+                            <option value="pagante">Pagante con wallet</option>
                             <option value="welfare">Sempre a carico azienda</option>
-                            <option value="pagante">Sempre pagante</option>
                         </select>
                     </label>
                     <label class="text-sm font-semibold">Saldo iniziale, se paga
@@ -347,6 +352,7 @@ header('Content-Type: text/html; charset=utf-8');
             state.azienda = payload.azienda;
             document.getElementById('azienda-nome').textContent = payload.azienda.nome;
             document.getElementById('regola-max').value = payload.azienda.max_scelte;
+            document.getElementById('regola-min').value = payload.azienda.min_scelte;
             document.getElementById('regola-oggi').value = payload.azienda.limite_oggi;
             document.getElementById('regola-domani').value = payload.azienda.limite_domani;
             document.getElementById('regola-primo').checked = payload.azienda.permetti_doppio_primo === true;
@@ -377,11 +383,14 @@ header('Content-Type: text/html; charset=utf-8');
         }
 
         function etichettaPagamento(valore) {
-            if (valore === 'welfare') {
-                return 'a carico azienda';
+            if (valore === 'welfare' || valore === 'busta') {
+                return 'impiegato · busta paga';
+            }
+            if (valore === 'buono') {
+                return 'operaio · buono';
             }
             if (valore === 'pagante' || valore === 'dipendente') {
-                return 'pagante';
+                return 'pagante · wallet';
             }
             return 'eredita dall’azienda';
         }
@@ -591,6 +600,7 @@ header('Content-Type: text/html; charset=utf-8');
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         max_scelte: Number(document.getElementById('regola-max').value),
+                        min_scelte: Number(document.getElementById('regola-min').value),
                         limite_oggi: document.getElementById('regola-oggi').value,
                         limite_domani: document.getElementById('regola-domani').value,
                         permetti_doppio_primo: document.getElementById('regola-primo').checked,

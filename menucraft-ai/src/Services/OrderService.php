@@ -53,19 +53,20 @@ final class OrderService
             $this->validator->validaCutoff($azienda, $dataPasto, $now);
 
             $ordine = $this->bloccaOrdine($azienda->id, $utenteId, $dataPasto, $ospite);
-            $tetto = $azienda->maxScelte + ($azienda->bevandaObbligatoria ? 1 : 0);
-            $ids = $this->validator->normalizzaIdPiatti($piattoIds, $tetto);
+            $ids = $this->validator->normalizzaIdPiatti($piattoIds, $azienda->maxScelte);
             if ($ospite && $ids !== []) {
                 $ospiteNome = $this->nomeOspite($ospiteNome);
                 if (!in_array($aCarico, ['azienda', 'dipendente'], true)) {
                     throw new MenuRuleException('OSPITE_NON_VALIDO', 'Indica se l\'ospite è a carico dell\'azienda o del dipendente.');
                 }
             }
-            $pagaDiTasca = $this->pagamentoEffettivo($azienda, $utente['pagamento']) === 'dipendente';
+            $modoPagamento = $this->pagamentoEffettivo($azienda, $utente['pagamento']);
+            $pagaDiTasca = $modoPagamento === 'dipendente';
+            $conBuono = $modoPagamento === 'buono';
             $aCaricoSalvato = $ospite
                 ? $aCarico
-                : ($pagaDiTasca ? 'dipendente' : 'azienda');
-            $mostraSaldo = $pagaDiTasca || $aCaricoSalvato === 'dipendente';
+                : ($pagaDiTasca || $conBuono ? 'dipendente' : 'azienda');
+            $mostraSaldo = $pagaDiTasca || ($aCaricoSalvato === 'dipendente' && !$conBuono);
 
             if ($ids === []) {
                 $risultato = $this->annulla($azienda, $utenteId, $ordine, $ospite);
@@ -89,6 +90,7 @@ final class OrderService
                     $ospite ? $ospiteNome : null,
                     $aCaricoSalvato,
                     $utente['allergie'],
+                    $conBuono && !$ospite,
                 );
             }
 
@@ -193,8 +195,9 @@ final class OrderService
     private function pagamentoEffettivo(AziendaConfig $azienda, string $pagamento): string
     {
         return match ($pagamento) {
-            'welfare' => 'welfare',
+            'welfare', 'busta' => 'welfare',
             'pagante' => 'dipendente',
+            'buono' => 'buono',
             default => $azienda->tipoPagamento->value,
         };
     }
@@ -255,12 +258,16 @@ final class OrderService
         ?string $ospiteNome,
         string $aCarico,
         ?string $notaCucina,
+        bool $conBuono = false,
     ): array {
-        $addebita = $aCarico === 'dipendente';
+        $addebita = $aCarico === 'dipendente' && !$conBuono;
         $nuovo = 0;
         $voci = [];
         foreach ($piatti as $piatto) {
-            $prezzo = $addebita ? Money::normalizza($piatto['prezzo']) : '0.00';
+            $prezzo = ($addebita || $conBuono) ? Money::normalizza($piatto['prezzo']) : '0.00';
+            if ($conBuono) {
+                $prezzo = '0.00';
+            }
             $nuovo += Money::euroToCentesimi($prezzo);
             $voci[] = [
                 'id' => $piatto['id'],
@@ -274,7 +281,9 @@ final class OrderService
         $precedente = ($ordine !== null && $ordine['a_carico'] === 'dipendente')
             ? Money::euroToCentesimi($ordine['totale'])
             : 0;
-        $this->muoviWallet($azienda->id, $utenteId, ($addebita ? $nuovo : 0) - $precedente);
+        if (!$conBuono) {
+            $this->muoviWallet($azienda->id, $utenteId, ($addebita ? $nuovo : 0) - $precedente);
+        }
 
         $totale = Money::formatta($nuovo);
         $istante = $now->format('Y-m-d H:i:s');

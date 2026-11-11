@@ -74,6 +74,7 @@ final class BookingBoard
             'azienda' => $azienda->toArray(),
             'regole' => [
                 'max_scelte' => $azienda->maxScelte,
+                'min_scelte' => $azienda->minimoScelte(),
                 'max_primo' => $azienda->maxPerCategoria(PortataType::Primo),
                 'max_secondo' => $azienda->maxPerCategoria(PortataType::Secondo),
                 'max_contorno' => $azienda->maxPerCategoria(PortataType::Contorno),
@@ -257,8 +258,9 @@ final class BookingBoard
         $pagamento = (string) $stmt->fetchColumn();
 
         return match ($pagamento) {
-            'welfare' => 'welfare',
+            'welfare', 'busta' => 'welfare',
             'pagante' => 'dipendente',
+            'buono' => 'buono',
             default => $azienda->tipoPagamento->value,
         };
     }

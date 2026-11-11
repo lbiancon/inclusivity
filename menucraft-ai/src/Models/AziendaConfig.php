@@ -38,6 +38,7 @@ readonly class AziendaConfig
         public int $maxFrutta = 0,
         public int $maxDessert = 0,
         public ?string $logo = null,
+        public int $minScelte = 0,
     ) {
         if ($this->id < 1) {
             throw new \InvalidArgumentException('Identificativo azienda non valido.');
@@ -45,9 +46,21 @@ readonly class AziendaConfig
         if ($this->maxScelte < 1 || $this->maxScelte > 10) {
             throw new \InvalidArgumentException('Il numero massimo di scelte deve essere compreso tra 1 e 10.');
         }
+        if ($this->minScelte !== 0 && ($this->minScelte < 1 || $this->minScelte > $this->maxScelte)) {
+            throw new \InvalidArgumentException('Il numero minimo di scelte deve essere compreso tra 1 e il massimo.');
+        }
         if (!in_array($this->modalita, ['intranet', 'internet'], true)) {
             throw new \InvalidArgumentException('Modalità azienda non valida.');
         }
+    }
+
+    public function minimoScelte(): int
+    {
+        if ($this->minScelte >= 1) {
+            return $this->minScelte;
+        }
+
+        return $this->bevandaObbligatoria ? $this->maxScelte : 1;
     }
 
     /** @param array<string, mixed> $riga */
@@ -74,13 +87,14 @@ readonly class AziendaConfig
             maxFrutta: (int) ($riga['max_frutta'] ?? 0),
             maxDessert: (int) ($riga['max_dessert'] ?? 0),
             logo: isset($riga['logo']) && is_string($riga['logo']) && $riga['logo'] !== '' ? $riga['logo'] : null,
+            minScelte: (int) ($riga['min_scelte'] ?? 0),
         );
     }
 
     public static function trova(PDO $pdo, int $aziendaId): self
     {
         $stmt = $pdo->prepare(
-            'SELECT id, nome, slug, tipo_pagamento, max_scelte, permetti_doppio_primo,
+            'SELECT id, nome, slug, tipo_pagamento, max_scelte, min_scelte, permetti_doppio_primo,
                     permetti_doppio_contorno, permetti_doppio_secondo, permetti_doppio_frutta, permetti_doppio_dessert,
                     max_primo, max_secondo, max_contorno, max_frutta, max_dessert, logo,
                     limite_oggi, limite_domani, modalita, bevanda_obbligatoria
@@ -155,6 +169,7 @@ readonly class AziendaConfig
             'tipo_pagamento' => $this->tipoPagamento->value,
             'tipo_pagamento_etichetta' => $this->tipoPagamento->etichetta(),
             'max_scelte' => $this->maxScelte,
+            'min_scelte' => $this->minimoScelte(),
             'permetti_doppio_primo' => $this->permettiDoppioPrimo,
             'permetti_doppio_secondo' => $this->permettiDoppioSecondo,
             'permetti_doppio_contorno' => $this->permettiDoppioContorno,

@@ -66,9 +66,9 @@ final class Anagrafica
 
             $insert = $this->pdo->prepare(
                 'INSERT INTO aziende
-                    (nome, slug, tipo_pagamento, max_scelte, permetti_doppio_primo, permetti_doppio_contorno,
+                    (nome, slug, tipo_pagamento, max_scelte, min_scelte, permetti_doppio_primo, permetti_doppio_contorno,
                      limite_oggi, limite_domani, modalita, bevanda_obbligatoria, max_primo, max_secondo, max_contorno)
-                 VALUES (:nome, :slug, :pagamento, 4, 0, 0, :oggi, :domani, :modalita, 1, 1, 1, 1)'
+                 VALUES (:nome, :slug, :pagamento, 5, 5, 0, 0, :oggi, :domani, :modalita, 1, 1, 1, 1)'
             );
             $insert->execute([
                 'nome' => $nome,
@@ -148,8 +148,9 @@ final class Anagrafica
         $password = $this->password((string) ($input['password'] ?? ''));
         $pagamento = $this->pagamentoUtente($input['pagamento'] ?? 'eredita');
         $effettivo = match ($pagamento) {
-            'welfare' => 'welfare',
+            'welfare', 'busta' => 'welfare',
             'pagante' => 'dipendente',
+            'buono' => 'buono',
             default => (string) $azienda['tipo_pagamento'],
         };
         $saldo = $effettivo === 'dipendente' ? $this->saldo($input['saldo'] ?? '0') : null;
@@ -437,8 +438,11 @@ final class Anagrafica
     private function pagamentoUtente(mixed $valore): string
     {
         $pagamento = strtolower(trim((string) $valore));
-        if (!in_array($pagamento, ['eredita', 'welfare', 'pagante'], true)) {
-            throw new MenuRuleException('REGOLA_NON_VALIDA', 'Il pagamento della persona è eredita, a carico azienda o pagante.');
+        if (!in_array($pagamento, ['eredita', 'welfare', 'busta', 'pagante', 'buono'], true)) {
+            throw new MenuRuleException(
+                'REGOLA_NON_VALIDA',
+                'Il pagamento è eredita, impiegato a busta, operaio con buono, o pagante con wallet.',
+            );
         }
 
         return $pagamento;

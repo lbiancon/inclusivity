@@ -50,6 +50,7 @@ final class Installer
         $this->assicuraPorzioni();
         $this->assicuraAllergie();
         $this->assicuraScelteELogo();
+        $this->assicuraMinScelteEPagamenti();
         $this->semeFestivita();
         $conteggio = (int) $this->pdo->query('SELECT COUNT(*) FROM aziende')->fetchColumn();
         if ($conteggio === 0) {
@@ -78,6 +79,7 @@ final class Installer
                 slug VARCHAR(60) NOT NULL,
                 tipo_pagamento VARCHAR(20) NOT NULL,
                 max_scelte TINYINT UNSIGNED NOT NULL DEFAULT 5,
+                min_scelte TINYINT UNSIGNED NOT NULL DEFAULT 5,
                 permetti_doppio_primo TINYINT(1) NOT NULL DEFAULT 0,
                 permetti_doppio_secondo TINYINT(1) NOT NULL DEFAULT 0,
                 permetti_doppio_contorno TINYINT(1) NOT NULL DEFAULT 0,
@@ -114,7 +116,7 @@ final class Installer
                 KEY idx_utenti_azienda (azienda_id),
                 CONSTRAINT fk_utenti_azienda FOREIGN KEY (azienda_id) REFERENCES aziende (id) ON DELETE CASCADE,
                 CONSTRAINT chk_ruolo CHECK (ruolo IN (\'dipendente\', \'caterer\', \'piattaforma\')),
-                CONSTRAINT chk_pagamento_utente CHECK (pagamento IN (\'eredita\', \'welfare\', \'pagante\'))
+                CONSTRAINT chk_pagamento_utente CHECK (pagamento IN (\'eredita\', \'welfare\', \'busta\', \'pagante\', \'buono\'))
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci',
 
             'CREATE TABLE IF NOT EXISTS piatti (
@@ -396,6 +398,45 @@ final class Installer
         }
     }
 
+    private function assicuraMinScelteEPagamenti(): void
+    {
+        if (!$this->haColonna('aziende', 'min_scelte')) {
+            $this->pdo->exec(
+                'ALTER TABLE aziende ADD COLUMN min_scelte TINYINT UNSIGNED NOT NULL DEFAULT 1 AFTER max_scelte'
+            );
+            $this->pdo->exec(
+                'UPDATE aziende
+                 SET min_scelte = 5,
+                     max_scelte = 5
+                 WHERE bevanda_obbligatoria = 1 AND max_scelte = 4'
+            );
+            $this->pdo->exec(
+                'UPDATE aziende
+                 SET min_scelte = max_scelte
+                 WHERE bevanda_obbligatoria = 1 AND min_scelte < max_scelte'
+            );
+            $this->pdo->exec(
+                'UPDATE aziende
+                 SET min_scelte = 1
+                 WHERE bevanda_obbligatoria = 0 AND min_scelte = 1'
+            );
+        }
+        try {
+            $this->pdo->exec('ALTER TABLE utenti DROP CHECK chk_pagamento_utente');
+        } catch (\Throwable) {
+            // La versione già aggiornata, o senza nome del vincolo, va avanti.
+        }
+        try {
+            $this->pdo->exec(
+                "ALTER TABLE utenti
+                 ADD CONSTRAINT chk_pagamento_utente
+                 CHECK (pagamento IN ('eredita', 'welfare', 'busta', 'pagante', 'buono'))"
+            );
+        } catch (\Throwable) {
+            // Vincolo già presente.
+        }
+    }
+
     private function assicuraAllergie(): void
     {
         if (!$this->haColonna('utenti', 'allergie')) {
@@ -507,7 +548,7 @@ final class Installer
             'Aurora Welfare',
             'aurora-welfare',
             'welfare',
-            4,
+            5,
             false,
             false,
         );
@@ -515,7 +556,7 @@ final class Installer
             'Officine Rossi',
             'officine-rossi',
             'dipendente',
-            4,
+            5,
             true,
             true,
             'internet',
@@ -558,15 +599,16 @@ final class Installer
     ): int {
         $stmt = $this->pdo->prepare(
             'INSERT INTO aziende
-                (nome, slug, tipo_pagamento, max_scelte, permetti_doppio_primo, permetti_doppio_contorno,
+                (nome, slug, tipo_pagamento, max_scelte, min_scelte, permetti_doppio_primo, permetti_doppio_contorno,
                  max_primo, max_secondo, max_contorno, limite_oggi, limite_domani, modalita, bevanda_obbligatoria)
-             VALUES (:nome, :slug, :pagamento, :max, :primo, :contorno, :max_primo, 1, :max_contorno, :oggi, :domani, :modalita, 1)'
+             VALUES (:nome, :slug, :pagamento, :max, :min, :primo, :contorno, :max_primo, 1, :max_contorno, :oggi, :domani, :modalita, 1)'
         );
         $stmt->execute([
             'nome' => $nome,
             'slug' => $slug,
             'pagamento' => $pagamento,
             'max' => $maxScelte,
+            'min' => $maxScelte,
             'primo' => $doppioPrimo ? 1 : 0,
             'contorno' => $doppioContorno ? 1 : 0,
             'max_primo' => $doppioPrimo ? 2 : 1,
