@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace MenuCraft\Services;
 
+use MenuCraft\Enums\PortataType;
+use MenuCraft\Support\LetteraPasto;
 use PDO;
 
 if (!defined('MENUCRAFT_APP')) {
@@ -34,13 +36,28 @@ final class StoricoPrenotazioni
         if ($testate === []) {
             return [];
         }
+        $lettere = new LetteraPasto();
+        $giorni = [];
+        foreach ($testate as $testata) {
+            $giorni[(string) $testata['data_pasto']] = true;
+        }
+        foreach (array_keys($giorni) as $giorno) {
+            $lettere->assegna($this->pdo, $aziendaId, $giorno);
+        }
 
         $segnaposto = implode(', ', array_fill(0, count($testate), '?'));
         $righe = $this->pdo->prepare(
-            'SELECT ordine_id, nome, categoria, prezzo_applicato
-             FROM ordine_righe
-             WHERE azienda_id = ? AND ordine_id IN (' . $segnaposto . ')
-             ORDER BY id'
+            'SELECT r.ordine_id, r.nome, r.categoria, r.prezzo_applicato, v.lettera
+             FROM ordine_righe r
+             INNER JOIN ordini o
+                ON o.id = r.ordine_id
+               AND o.azienda_id = r.azienda_id
+             LEFT JOIN menu_voci v
+                ON v.azienda_id = r.azienda_id
+               AND v.data_pasto = o.data_pasto
+               AND v.piatto_id = r.piatto_id
+             WHERE r.azienda_id = ? AND r.ordine_id IN (' . $segnaposto . ')
+             ORDER BY r.id'
         );
         $parametri = [$aziendaId];
         foreach ($testate as $testata) {
@@ -50,9 +67,12 @@ final class StoricoPrenotazioni
 
         $perOrdine = [];
         foreach ($righe->fetchAll() as $riga) {
+            $categoria = (string) $riga['categoria'];
             $perOrdine[(int) $riga['ordine_id']][] = [
                 'nome' => (string) $riga['nome'],
-                'categoria' => (string) $riga['categoria'],
+                'categoria' => $categoria,
+                'fascia' => PortataType::tryFrom($categoria)?->fascia() ?? 'gialla',
+                'lettera' => $riga['lettera'] !== null ? (string) $riga['lettera'] : '',
                 'prezzo' => (string) $riga['prezzo_applicato'],
             ];
         }

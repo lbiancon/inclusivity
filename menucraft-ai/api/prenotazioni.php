@@ -19,10 +19,14 @@ JsonResponse::guard(static function (): void {
     $utente = $auth->richiediRuoli(['caterer', 'piattaforma']);
     $aziendaId = $auth->aziendaOperativa($utente, $_GET);
 
+    $servizio = new PrenotazioniAzienda($pdo);
+    $prenotazioni = $servizio->delGiorno($aziendaId, (string) ($_GET['data'] ?? ''));
     JsonResponse::send(200, [
         'ok' => true,
         'csrf' => $utente['csrf'],
         'data' => (string) ($_GET['data'] ?? ''),
-        'prenotazioni' => (new PrenotazioniAzienda($pdo))->delGiorno($aziendaId, (string) ($_GET['data'] ?? '')),
+        'totale' => count($prenotazioni),
+        'conteggi' => $servizio->conteggi($prenotazioni),
+        'prenotazioni' => $prenotazioni,
     ]);
 });

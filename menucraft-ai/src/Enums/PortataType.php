@@ -32,6 +32,15 @@ enum PortataType: string
         };
     }
 
+    public function fascia(): string
+    {
+        return match ($this) {
+            self::Primo, self::Secondo => 'verde',
+            self::Bevanda => 'azzurra',
+            default => 'gialla',
+        };
+    }
+
     public function ordine(): int
     {
         return match ($this) {

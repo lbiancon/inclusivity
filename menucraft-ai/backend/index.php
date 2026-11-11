@@ -15,6 +15,13 @@ header('Content-Type: text/html; charset=utf-8');
     <link rel="stylesheet" href="../assets/app.css">
     <style>
         [hidden] { display: none !important; }
+        .fascia-verde { background: #d9f2c7; }
+        .fascia-gialla { background: #fff3b0; }
+        .fascia-azzurra { background: #b7f0f6; }
+        .lettera { display: inline-flex; min-width: 1.7rem; align-items: center; justify-content: center; border-radius: 0.4rem; padding: 0.05rem 0.35rem; font-weight: 700; }
+        .lettera-verde { background: #8dce78; }
+        .lettera-gialla { background: #ffe56a; }
+        .lettera-azzurra { background: #67dff0; }
         body { font-family: "Source Sans 3", ui-sans-serif, sans-serif; background: #efe6d2; color: #1d2420; }
         h1, h2, .font-serif { font-family: "Barlow Condensed", Impact, sans-serif; }
         .counter { background: #1d4a38; color: #f6f3ea; }
@@ -282,7 +289,8 @@ header('Content-Type: text/html; charset=utf-8');
             </section>
             <section data-pannello="cucina" hidden class="rounded-3xl border border-[#d5cbb8] bg-white p-5">
                 <h2 class="font-serif text-3xl uppercase">Prenotazioni del giorno</h2>
-                <p class="mt-2 text-sm text-ink/70">Tutti i buoni di questa azienda, ospiti compresi. È da qui che la cucina vede gli ordini, prima di scaricare il file.</p>
+                <p class="mt-2 text-sm text-ink/70">I parziali per lettera sono quello che prepara la cucina: prima tutti gli A, poi i B. Il file scaricato ha gli stessi conteggi e una riga per persona con le lettere.</p>
+                <div id="conteggi-cucina" class="mt-4 flex flex-wrap gap-2 text-sm"></div>
                 <ul id="prenotazioni-elenco" class="mt-4 space-y-2 text-sm"></ul>
             </section>
             </div>
@@ -462,14 +470,53 @@ header('Content-Type: text/html; charset=utf-8');
             }
             const payload = await api(API + 'prenotazioni.php?data=' + encodeURIComponent(data));
             state.csrf = payload.csrf;
+            const conteggi = document.getElementById('conteggi-cucina');
+            conteggi.replaceChildren();
+            const totale = document.createElement('span');
+            totale.className = 'rounded-full bg-ink px-3 py-1 font-semibold text-white';
+            totale.textContent = 'Totale ' + payload.totale;
+            conteggi.append(totale);
+            payload.conteggi.forEach((voce) => {
+                const chip = document.createElement('span');
+                chip.className = 'inline-flex items-center gap-2 rounded-full px-3 py-1 fascia-' + (voce.fascia || 'gialla');
+                const lettera = document.createElement('span');
+                lettera.className = 'lettera lettera-' + (voce.fascia || 'gialla');
+                lettera.textContent = voce.lettera || '–';
+                const testo = document.createElement('span');
+                testo.textContent = voce.nome + ' · ' + voce.porzioni;
+                chip.append(lettera, testo);
+                conteggi.append(chip);
+            });
             const righe = payload.prenotazioni.map((voce) => {
                 const item = document.createElement('li');
                 item.className = 'rounded-2xl bg-cream px-4 py-3';
+                const titolo = document.createElement('p');
+                titolo.className = 'font-semibold';
                 const chi = voce.ospite ? 'Ospite ' + (voce.ospite_nome || '') : voce.nome;
-                const piatti = voce.piatti.map((piatto) => piatto.nome).join(', ');
                 const carico = voce.a_carico === 'dipendente' ? 'paga il dipendente' : 'a carico azienda';
                 const allergia = voce.nota_cucina ? ' · ATTENZIONE ' + voce.nota_cucina : '';
-                item.textContent = voce.matricola + ' · ' + chi + ' · ' + piatti + ' · ' + carico + ' · ' + String(voce.totale).replace('.', ',') + ' €' + allergia;
+                titolo.textContent = voce.matricola + ' · ' + chi + ' · ' + carico + ' · ' + String(voce.totale).replace('.', ',') + ' €' + allergia;
+                const piatti = document.createElement('div');
+                piatti.className = 'mt-2 flex flex-wrap gap-2';
+                const visti = new Map();
+                voce.piatti.forEach((piatto) => {
+                    const chiave = (piatto.lettera || piatto.nome);
+                    const attuale = visti.get(chiave) || { ...piatto, quantita: 0 };
+                    attuale.quantita += 1;
+                    visti.set(chiave, attuale);
+                });
+                visti.forEach((piatto) => {
+                    const riga = document.createElement('span');
+                    riga.className = 'inline-flex items-center gap-2 rounded-full px-2 py-1 fascia-' + (piatto.fascia || 'gialla');
+                    const lettera = document.createElement('span');
+                    lettera.className = 'lettera lettera-' + (piatto.fascia || 'gialla');
+                    lettera.textContent = piatto.lettera ? (piatto.quantita > 1 ? piatto.lettera + 'x' + piatto.quantita : piatto.lettera) : '–';
+                    const nome = document.createElement('span');
+                    nome.textContent = piatto.nome;
+                    riga.append(lettera, nome);
+                    piatti.append(riga);
+                });
+                item.append(titolo, piatti);
                 return item;
             });
             disegnaVoci(lista, 'Nessuna prenotazione in questo giorno.', righe);

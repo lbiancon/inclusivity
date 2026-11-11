@@ -23,7 +23,16 @@ header('Content-Type: text/html; charset=utf-8');
             width: min(24rem, calc(100% - 2rem));
             box-shadow: 0 12px 30px rgba(29, 36, 32, 0.18);
         }
-        .portata-primo { background: #f6d7c8; }
+        .fascia-verde { background: #d9f2c7; }
+        .fascia-gialla { background: #fff3b0; }
+        .fascia-azzurra { background: #b7f0f6; }
+        .fascia-verde .dish .code { background: #8dce78; color: #1d2420; }
+        .fascia-gialla .dish .code { background: #ffe56a; color: #1d2420; }
+        .fascia-azzurra .dish .code { background: #67dff0; color: #1d2420; }
+        .lettera { display: inline-flex; min-width: 1.7rem; align-items: center; justify-content: center; border-radius: 0.4rem; padding: 0.05rem 0.35rem; font-weight: 700; }
+        .lettera-verde { background: #8dce78; }
+        .lettera-gialla { background: #ffe56a; }
+        .lettera-azzurra { background: #67dff0; }
         body { font-family: "Source Sans 3", ui-sans-serif, sans-serif; background: #efe6d2; color: #1d2420; }
         h1, h2, h3, .font-serif { font-family: "Barlow Condensed", Impact, sans-serif; letter-spacing: 0.01em; }
         .counter { background: #1d4a38; color: #f6f3ea; }
@@ -44,8 +53,7 @@ header('Content-Type: text/html; charset=utf-8');
             text-align: center;
             letter-spacing: 0.04em;
         }
-        .dish.is-on { background: #e7f3ec; border-color: #1d4a38; }
-        .dish.is-on .code { background: #b6402c; }
+        .dish.is-on { background: rgba(255, 255, 255, 0.72); box-shadow: inset 0 0 0 2px #1d2420; }
     </style>
 </head>
 <body class="min-h-screen bg-cream text-ink font-sans antialiased">
@@ -136,7 +144,8 @@ header('Content-Type: text/html; charset=utf-8');
                 </div>
                 <section id="pannello-storico" hidden class="rounded-3xl border border-[#d5cbb8] bg-white p-5">
                     <h2 class="font-serif text-3xl uppercase">Le tue prenotazioni</h2>
-                    <ul id="storico" class="mt-4 space-y-3 text-sm"></ul>
+                    <div id="storico-conteggi" class="mt-4 flex flex-wrap gap-2 text-sm"></div>
+                <ul id="storico" class="mt-4 space-y-3 text-sm"></ul>
                 </section>
             </section>
             <aside class="scontrino h-fit rounded-[2rem] p-5 lg:sticky lg:top-24">
@@ -320,9 +329,56 @@ header('Content-Type: text/html; charset=utf-8');
             await caricaStorico();
         }
 
+        function fasciaDi(categoria) {
+            if (categoria === 'primo' || categoria === 'secondo') {
+                return 'verde';
+            }
+            if (categoria === 'bevanda') {
+                return 'azzurra';
+            }
+            return 'gialla';
+        }
+
+        function etichettaScelta(lettera, quantita) {
+            if (!lettera) {
+                return '';
+            }
+            return quantita > 1 ? lettera + 'x' + quantita : lettera;
+        }
+
+        function chipLettera(lettera, categoria, quantita) {
+            const chip = document.createElement('span');
+            chip.className = 'lettera lettera-' + fasciaDi(categoria);
+            chip.textContent = etichettaScelta(lettera, quantita) || '–';
+            return chip;
+        }
+
+        function disegnaConteggi(contenitore, piatti, totaleBuoni) {
+            contenitore.replaceChildren();
+            const totale = document.createElement('span');
+            totale.className = 'rounded-full bg-ink px-3 py-1 font-semibold text-white';
+            totale.textContent = 'Totale ' + totaleBuoni;
+            contenitore.append(totale);
+            const gruppi = new Map();
+            piatti.forEach((piatto) => {
+                const chiave = (piatto.lettera || '?') + '|' + piatto.nome;
+                const voce = gruppi.get(chiave) || { lettera: piatto.lettera || '', nome: piatto.nome, categoria: piatto.categoria, porzioni: 0 };
+                voce.porzioni += 1;
+                gruppi.set(chiave, voce);
+            });
+            [...gruppi.values()].sort((a, b) => a.lettera.localeCompare(b.lettera)).forEach((voce) => {
+                const chip = document.createElement('span');
+                chip.className = 'inline-flex items-center gap-2 rounded-full px-3 py-1 fascia-' + fasciaDi(voce.categoria);
+                chip.textContent = (voce.lettera || '–') + ' ' + voce.nome + ' · ' + voce.porzioni;
+                contenitore.append(chip);
+            });
+        }
+
         async function caricaStorico() {
             const lista = document.getElementById('storico');
+            const conteggi = document.getElementById('storico-conteggi');
             lista.replaceChildren();
+            conteggi.replaceChildren();
             const payload = await api(API + 'storico.php');
             if (!payload.prenotazioni.length) {
                 const vuoto = document.createElement('li');
@@ -331,6 +387,8 @@ header('Content-Type: text/html; charset=utf-8');
                 lista.append(vuoto);
                 return;
             }
+            const tutti = payload.prenotazioni.flatMap((prenotazione) => prenotazione.piatti);
+            disegnaConteggi(conteggi, tutti, payload.prenotazioni.length + ' prenotazioni');
             payload.prenotazioni.forEach((prenotazione) => {
                 const voce = document.createElement('li');
                 voce.className = 'rounded-2xl bg-cream px-4 py-3';
@@ -339,11 +397,31 @@ header('Content-Type: text/html; charset=utf-8');
                 const chi = prenotazione.ospite ? 'Ospite ' + (prenotazione.ospite_nome || '') : 'Vassoio';
                 const carico = prenotazione.a_carico === 'dipendente' ? 'a carico del dipendente' : 'a carico dell’azienda';
                 titolo.textContent = prenotazione.data + ' · ' + chi + ' · ' + carico + ' · ' + String(prenotazione.totale).replace('.', ',') + ' €';
-                const piatti = document.createElement('p');
-                piatti.className = 'mt-1 text-ink/70';
-                piatti.textContent = prenotazione.piatti.map((piatto) => piatto.nome).join(' · ')
-                    + (prenotazione.nota_cucina ? ' · Allergie: ' + prenotazione.nota_cucina : '');
+                const piatti = document.createElement('div');
+                piatti.className = 'mt-2 flex flex-wrap gap-2';
+                const visti = new Map();
+                prenotazione.piatti.forEach((piatto) => {
+                    const chiave = (piatto.lettera || piatto.nome);
+                    const vocePiatto = visti.get(chiave) || { ...piatto, quantita: 0 };
+                    vocePiatto.quantita += 1;
+                    visti.set(chiave, vocePiatto);
+                });
+                visti.forEach((piatto) => {
+                    const riga = document.createElement('span');
+                    riga.className = 'inline-flex items-center gap-2 rounded-full px-2 py-1 fascia-' + fasciaDi(piatto.categoria);
+                    riga.append(chipLettera(piatto.lettera, piatto.categoria, piatto.quantita));
+                    const nome = document.createElement('span');
+                    nome.textContent = piatto.nome;
+                    riga.append(nome);
+                    piatti.append(riga);
+                });
                 voce.append(titolo, piatti);
+                if (prenotazione.nota_cucina) {
+                    const nota = document.createElement('p');
+                    nota.className = 'mt-2 text-ink/70';
+                    nota.textContent = 'Allergie: ' + prenotazione.nota_cucina;
+                    voce.append(nota);
+                }
                 lista.append(voce);
             });
         }
@@ -600,7 +678,7 @@ header('Content-Type: text/html; charset=utf-8');
             }
             giorno.portate.forEach((portata) => {
                 const blocco = document.createElement('section');
-                blocco.className = 'rounded-3xl p-5 shadow-sm shadow-ink/5 ' + (portata.categoria === 'primo' ? 'portata-primo' : 'bg-white');
+                blocco.className = 'fascia-' + fasciaDi(portata.categoria) + ' rounded-3xl p-5 shadow-sm shadow-ink/5';
                 const intestazione = document.createElement('div');
                 intestazione.className = 'mb-3 flex items-baseline justify-between gap-3';
                 const titolo = document.createElement('h3');
@@ -702,7 +780,11 @@ header('Content-Type: text/html; charset=utf-8');
                 const item = document.createElement('li');
                 item.className = 'flex justify-between gap-3';
                 const nome = document.createElement('span');
-                nome.textContent = piatto.nome + (voce.quantita > 1 ? ' ×' + voce.quantita : '');
+                nome.className = 'inline-flex items-center gap-2';
+                nome.append(chipLettera(piatto.lettera, piatto.categoria, voce.quantita));
+                const etichetta = document.createElement('span');
+                etichetta.textContent = piatto.nome;
+                nome.append(etichetta);
                 const prezzo = document.createElement('span');
                 prezzo.textContent = euro(cents(prezzoDi(piatto)) * voce.quantita);
                 item.append(nome, prezzo);

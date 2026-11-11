@@ -461,7 +461,9 @@ $cucina = new KitchenSummary($pdo);
 $auroraCucina = $cucina->perGiorno($auroraId, '2026-11-13');
 verifica($auroraCucina['buoni'] === 1 && $auroraCucina['porzioni'][0]['codice'] === 'SE2', 'riepilogo cucina del tenant');
 verifica($cucina->perGiorno($rossiId, '2026-11-13')['buoni'] === 0, 'riepilogo isolato per azienda');
-verifica(str_contains($cucina->csv($auroraId, 'QA Aurora', '2026-11-13'), 'SE2;'), 'csv porzioni');
+$csvCucina = $cucina->csv($auroraId, 'QA Aurora', '2026-11-13');
+verifica(str_contains($csvCucina, 'SE2;') && str_contains($csvCucina, 'TOT. 1') && str_contains($csvCucina, 'CONTEGGI'), 'csv con lettera, totale e parziali');
+verifica($auroraCucina['porzioni'][0]['lettera'] !== '' && $auroraCucina['porzioni'][0]['fascia'] === 'verde', 'il parziale cucina ha lettera e fascia');
 
 $prenotazioni = new PrenotazioniAzienda($pdo);
 $listaAurora = $prenotazioni->delGiorno($auroraId, '2026-11-13');

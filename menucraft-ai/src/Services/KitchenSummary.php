@@ -6,6 +6,7 @@ namespace MenuCraft\Services;
 
 use MenuCraft\Enums\PortataType;
 use MenuCraft\Support\CodicePiatto;
+use MenuCraft\Support\LetteraPasto;
 use PDO;
 
 if (!defined('MENUCRAFT_APP')) {
@@ -30,8 +31,9 @@ final class KitchenSummary
     public function perGiorno(int $aziendaId, string $data): array
     {
         $data = $this->data($data);
+        (new LetteraPasto())->assegna($this->pdo, $aziendaId, $data);
         $porzioni = $this->pdo->prepare(
-            'SELECT p.codice, r.categoria, r.nome, COUNT(*) AS porzioni
+            'SELECT p.codice, r.categoria, r.nome, v.lettera, COUNT(*) AS porzioni
              FROM ordine_righe r
              INNER JOIN ordini o
                 ON o.id = r.ordine_id
@@ -39,16 +41,19 @@ final class KitchenSummary
              INNER JOIN piatti p
                 ON p.id = r.piatto_id
                AND p.azienda_id = r.azienda_id
+             LEFT JOIN menu_voci v
+                ON v.azienda_id = o.azienda_id
+               AND v.data_pasto = o.data_pasto
+               AND v.piatto_id = r.piatto_id
              WHERE o.azienda_id = :azienda
                AND o.data_pasto = :data
-             GROUP BY p.codice, r.categoria, r.nome
-             ORDER BY r.categoria, p.codice'
+             GROUP BY p.codice, r.categoria, r.nome, v.lettera'
         );
         $porzioni->execute(['azienda' => $aziendaId, 'data' => $data]);
 
         $righe = $this->pdo->prepare(
-            'SELECT u.matricola, u.nome AS dipendente, o.ospite, o.ospite_nome, o.a_carico,
-                    COALESCE(NULLIF(o.nota_cucina, \'\'), u.allergie) AS nota_cucina, p.codice, r.categoria, r.nome
+            'SELECT u.matricola, u.nome AS dipendente, o.id AS ordine_id, o.ospite, o.ospite_nome, o.a_carico, o.creato_il,
+                    COALESCE(NULLIF(o.nota_cucina, \'\'), u.allergie) AS nota_cucina, p.codice, r.categoria, r.nome, v.lettera
              FROM ordini o
              INNER JOIN utenti u
                 ON u.id = o.utente_id
@@ -59,9 +64,13 @@ final class KitchenSummary
              INNER JOIN piatti p
                 ON p.id = r.piatto_id
                AND p.azienda_id = r.azienda_id
+             LEFT JOIN menu_voci v
+                ON v.azienda_id = o.azienda_id
+               AND v.data_pasto = o.data_pasto
+               AND v.piatto_id = r.piatto_id
              WHERE o.azienda_id = :azienda
                AND o.data_pasto = :data
-             ORDER BY u.matricola, r.id'
+             ORDER BY u.matricola, o.id, r.id'
         );
         $righe->execute(['azienda' => $aziendaId, 'data' => $data]);
 
@@ -72,18 +81,22 @@ final class KitchenSummary
 
         $elenco = [];
         foreach ($porzioni->fetchAll() as $riga) {
+            $categoria = (string) $riga['categoria'];
             $elenco[] = [
                 'codice' => CodicePiatto::etichetta((string) $riga['codice']),
-                'categoria' => (string) $riga['categoria'],
+                'lettera' => $riga['lettera'] !== null ? (string) $riga['lettera'] : '',
+                'fascia' => PortataType::tryFrom($categoria)?->fascia() ?? 'gialla',
+                'categoria' => $categoria,
                 'nome' => (string) $riga['nome'],
                 'porzioni' => (int) $riga['porzioni'],
             ];
         }
-        usort($elenco, static function (array $a, array $b): int {
-            $ordineA = PortataType::tryFrom($a['categoria'])?->ordine() ?? 99;
-            $ordineB = PortataType::tryFrom($b['categoria'])?->ordine() ?? 99;
+        $alfabeto = array_flip(LetteraPasto::ALFABETO);
+        usort($elenco, static function (array $a, array $b) use ($alfabeto): int {
+            $posA = $alfabeto[$a['lettera']] ?? 99;
+            $posB = $alfabeto[$b['lettera']] ?? 99;
 
-            return [$ordineA, $a['codice']] <=> [$ordineB, $b['codice']];
+            return [$posA, $a['nome']] <=> [$posB, $b['nome']];
         });
 
         $dettaglio = [];
@@ -94,7 +107,10 @@ final class KitchenSummary
                 'ospite' => (int) $riga['ospite'] === 1 ? (string) ($riga['ospite_nome'] ?? '') : '',
                 'a_carico' => (string) $riga['a_carico'],
                 'nota_cucina' => $riga['nota_cucina'] !== null ? (string) $riga['nota_cucina'] : '',
+                'ordine_id' => (int) $riga['ordine_id'],
+                'creato_il' => (string) $riga['creato_il'],
                 'codice' => CodicePiatto::etichetta((string) $riga['codice']),
+                'lettera' => $riga['lettera'] !== null ? (string) $riga['lettera'] : '',
                 'categoria' => (string) $riga['categoria'],
                 'nome' => (string) $riga['nome'],
             ];
@@ -111,30 +127,50 @@ final class KitchenSummary
     public function csv(int $aziendaId, string $nomeAzienda, string $data): string
     {
         $riepilogo = $this->perGiorno($aziendaId, $data);
+        $quando = \DateTimeImmutable::createFromFormat('!Y-m-d', $riepilogo['data']);
+        $giorno = $quando instanceof \DateTimeImmutable ? $this->giornoSettimana((int) $quando->format('N')) : '';
         $righe = [
+            ['PRENOTAZIONE MENSA ' . strtoupper($giorno) . ' ' . ($quando instanceof \DateTimeImmutable ? $quando->format('d/m/Y') : $riepilogo['data']) . ' TOT. ' . $riepilogo['buoni']],
             ['azienda', $nomeAzienda],
-            ['data', $riepilogo['data']],
-            ['buoni', (string) $riepilogo['buoni']],
             [],
-            ['PORZIONI'],
-            ['categoria', 'codice', 'piatto', 'porzioni'],
+            ['CONTEGGI'],
+            ['lettera', 'fascia', 'categoria', 'codice', 'piatto', 'porzioni'],
         ];
         foreach ($riepilogo['porzioni'] as $porzione) {
-            $righe[] = [$porzione['categoria'], $porzione['codice'], $porzione['nome'], (string) $porzione['porzioni']];
+            $righe[] = [
+                $porzione['lettera'],
+                $porzione['fascia'],
+                $porzione['categoria'],
+                $porzione['codice'],
+                $porzione['nome'],
+                (string) $porzione['porzioni'],
+            ];
         }
         $righe[] = [];
-        $righe[] = ['BUONI'];
-        $righe[] = ['matricola', 'dipendente', 'ospite', 'a_carico', 'categoria', 'codice', 'piatto', 'allergie'];
+        $righe[] = ['BADGE', 'EMPLOYEE', 'PRIMO', 'SECONDO', 'CONTORNO', 'CONTORNO', 'FRUTTA', 'YOGURT', 'DESSERT', 'BEVANDE', 'BEVANDE2', 'GIORNO', 'TIME_STAMP', 'PAYMENT', 'ALLERGIE'];
+        $perOrdine = [];
         foreach ($riepilogo['buoni_righe'] as $riga) {
+            $perOrdine[$riga['ordine_id']][] = $riga;
+        }
+        foreach ($perOrdine as $voci) {
+            $prima = $voci[0];
+            $istante = \DateTimeImmutable::createFromFormat('Y-m-d H:i:s', $prima['creato_il']);
             $righe[] = [
-                $riga['matricola'],
-                $riga['dipendente'],
-                $riga['ospite'],
-                $riga['a_carico'] === 'azienda' ? 'azienda' : 'dipendente',
-                $riga['categoria'],
-                $riga['codice'],
-                $riga['nome'],
-                $riga['nota_cucina'],
+                $prima['matricola'],
+                $prima['ospite'] !== '' ? $prima['ospite'] : $prima['dipendente'],
+                $this->cellaPortata($voci, 'primo', 0),
+                $this->cellaPortata($voci, 'secondo', 0),
+                $this->cellaPortata($voci, 'contorno', 0),
+                $this->cellaPortata($voci, 'contorno', 1),
+                $this->cellaPortata($voci, 'frutta', 0),
+                $this->cellaPortata($voci, 'yogurt', 0),
+                $this->cellaPortata($voci, 'dessert', 0),
+                $this->cellaPortata($voci, 'bevanda', 0),
+                $this->cellaPortata($voci, 'bevanda', 1),
+                $giorno,
+                $istante instanceof \DateTimeImmutable ? $istante->format('d/m/Y H:i') : $prima['creato_il'],
+                $prima['a_carico'] === 'dipendente' ? 'P' : '',
+                $prima['nota_cucina'],
             ];
         }
 
@@ -157,6 +193,39 @@ final class KitchenSummary
         }
 
         return $data;
+    }
+
+    /**
+     * @param list<array<string, mixed>> $voci
+     */
+    private function cellaPortata(array $voci, string $categoria, int $slot): string
+    {
+        $perLettera = [];
+        foreach ($voci as $voce) {
+            if ($voce['categoria'] !== $categoria) {
+                continue;
+            }
+            $lettera = $voce['lettera'] !== '' ? $voce['lettera'] : $voce['codice'];
+            $perLettera[$lettera] = ($perLettera[$lettera] ?? 0) + 1;
+        }
+        $ordine = array_flip(LetteraPasto::ALFABETO);
+        uksort($perLettera, static function (string $a, string $b) use ($ordine): int {
+            return ($ordine[$a] ?? 99) <=> ($ordine[$b] ?? 99);
+        });
+        $blocchi = [];
+        foreach ($perLettera as $lettera => $quantita) {
+            $blocchi[] = $quantita > 1 ? $lettera . 'x' . $quantita : $lettera;
+        }
+        if ($categoria === 'contorno' || $categoria === 'bevanda') {
+            return $blocchi[$slot] ?? '';
+        }
+
+        return $slot === 0 ? implode(' ', $blocchi) : '';
+    }
+
+    private function giornoSettimana(int $numero): string
+    {
+        return [1 => 'lunedi', 'martedi', 'mercoledi', 'giovedi', 'venerdi', 'sabato', 'domenica'][$numero] ?? '';
     }
 
     private function cella(string $valore): string
