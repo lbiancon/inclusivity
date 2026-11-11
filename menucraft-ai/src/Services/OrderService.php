@@ -27,11 +27,20 @@ final class OrderService
      * @param list<mixed> $piattoIds
      * @return array<string, mixed>
      */
-    public function invia(int $utenteId, int $aziendaId, string $data, array $piattoIds, ?DateTimeImmutable $adesso = null): array
-    {
+    public function invia(
+        int $utenteId,
+        int $aziendaId,
+        string $data,
+        array $piattoIds,
+        ?DateTimeImmutable $adesso = null,
+        bool $ospite = false,
+        string $ospiteNome = '',
+        string $aCarico = '',
+    ): array {
         $dataPasto = $this->dataPasto($data);
         $now = $this->validator->adesso($adesso);
         $azienda = AziendaConfig::trova($this->pdo, $aziendaId);
+        $mostraSaldo = false;
 
         $this->pdo->beginTransaction();
         try {
@@ -43,11 +52,22 @@ final class OrderService
             $this->validator->validaCalendario($azienda->id, $dataPasto);
             $this->validator->validaCutoff($azienda, $dataPasto, $now);
 
-            $ordine = $this->bloccaOrdine($azienda->id, $utenteId, $dataPasto);
+            $ordine = $this->bloccaOrdine($azienda->id, $utenteId, $dataPasto, $ospite);
             $ids = $this->validator->normalizzaIdPiatti($piattoIds, $azienda->maxScelte);
+            if ($ospite && $ids !== []) {
+                $ospiteNome = $this->nomeOspite($ospiteNome);
+                if (!in_array($aCarico, ['azienda', 'dipendente'], true)) {
+                    throw new MenuRuleException('OSPITE_NON_VALIDO', 'Indica se l\'ospite è a carico dell\'azienda o del dipendente.');
+                }
+            }
+            $pagaDiTasca = $this->pagamentoEffettivo($azienda, $utente['pagamento']) === 'dipendente';
+            $aCaricoSalvato = $ospite
+                ? $aCarico
+                : ($pagaDiTasca ? 'dipendente' : 'azienda');
+            $mostraSaldo = $pagaDiTasca || $aCaricoSalvato === 'dipendente';
 
             if ($ids === []) {
-                $risultato = $this->annulla($azienda, $utenteId, $dataPasto, $ordine);
+                $risultato = $this->annulla($azienda, $utenteId, $ordine, $ospite);
             } else {
                 $this->validator->assertMenuVisibile($azienda->id, $dataPasto, $now);
                 $piatti = $this->validator->piattiPrenotabili($azienda, $dataPasto, $ids, $now);
@@ -56,7 +76,17 @@ final class OrderService
                     $categorie[] = $piatto['categoria'];
                 }
                 $this->validator->validaComposizione($azienda, $categorie);
-                $risultato = $this->salva($azienda, $utenteId, $dataPasto, $now, $piatti, $ordine);
+                $risultato = $this->salva(
+                    $azienda,
+                    $utenteId,
+                    $dataPasto,
+                    $now,
+                    $piatti,
+                    $ordine,
+                    $ospite,
+                    $ospite ? $ospiteNome : null,
+                    $aCaricoSalvato,
+                );
             }
 
             $this->pdo->commit();
@@ -67,14 +97,14 @@ final class OrderService
             throw $e;
         }
 
-        $risultato['saldo'] = $this->saldo($azienda, $utenteId);
+        $risultato['saldo'] = $mostraSaldo ? $this->saldo($azienda, $utenteId, true) : null;
 
         return $risultato;
     }
 
-    public function saldo(AziendaConfig $azienda, int $utenteId): ?string
+    public function saldo(AziendaConfig $azienda, int $utenteId, bool $forza = false): ?string
     {
-        if ($azienda->tipoPagamento !== PagamentoType::Dipendente) {
+        if (!$forza && $azienda->tipoPagamento !== PagamentoType::Dipendente) {
             return null;
         }
 
@@ -109,11 +139,11 @@ final class OrderService
         return $parsata;
     }
 
-    /** @return array{ruolo: string} */
+    /** @return array{ruolo: string, pagamento: string} */
     private function bloccaUtente(int $utenteId, int $aziendaId): array
     {
         $stmt = $this->pdo->prepare(
-            'SELECT ruolo FROM utenti WHERE id = :id AND azienda_id = :azienda FOR UPDATE'
+            'SELECT ruolo, pagamento FROM utenti WHERE id = :id AND azienda_id = :azienda FOR UPDATE'
         );
         $stmt->execute(['id' => $utenteId, 'azienda' => $aziendaId]);
         $riga = $stmt->fetch();
@@ -121,22 +151,26 @@ final class OrderService
             throw new MenuRuleException('NON_AUTENTICATO', 'Accesso richiesto.', 401);
         }
 
-        return ['ruolo' => (string) $riga['ruolo']];
+        return [
+            'ruolo' => (string) $riga['ruolo'],
+            'pagamento' => (string) ($riga['pagamento'] ?? 'eredita'),
+        ];
     }
 
-    /** @return array{id: int, totale: string}|null */
-    private function bloccaOrdine(int $aziendaId, int $utenteId, DateTimeImmutable $data): ?array
+    /** @return array{id: int, totale: string, a_carico: string}|null */
+    private function bloccaOrdine(int $aziendaId, int $utenteId, DateTimeImmutable $data, bool $ospite): ?array
     {
         $stmt = $this->pdo->prepare(
-            'SELECT id, totale
+            'SELECT id, totale, a_carico
              FROM ordini
-             WHERE azienda_id = :azienda AND utente_id = :utente AND data_pasto = :data
+             WHERE azienda_id = :azienda AND utente_id = :utente AND data_pasto = :data AND ospite = :ospite
              FOR UPDATE'
         );
         $stmt->execute([
             'azienda' => $aziendaId,
             'utente' => $utenteId,
             'data' => $data->format('Y-m-d'),
+            'ospite' => $ospite ? 1 : 0,
         ]);
         $riga = $stmt->fetch();
         if ($riga === false) {
@@ -146,20 +180,43 @@ final class OrderService
         return [
             'id' => (int) $riga['id'],
             'totale' => Money::normalizza((string) $riga['totale']),
+            'a_carico' => (string) $riga['a_carico'],
         ];
+    }
+
+    private function pagamentoEffettivo(AziendaConfig $azienda, string $pagamento): string
+    {
+        return match ($pagamento) {
+            'welfare' => 'welfare',
+            'pagante' => 'dipendente',
+            default => $azienda->tipoPagamento->value,
+        };
+    }
+
+    private function nomeOspite(string $nome): string
+    {
+        $nome = preg_replace('/\s+/u', ' ', trim($nome)) ?? '';
+        $nome = preg_replace('/[^\p{L}\p{N}\p{P}\p{Zs}]/u', '', $nome) ?? '';
+        $nome = trim($nome);
+        if (mb_strlen($nome) < 2 || mb_strlen($nome) > 80) {
+            throw new MenuRuleException('OSPITE_NON_VALIDO', 'Indica il nome dell\'ospite.');
+        }
+
+        return $nome;
     }
 
     /**
      * @param array{id: int, totale: string}|null $ordine
      * @return array<string, mixed>
      */
-    private function annulla(AziendaConfig $azienda, int $utenteId, DateTimeImmutable $data, ?array $ordine): array
+    private function annulla(AziendaConfig $azienda, int $utenteId, ?array $ordine, bool $ospite): array
     {
         if ($ordine === null) {
             throw new MenuRuleException('SELEZIONE_VUOTA', 'Seleziona almeno un piatto per il buono pasto.');
         }
 
-        $this->muoviWallet($azienda, $utenteId, -Money::euroToCentesimi($ordine['totale']));
+        $giaAddebitato = $ordine['a_carico'] === 'dipendente' ? Money::euroToCentesimi($ordine['totale']) : 0;
+        $this->muoviWallet($azienda->id, $utenteId, -$giaAddebitato);
 
         $righe = $this->pdo->prepare('DELETE FROM ordine_righe WHERE ordine_id = :ordine AND azienda_id = :azienda');
         $righe->execute(['ordine' => $ordine['id'], 'azienda' => $azienda->id]);
@@ -170,14 +227,15 @@ final class OrderService
 
         return [
             'annullato' => true,
-            'messaggio' => 'Prenotazione annullata.',
+            'messaggio' => $ospite ? 'Ospite annullato.' : 'Prenotazione annullata.',
             'ordine' => null,
+            'ospite' => $ospite,
         ];
     }
 
     /**
      * @param list<array{id: int, codice: string, nome: string, categoria: \MenuCraft\Enums\PortataType, prezzo: string}> $piatti
-     * @param array{id: int, totale: string}|null $ordine
+     * @param array{id: int, totale: string, a_carico: string}|null $ordine
      * @return array<string, mixed>
      */
     private function salva(
@@ -187,11 +245,15 @@ final class OrderService
         DateTimeImmutable $now,
         array $piatti,
         ?array $ordine,
+        bool $ospite,
+        ?string $ospiteNome,
+        string $aCarico,
     ): array {
+        $addebita = $aCarico === 'dipendente';
         $nuovo = 0;
         $voci = [];
         foreach ($piatti as $piatto) {
-            $prezzo = $azienda->prezzoApplicato($piatto['prezzo']);
+            $prezzo = $addebita ? Money::normalizza($piatto['prezzo']) : '0.00';
             $nuovo += Money::euroToCentesimi($prezzo);
             $voci[] = [
                 'id' => $piatto['id'],
@@ -202,15 +264,18 @@ final class OrderService
             ];
         }
 
-        $precedente = $ordine === null ? 0 : Money::euroToCentesimi($ordine['totale']);
-        $this->muoviWallet($azienda, $utenteId, $nuovo - $precedente);
+        $precedente = ($ordine !== null && $ordine['a_carico'] === 'dipendente')
+            ? Money::euroToCentesimi($ordine['totale'])
+            : 0;
+        $this->muoviWallet($azienda->id, $utenteId, ($addebita ? $nuovo : 0) - $precedente);
 
         $totale = Money::formatta($nuovo);
         $istante = $now->format('Y-m-d H:i:s');
         if ($ordine === null) {
             $insert = $this->pdo->prepare(
-                'INSERT INTO ordini (azienda_id, utente_id, data_pasto, totale, creato_il, aggiornato_il)
-                 VALUES (:azienda, :utente, :data, :totale, :creato, :aggiornato)'
+                'INSERT INTO ordini
+                    (azienda_id, utente_id, data_pasto, totale, creato_il, aggiornato_il, ospite, ospite_nome, a_carico)
+                 VALUES (:azienda, :utente, :data, :totale, :creato, :aggiornato, :ospite, :ospite_nome, :a_carico)'
             );
             $insert->execute([
                 'azienda' => $azienda->id,
@@ -219,17 +284,22 @@ final class OrderService
                 'totale' => $totale,
                 'creato' => $istante,
                 'aggiornato' => $istante,
+                'ospite' => $ospite ? 1 : 0,
+                'ospite_nome' => $ospiteNome,
+                'a_carico' => $aCarico,
             ]);
             $ordineId = (int) $this->pdo->lastInsertId();
         } else {
             $update = $this->pdo->prepare(
                 'UPDATE ordini
-                 SET totale = :totale, aggiornato_il = :aggiornato
+                 SET totale = :totale, aggiornato_il = :aggiornato, ospite_nome = :ospite_nome, a_carico = :a_carico
                  WHERE id = :id AND azienda_id = :azienda AND utente_id = :utente'
             );
             $update->execute([
                 'totale' => $totale,
                 'aggiornato' => $istante,
+                'ospite_nome' => $ospiteNome,
+                'a_carico' => $aCarico,
                 'id' => $ordine['id'],
                 'azienda' => $azienda->id,
                 'utente' => $utenteId,
@@ -258,19 +328,24 @@ final class OrderService
 
         return [
             'annullato' => false,
-            'messaggio' => $ordine === null ? 'Prenotazione confermata.' : 'Prenotazione aggiornata.',
+            'messaggio' => $ospite
+                ? ($ordine === null ? 'Ospite confermato.' : 'Ospite aggiornato.')
+                : ($ordine === null ? 'Prenotazione confermata.' : 'Prenotazione aggiornata.'),
+            'ospite' => $ospite,
             'ordine' => [
                 'id' => $ordineId,
                 'data' => $data->format('Y-m-d'),
                 'totale' => $totale,
+                'a_carico' => $aCarico,
+                'ospite_nome' => $ospiteNome,
                 'piatti' => $voci,
             ],
         ];
     }
 
-    private function muoviWallet(AziendaConfig $azienda, int $utenteId, int $deltaCentesimi): void
+    private function muoviWallet(int $aziendaId, int $utenteId, int $deltaCentesimi): void
     {
-        if ($azienda->tipoPagamento !== PagamentoType::Dipendente || $deltaCentesimi === 0) {
+        if ($deltaCentesimi === 0) {
             return;
         }
 
@@ -280,7 +355,7 @@ final class OrderService
              WHERE azienda_id = :azienda AND utente_id = :utente
              FOR UPDATE'
         );
-        $stmt->execute(['azienda' => $azienda->id, 'utente' => $utenteId]);
+        $stmt->execute(['azienda' => $aziendaId, 'utente' => $utenteId]);
         $riga = $stmt->fetch();
         $saldo = $riga === false ? 0 : (int) $riga['saldo_centesimi'];
         $nuovo = $saldo - $deltaCentesimi;
@@ -300,7 +375,7 @@ final class OrderService
                 'INSERT INTO portafogli (azienda_id, utente_id, saldo_centesimi) VALUES (:azienda, :utente, :saldo)'
             );
             $insert->execute([
-                'azienda' => $azienda->id,
+                'azienda' => $aziendaId,
                 'utente' => $utenteId,
                 'saldo' => $nuovo,
             ]);
@@ -315,7 +390,7 @@ final class OrderService
         $update->execute([
             'saldo' => $nuovo,
             'id' => (int) $riga['id'],
-            'azienda' => $azienda->id,
+            'azienda' => $aziendaId,
             'utente' => $utenteId,
         ]);
     }

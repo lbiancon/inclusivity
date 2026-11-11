@@ -100,6 +100,16 @@ final class MenuValidator
                     : 'Per questa azienda il doppio contorno non è consentito.',
             );
         }
+
+        if ($azienda->bevandaObbligatoria && $conteggi[PortataType::Bevanda->value] !== 1) {
+            throw new MenuRuleException(
+                'BEVANDA_OBBLIGATORIA',
+                sprintf(
+                    'L\'acqua è obbligatoria: una bevanda e al massimo %d altre scelte.',
+                    max(0, $azienda->maxScelte - 1),
+                ),
+            );
+        }
     }
 
     public function validaCutoff(

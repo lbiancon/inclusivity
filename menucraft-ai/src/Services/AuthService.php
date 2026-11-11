@@ -65,7 +65,7 @@ final class AuthService
                 'SELECT u.id, u.azienda_id, u.matricola, u.nome, u.password_hash, u.ruolo,
                         a.nome AS azienda_nome, a.slug, a.tipo_pagamento, a.max_scelte,
                         a.permetti_doppio_primo, a.permetti_doppio_contorno, a.limite_oggi, a.limite_domani,
-                        a.modalita
+                        a.modalita, a.bevanda_obbligatoria
                  FROM utenti u
                  INNER JOIN aziende a ON a.id = u.azienda_id
                  WHERE a.slug = :slug AND u.matricola = :matricola
@@ -125,6 +125,7 @@ final class AuthService
             'limite_oggi' => $utente['limite_oggi'],
             'limite_domani' => $utente['limite_domani'],
             'modalita' => $utente['modalita'],
+            'bevanda_obbligatoria' => $utente['bevanda_obbligatoria'],
         ]);
 
         return [
@@ -199,6 +200,26 @@ final class AuthService
         ];
     }
 
+    /** @param array<string, mixed> $input */
+    public function aziendaOperativa(array $utente, array $input): int
+    {
+        if ($utente['ruolo'] === 'caterer') {
+            return $utente['azienda_id'];
+        }
+
+        $id = (int) ($input['azienda_id'] ?? 0);
+        if ($id < 1) {
+            throw new MenuRuleException('AZIENDA_SCONOSCIUTA', 'Indica l\'azienda.', 422);
+        }
+        $stmt = $this->pdo->prepare('SELECT id FROM aziende WHERE id = :id');
+        $stmt->execute(['id' => $id]);
+        if ($stmt->fetchColumn() === false) {
+            throw new MenuRuleException('AZIENDA_SCONOSCIUTA', 'Azienda non trovata.', 404);
+        }
+
+        return $id;
+    }
+
     public function richiediCsrf(): void
     {
         $this->assicuraSessione();
@@ -212,8 +233,16 @@ final class AuthService
     /** @return array{id: int, azienda_id: int, matricola: string, nome: string, ruolo: string, csrf: string} */
     public function richiediRuolo(string $ruolo): array
     {
+        return $this->richiediRuoli([$ruolo]);
+    }
+
+    /** @param list<string> $ruoli
+     * @return array{id: int, azienda_id: int, matricola: string, nome: string, ruolo: string, csrf: string}
+     */
+    public function richiediRuoli(array $ruoli): array
+    {
         $utente = $this->richiediUtente();
-        if ($utente['ruolo'] !== $ruolo) {
+        if (!in_array($utente['ruolo'], $ruoli, true)) {
             throw new MenuRuleException('RUOLO', 'Questa operazione non è consentita al tuo profilo.', 403);
         }
 

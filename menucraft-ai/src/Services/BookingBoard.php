@@ -8,6 +8,7 @@ use DateTimeImmutable;
 use MenuCraft\Enums\PortataType;
 use MenuCraft\Models\AziendaConfig;
 use MenuCraft\Support\CodicePiatto;
+use MenuCraft\Support\Money;
 use PDO;
 
 if (!defined('MENUCRAFT_APP')) {
@@ -39,6 +40,7 @@ final class BookingBoard
     public function carica(int $aziendaId, int $utenteId, ?string $dataRichiesta, ?DateTimeImmutable $adesso = null): array
     {
         $azienda = AziendaConfig::trova($this->pdo, $aziendaId);
+        $pagamento = $this->pagamentoEffettivo($azienda, $utenteId);
         $now = $this->validator->adesso($adesso);
         $oggi = $this->validator->giornoCivile($now);
         $lunedi = $oggi->modify('monday this week');
@@ -74,8 +76,12 @@ final class BookingBoard
                 'max_primo' => $azienda->maxPerCategoria(PortataType::Primo),
                 'max_secondo' => 1,
                 'max_contorno' => $azienda->maxPerCategoria(PortataType::Contorno),
+                'bevanda_obbligatoria' => $azienda->bevandaObbligatoria,
+                'max_altre' => max(0, $azienda->maxScelte - ($azienda->bevandaObbligatoria ? 1 : 0)),
+                'pagamento_effettivo' => $pagamento,
             ],
-            'saldo' => $this->ordini->saldo($azienda, $utenteId),
+            'saldo' => $pagamento === 'dipendente' ? $this->ordini->saldo($azienda, $utenteId, true) : null,
+            'portafoglio' => $this->ordini->saldo($azienda, $utenteId, true),
             'settimane' => $settimane,
             'focus' => $focus,
             'giorno' => $this->dettaglio($azienda, $utenteId, $scelta, $chiusure, $menu, $now, $oggi),
@@ -217,8 +223,24 @@ final class BookingBoard
             'saltato' => $descrizione['saltato'],
             'motivo' => $descrizione['motivo'],
             'portate' => $piatti,
-            'ordine' => $this->ordineEsistente($azienda->id, $utenteId, $data),
+            'ordine' => $this->ordineEsistente($azienda->id, $utenteId, $data, false),
+            'ordine_ospite' => $this->ordineEsistente($azienda->id, $utenteId, $data, true),
         ];
+    }
+
+    private function pagamentoEffettivo(AziendaConfig $azienda, int $utenteId): string
+    {
+        $stmt = $this->pdo->prepare(
+            'SELECT pagamento FROM utenti WHERE id = :id AND azienda_id = :azienda'
+        );
+        $stmt->execute(['id' => $utenteId, 'azienda' => $azienda->id]);
+        $pagamento = (string) $stmt->fetchColumn();
+
+        return match ($pagamento) {
+            'welfare' => 'welfare',
+            'pagante' => 'dipendente',
+            default => $azienda->tipoPagamento->value,
+        };
     }
 
     /** @return list<array<string, mixed>> */
@@ -253,6 +275,7 @@ final class BookingBoard
                 'nome' => (string) $riga['nome'],
                 'categoria' => $categoria->value,
                 'prezzo' => $azienda->prezzoApplicato((string) $riga['prezzo']),
+                'prezzo_listino' => Money::normalizza((string) $riga['prezzo']),
             ];
         }
 
@@ -273,10 +296,10 @@ final class BookingBoard
     }
 
     /** @return array<string, mixed>|null */
-    private function ordineEsistente(int $aziendaId, int $utenteId, string $data): ?array
+    private function ordineEsistente(int $aziendaId, int $utenteId, string $data, bool $ospite): ?array
     {
         $stmt = $this->pdo->prepare(
-            'SELECT o.id, o.totale, r.piatto_id, r.nome, r.categoria, r.prezzo_applicato
+            'SELECT o.id, o.totale, o.ospite_nome, o.a_carico, r.piatto_id, r.nome, r.categoria, r.prezzo_applicato
              FROM ordini o
              INNER JOIN ordine_righe r
                 ON r.ordine_id = o.id
@@ -284,12 +307,14 @@ final class BookingBoard
              WHERE o.azienda_id = :azienda
                AND o.utente_id = :utente
                AND o.data_pasto = :data
+               AND o.ospite = :ospite
              ORDER BY r.id'
         );
         $stmt->execute([
             'azienda' => $aziendaId,
             'utente' => $utenteId,
             'data' => $data,
+            'ospite' => $ospite ? 1 : 0,
         ]);
         $righe = $stmt->fetchAll();
         if ($righe === []) {
@@ -309,6 +334,8 @@ final class BookingBoard
         return [
             'id' => (int) $righe[0]['id'],
             'totale' => (string) $righe[0]['totale'],
+            'ospite_nome' => $righe[0]['ospite_nome'] !== null ? (string) $righe[0]['ospite_nome'] : null,
+            'a_carico' => (string) $righe[0]['a_carico'],
             'piatti' => $piatti,
         ];
     }

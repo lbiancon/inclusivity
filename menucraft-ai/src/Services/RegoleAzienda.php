@@ -32,6 +32,12 @@ final class RegoleAzienda
         $modalita = array_key_exists('modalita', $input)
             ? $this->modalita($input['modalita'])
             : $attuale->modalita;
+        $pagamento = array_key_exists('tipo_pagamento', $input)
+            ? $this->pagamento($input['tipo_pagamento'])
+            : $attuale->tipoPagamento->value;
+        $bevanda = array_key_exists('bevanda_obbligatoria', $input)
+            ? ($this->flag($input['bevanda_obbligatoria']) ? 1 : 0)
+            : ($attuale->bevandaObbligatoria ? 1 : 0);
 
         $stmt = $this->pdo->prepare(
             'UPDATE aziende
@@ -40,7 +46,9 @@ final class RegoleAzienda
                  permetti_doppio_contorno = :contorno,
                  limite_oggi = :oggi,
                  limite_domani = :domani,
-                 modalita = :modalita
+                 modalita = :modalita,
+                 tipo_pagamento = :pagamento,
+                 bevanda_obbligatoria = :bevanda
              WHERE id = :id'
         );
         $stmt->execute([
@@ -50,10 +58,22 @@ final class RegoleAzienda
             'oggi' => $oggi,
             'domani' => $domani,
             'modalita' => $modalita,
+            'pagamento' => $pagamento,
+            'bevanda' => $bevanda,
             'id' => $aziendaId,
         ]);
 
         return AziendaConfig::trova($this->pdo, $aziendaId);
+    }
+
+    private function pagamento(mixed $valore): string
+    {
+        $pagamento = strtolower(trim((string) $valore));
+        if (!in_array($pagamento, ['welfare', 'dipendente'], true)) {
+            throw new MenuRuleException('REGOLA_NON_VALIDA', 'Il pagamento è a carico dell\'azienda oppure del dipendente.');
+        }
+
+        return $pagamento;
     }
 
     private function modalita(mixed $valore): string

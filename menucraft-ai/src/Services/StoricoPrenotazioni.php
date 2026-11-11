@@ -23,7 +23,7 @@ final class StoricoPrenotazioni
     public function perUtente(int $aziendaId, int $utenteId): array
     {
         $ordini = $this->pdo->prepare(
-            'SELECT id, data_pasto, totale
+            'SELECT id, data_pasto, totale, ospite, ospite_nome, a_carico
              FROM ordini
              WHERE azienda_id = :azienda AND utente_id = :utente
              ORDER BY data_pasto DESC
@@ -62,6 +62,9 @@ final class StoricoPrenotazioni
             $elenco[] = [
                 'data' => (string) $testata['data_pasto'],
                 'totale' => (string) $testata['totale'],
+                'ospite' => (int) $testata['ospite'] === 1,
+                'ospite_nome' => $testata['ospite_nome'] !== null ? (string) $testata['ospite_nome'] : null,
+                'a_carico' => (string) $testata['a_carico'],
                 'piatti' => $perOrdine[(int) $testata['id']] ?? [],
             ];
         }

@@ -125,6 +125,17 @@ header('Content-Type: text/html; charset=utf-8');
             <aside class="scontrino h-fit rounded-[2rem] p-5 lg:sticky lg:top-24">
                 <p class="text-xs uppercase tracking-[0.18em] text-ink/50">Scontrino vassoio</p>
                 <h2 id="summary-title" class="mt-1 font-serif text-3xl">Vassoio</h2>
+                <div class="mt-3 grid grid-cols-2 gap-2 text-sm">
+                    <button id="modo-mio" type="button" class="rounded-2xl border border-moss bg-moss px-3 py-2 font-semibold text-white">Il mio vassoio</button>
+                    <button id="modo-ospite" type="button" class="rounded-2xl border border-ink/15 px-3 py-2">Ospite</button>
+                </div>
+                <div id="ospite-campi" hidden class="mt-3 space-y-2 text-sm">
+                    <label class="block font-semibold">Nome ospite
+                        <input id="ospite-nome" maxlength="80" class="mt-1 w-full rounded-2xl border border-ink/10 bg-white px-3 py-2" placeholder="Nome e cognome">
+                    </label>
+                    <label class="block"><input id="carico-azienda" name="a-carico" type="radio" value="azienda" checked> A carico dell’azienda</label>
+                    <label class="block"><input id="carico-mio" name="a-carico" type="radio" value="dipendente"> A carico mio</label>
+                </div>
                 <p id="summary-reason" class="mt-2 text-sm text-ink/70"></p>
                 <div id="pips" class="mt-4 flex gap-2" aria-hidden="true"></div>
                 <ul id="summary-lines" class="mt-4 space-y-2 text-sm"></ul>
@@ -145,10 +156,14 @@ header('Content-Type: text/html; charset=utf-8');
             azienda: null,
             regole: null,
             saldo: null,
+            portafoglio: null,
+            pagamento: 'welfare',
+            modo: 'mio',
             settimane: [],
             giorno: null,
             catalogo: new Map(),
             selezionati: [],
+            ospiteSelezionati: [],
             pending: false,
         };
 
@@ -291,7 +306,9 @@ header('Content-Type: text/html; charset=utf-8');
                 voce.className = 'rounded-2xl bg-cream px-4 py-3';
                 const titolo = document.createElement('p');
                 titolo.className = 'font-semibold';
-                titolo.textContent = prenotazione.data + ' · ' + String(prenotazione.totale).replace('.', ',') + ' €';
+                const chi = prenotazione.ospite ? 'Ospite ' + (prenotazione.ospite_nome || '') : 'Vassoio';
+                const carico = prenotazione.a_carico === 'dipendente' ? 'a carico del dipendente' : 'a carico dell’azienda';
+                titolo.textContent = prenotazione.data + ' · ' + chi + ' · ' + carico + ' · ' + String(prenotazione.totale).replace('.', ',') + ' €';
                 const piatti = document.createElement('p');
                 piatti.className = 'mt-1 text-ink/70';
                 piatti.textContent = prenotazione.piatti.map((piatto) => piatto.nome).join(' · ');
@@ -307,6 +324,8 @@ header('Content-Type: text/html; charset=utf-8');
             state.csrf = payload.csrf;
             state.regole = payload.regole;
             state.saldo = payload.saldo;
+            state.portafoglio = payload.portafoglio;
+            state.pagamento = payload.regole.pagamento_effettivo === 'dipendente' ? 'dipendente' : 'welfare';
             state.settimane = payload.settimane;
             state.giorno = payload.giorno;
             state.catalogo = new Map();
@@ -315,8 +334,51 @@ header('Content-Type: text/html; charset=utf-8');
             });
             const giaScelti = payload.giorno.ordine ? payload.giorno.ordine.piatti.map((piatto) => piatto.id) : [];
             state.selezionati = giaScelti.filter((id) => state.catalogo.has(id));
+            const ospite = payload.giorno.ordine_ospite;
+            const sceltiOspite = ospite ? ospite.piatti.map((piatto) => piatto.id) : [];
+            state.ospiteSelezionati = sceltiOspite.filter((id) => state.catalogo.has(id));
+            document.getElementById('ospite-nome').value = ospite?.ospite_nome || '';
+            document.getElementById(ospite?.a_carico === 'dipendente' ? 'carico-mio' : 'carico-azienda').checked = true;
+            const paga = state.pagamento === 'dipendente' ? 'Paga di tasca sua' : 'A carico dell’azienda';
+            document.getElementById('utente-meta').textContent = state.utente.matricola + ' · ' + paga;
+            const nota = document.getElementById('modalita-nota');
+            const acqua = payload.regole.bevanda_obbligatoria
+                ? ' Acqua obbligatoria: ' + payload.regole.max_altre + ' scelte + 1 bevanda.'
+                : '';
+            nota.textContent = (payload.azienda.modalita === 'internet'
+                ? 'Questa azienda è in internet: il pasto di oggi si prenota solo dalla rete aziendale.'
+                : 'Questa azienda è in intranet: oggi si prenota fino all’orario di chiusura della linea.') + acqua;
             mostraBanner(null, null);
             disegna();
+        }
+
+        function selezione() {
+            return state.modo === 'ospite' ? state.ospiteSelezionati : state.selezionati;
+        }
+
+        function ordineAttivo() {
+            if (!state.giorno) {
+                return null;
+            }
+            return state.modo === 'ospite' ? state.giorno.ordine_ospite : state.giorno.ordine;
+        }
+
+        function addebitaPersona() {
+            if (state.modo === 'ospite') {
+                return document.getElementById('carico-mio').checked;
+            }
+            return state.pagamento === 'dipendente';
+        }
+
+        function prezzoDi(piatto) {
+            if (!addebitaPersona()) {
+                return '0.00';
+            }
+            return piatto.prezzo_listino || piatto.prezzo;
+        }
+
+        function contaBevande(ids) {
+            return ids.filter((id) => state.catalogo.get(id)?.categoria === 'bevanda').length;
         }
 
         function limiteMessaggio(ids) {
@@ -344,6 +406,9 @@ header('Content-Type: text/html; charset=utf-8');
                     ? 'Sono consentiti al massimo due contorni.'
                     : 'Per questa azienda il doppio contorno non è consentito.';
             }
+            if (regole.bevanda_obbligatoria && contaBevande(ids) > 1) {
+                return 'È obbligatoria una sola bevanda.';
+            }
             return null;
         }
 
@@ -351,8 +416,9 @@ header('Content-Type: text/html; charset=utf-8');
             if (!state.giorno?.selezionabile || state.utente.ruolo !== 'dipendente') {
                 return;
             }
-            const presenti = state.selezionati.includes(id);
-            const prossimi = presenti ? state.selezionati.filter((voce) => voce !== id) : state.selezionati.concat(id);
+            const attivi = selezione();
+            const presenti = attivi.includes(id);
+            const prossimi = presenti ? attivi.filter((voce) => voce !== id) : attivi.concat(id);
             if (!presenti) {
                 const messaggio = limiteMessaggio(prossimi);
                 if (messaggio) {
@@ -360,7 +426,11 @@ header('Content-Type: text/html; charset=utf-8');
                     return;
                 }
             }
-            state.selezionati = prossimi;
+            if (state.modo === 'ospite') {
+                state.ospiteSelezionati = prossimi;
+            } else {
+                state.selezionati = prossimi;
+            }
             mostraBanner(null, null);
             disegna();
         }
@@ -457,7 +527,9 @@ header('Content-Type: text/html; charset=utf-8');
                 titolo.textContent = portata.etichetta;
                 const limite = document.createElement('p');
                 limite.className = 'text-xs uppercase tracking-wider text-ink/50';
-                limite.textContent = portata.categoria === 'secondo'
+                limite.textContent = portata.categoria === 'bevanda' && state.regole.bevanda_obbligatoria
+                    ? 'Obbligatoria, una sola'
+                    : portata.categoria === 'secondo'
                     ? 'Massimo 1'
                     : (portata.categoria === 'primo' || portata.categoria === 'contorno')
                         ? 'Massimo ' + portata.massimo
@@ -466,7 +538,7 @@ header('Content-Type: text/html; charset=utf-8');
                 const griglia = document.createElement('div');
                 griglia.className = 'grid gap-2 sm:grid-cols-2';
                 portata.piatti.forEach((piatto) => {
-                    const scelto = state.selezionati.includes(piatto.id);
+                    const scelto = selezione().includes(piatto.id);
                     const bottone = document.createElement('button');
                     bottone.type = 'button';
                     bottone.dataset.piatto = String(piatto.id);
@@ -483,7 +555,7 @@ header('Content-Type: text/html; charset=utf-8');
                     nome.textContent = piatto.nome;
                     const meta = document.createElement('span');
                     meta.className = 'block text-sm text-ink/60';
-                    meta.textContent = euro(cents(piatto.prezzo));
+                    meta.textContent = euro(cents(prezzoDi(piatto)));
                     testo.append(nome, meta);
                     bottone.append(codice, testo);
                     griglia.append(bottone);
@@ -493,82 +565,100 @@ header('Content-Type: text/html; charset=utf-8');
             });
 
             document.getElementById('summary-title').textContent = giorno.etichetta + ' ' + giorno.numero;
+            const ids = selezione();
+            const acqua = state.regole.bevanda_obbligatoria
+                ? 'Acqua obbligatoria: ' + state.regole.max_altre + ' scelte + 1 bevanda. '
+                : 'Massimo ' + state.regole.max_scelte + ' scelte. ';
+            const mancaAcqua = state.regole.bevanda_obbligatoria && ids.length > 0 && contaBevande(ids) !== 1;
             document.getElementById('summary-reason').textContent = giorno.selezionabile
-                ? 'Massimo ' + state.regole.max_scelte + ' scelte. Oggi chiude alle ' + state.azienda.limite_oggi + ', il giorno prima alle ' + state.azienda.limite_domani + '.'
+                ? acqua + (mancaAcqua ? 'Manca l’acqua. ' : '') + 'Oggi chiude alle ' + state.azienda.limite_oggi + ', il giorno prima alle ' + state.azienda.limite_domani + '.'
                 : (giorno.motivo || '');
+            document.getElementById('modo-mio').className = 'rounded-2xl border px-3 py-2 font-semibold ' + (state.modo === 'mio' ? 'border-moss bg-moss text-white' : 'border-ink/15');
+            document.getElementById('modo-ospite').className = 'rounded-2xl border px-3 py-2 font-semibold ' + (state.modo === 'ospite' ? 'border-moss bg-moss text-white' : 'border-ink/15');
+            document.getElementById('ospite-campi').hidden = state.modo !== 'ospite';
 
             const pips = document.getElementById('pips');
             pips.replaceChildren();
             for (let i = 0; i < state.regole.max_scelte; i += 1) {
                 const pip = document.createElement('span');
-                pip.className = 'h-2 flex-1 rounded-full ' + (i < state.selezionati.length ? 'bg-terracotta' : 'bg-ink/10');
+                pip.className = 'h-2 flex-1 rounded-full ' + (i < ids.length ? 'bg-terracotta' : 'bg-ink/10');
                 pips.append(pip);
             }
 
             const lines = document.getElementById('summary-lines');
             lines.replaceChildren();
-            if (!state.selezionati.length) {
+            if (!ids.length) {
                 const vuoto = document.createElement('li');
                 vuoto.className = 'text-ink/50';
-                vuoto.textContent = 'Nessun piatto sul vassoio.';
+                vuoto.textContent = state.modo === 'ospite' ? 'Nessun piatto per l’ospite.' : 'Nessun piatto sul vassoio.';
                 lines.append(vuoto);
             }
-            state.selezionati.forEach((id) => {
+            ids.forEach((id) => {
                 const piatto = state.catalogo.get(id);
                 const item = document.createElement('li');
                 item.className = 'flex justify-between gap-3';
                 const nome = document.createElement('span');
                 nome.textContent = piatto.nome;
                 const prezzo = document.createElement('span');
-                prezzo.textContent = euro(cents(piatto.prezzo));
+                prezzo.textContent = euro(cents(prezzoDi(piatto)));
                 item.append(nome, prezzo);
                 lines.append(item);
             });
 
-            const totale = state.selezionati.reduce((sum, id) => sum + cents(state.catalogo.get(id).prezzo), 0);
+            const totale = ids.reduce((sum, id) => sum + cents(prezzoDi(state.catalogo.get(id))), 0);
             const bill = document.getElementById('bill');
             bill.replaceChildren();
+            const aCaricoPersona = addebitaPersona();
             const etichetta = document.createElement('p');
             etichetta.className = 'text-xs uppercase tracking-wider text-ink/50';
-            etichetta.textContent = state.azienda.tipo_pagamento === 'welfare' ? 'Coperto dal welfare' : 'Conto live';
+            etichetta.textContent = aCaricoPersona ? 'Conto live' : 'A carico dell’azienda';
             const importo = document.createElement('p');
             importo.className = 'font-serif text-4xl';
             importo.textContent = euro(totale);
             bill.append(etichetta, importo);
-            const welfare = state.azienda.tipo_pagamento === 'welfare';
-            const saldoCentesimi = welfare || state.saldo === null ? null : cents(state.saldo);
-            if (!welfare) {
+            const saldoCentesimi = aCaricoPersona && state.portafoglio !== null ? cents(state.portafoglio) : null;
+            if (aCaricoPersona) {
                 const saldo = document.createElement('p');
                 saldo.className = 'mt-1 text-sm text-ink/70';
-                saldo.textContent = 'Wallet ' + euro(saldoCentesimi);
+                saldo.textContent = 'Wallet ' + euro(saldoCentesimi || 0);
                 bill.append(saldo);
             }
-            const oltreWallet = !welfare && saldoCentesimi !== null && totale > saldoCentesimi && state.selezionati.length > 0;
+            const oltreWallet = aCaricoPersona && saldoCentesimi !== null && totale > saldoCentesimi && ids.length > 0;
             if (oltreWallet) {
                 const avviso = document.createElement('p');
                 avviso.className = 'mt-2 text-sm font-medium text-red-700';
                 avviso.textContent = 'Il wallet non copre questo vassoio.';
                 bill.append(avviso);
             }
+            const nomeOspite = document.getElementById('ospite-nome').value.trim();
+            const ospitePronto = state.modo !== 'ospite' || nomeOspite.length >= 2;
 
             const submit = document.getElementById('submit-order');
             const cancel = document.getElementById('cancel-order');
+            const attivo = ordineAttivo();
             const puoOrdinare = state.utente.ruolo === 'dipendente' && giorno.selezionabile && !state.pending;
             submit.hidden = state.utente.ruolo !== 'dipendente';
-            cancel.hidden = state.utente.ruolo !== 'dipendente' || !giorno.ordine;
-            submit.disabled = !puoOrdinare || state.selezionati.length === 0 || oltreWallet;
+            cancel.hidden = state.utente.ruolo !== 'dipendente' || !attivo;
+            submit.disabled = !puoOrdinare || ids.length === 0 || oltreWallet || mancaAcqua || !ospitePronto;
             cancel.disabled = !puoOrdinare;
-            submit.textContent = giorno.ordine ? 'Aggiorna prenotazione' : 'Conferma prenotazione';
+            const verbo = state.modo === 'ospite' ? 'ospite' : 'prenotazione';
+            submit.textContent = attivo ? 'Aggiorna ' + verbo : 'Conferma ' + verbo;
         }
 
         async function invia(piatti) {
             state.pending = true;
             disegna();
             try {
+                const corpo = { data: state.giorno.data, piatti };
+                if (state.modo === 'ospite') {
+                    corpo.ospite = true;
+                    corpo.ospite_nome = document.getElementById('ospite-nome').value.trim();
+                    corpo.a_carico = document.getElementById('carico-mio').checked ? 'dipendente' : 'azienda';
+                }
                 const payload = await api(API + 'ordina.php', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ data: state.giorno.data, piatti }),
+                    body: JSON.stringify(corpo),
                 });
                 state.saldo = payload.saldo;
                 await caricaGiorno(state.giorno.data);
@@ -629,8 +719,20 @@ header('Content-Type: text/html; charset=utf-8');
             togglePiatto(Number(bottone.dataset.piatto));
         });
 
+        document.getElementById('modo-mio').addEventListener('click', () => {
+            state.modo = 'mio';
+            disegna();
+        });
+        document.getElementById('modo-ospite').addEventListener('click', () => {
+            state.modo = 'ospite';
+            disegna();
+        });
+        document.getElementById('ospite-nome').addEventListener('input', () => disegna());
+        document.getElementById('carico-azienda').addEventListener('change', () => disegna());
+        document.getElementById('carico-mio').addEventListener('change', () => disegna());
+
         document.getElementById('submit-order').addEventListener('click', () => {
-            invia(state.selezionati);
+            invia(selezione());
         });
 
         document.getElementById('cancel-order').addEventListener('click', () => {

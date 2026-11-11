@@ -13,7 +13,9 @@ require dirname(__DIR__) . '/bootstrap.php';
 use MenuCraft\Enums\PagamentoType;
 use MenuCraft\Enums\PortataType;
 use MenuCraft\Models\AziendaConfig;
+use MenuCraft\Services\Anagrafica;
 use MenuCraft\Services\AuthService;
+use MenuCraft\Services\PrenotazioniAzienda;
 use MenuCraft\Services\KitchenSummary;
 use MenuCraft\Services\RegoleAzienda;
 use MenuCraft\Services\ItalianHolidayCalendar;
@@ -133,6 +135,18 @@ attesaEccezione('LIMITE_SCELTE', fn () => $validator->validaComposizione($aziend
     PortataType::Yogurt,
     PortataType::Bevanda,
 ]), 'sesta scelta');
+$conAcqua = new AziendaConfig(9, 'Acqua', 'acqua', PagamentoType::Welfare, 5, false, false, '09:30:00', '18:00:00', 'intranet', true);
+$validator->validaComposizione($conAcqua, [PortataType::Primo, PortataType::Secondo, PortataType::Contorno, PortataType::Frutta, PortataType::Bevanda]);
+attesaEccezione('BEVANDA_OBBLIGATORIA', fn () => $validator->validaComposizione($conAcqua, [PortataType::Primo, PortataType::Secondo]), 'manca l\'acqua');
+attesaEccezione('BEVANDA_OBBLIGATORIA', fn () => $validator->validaComposizione($conAcqua, [PortataType::Bevanda, PortataType::Bevanda]), 'due bevande');
+attesaEccezione('LIMITE_SCELTE', fn () => $validator->validaComposizione($conAcqua, [
+    PortataType::Primo,
+    PortataType::Secondo,
+    PortataType::Contorno,
+    PortataType::Dessert,
+    PortataType::Frutta,
+    PortataType::Bevanda,
+]), 'quattro piatti più acqua più un extra');
 verifica($welfare->prezzoApplicato('8.20') === '0.00', 'welfare azzera il prezzo');
 verifica($azienda->prezzoApplicato('8.20') === '8.20', 'dipendente paga il listino');
 
@@ -251,8 +265,8 @@ $pdo->prepare('DELETE FROM login_tentativi WHERE azienda_slug LIKE :slug')->exec
 function creaTenant(PDO $pdo, string $slug, string $tipo, bool $doppioPrimo, bool $doppioContorno, int $wallet): array
 {
     $azienda = $pdo->prepare(
-        'INSERT INTO aziende (nome, slug, tipo_pagamento, max_scelte, permetti_doppio_primo, permetti_doppio_contorno, limite_oggi, limite_domani)
-         VALUES (:nome, :slug, :tipo, 5, :primo, :contorno, \'09:30:00\', \'18:00:00\')'
+        'INSERT INTO aziende (nome, slug, tipo_pagamento, max_scelte, permetti_doppio_primo, permetti_doppio_contorno, limite_oggi, limite_domani, bevanda_obbligatoria)
+         VALUES (:nome, :slug, :tipo, 5, :primo, :contorno, \'09:30:00\', \'18:00:00\', 0)'
     );
     $azienda->execute([
         'nome' => $slug,
@@ -430,6 +444,30 @@ verifica($auroraCucina['buoni'] === 1 && $auroraCucina['porzioni'][0]['codice'] 
 verifica($cucina->perGiorno($rossiId, '2026-11-13')['buoni'] === 0, 'riepilogo isolato per azienda');
 verifica(str_contains($cucina->csv($auroraId, 'QA Aurora', '2026-11-13'), 'SE2;'), 'csv porzioni');
 
+$prenotazioni = new PrenotazioniAzienda($pdo);
+$listaAurora = $prenotazioni->delGiorno($auroraId, '2026-11-13');
+verifica(
+    count($listaAurora) === 1
+    && $listaAurora[0]['matricola'] === 'DIP'
+    && $listaAurora[0]['a_carico'] === 'azienda'
+    && $listaAurora[0]['piatti'][0]['nome'] === 'Merluzzo',
+    'prenotazioni dell\'azienda',
+);
+verifica($prenotazioni->delGiorno($rossiId, '2026-11-13') === [], 'le prenotazioni non trapelano');
+
+verifica($ordini->saldo(AziendaConfig::trova($pdo, $rossiId), $rossiUser) === '15.00', 'annullo restituisce il wallet');
+$ospiteAzienda = $ordini->invia($rossiUser, $rossiId, '2026-11-13', [$idsRossi[7]], $adesso, true, 'Mario Ospite', 'azienda');
+verifica($ospiteAzienda['ordine']['totale'] === '0.00' && $ospiteAzienda['saldo'] === '15.00', 'ospite a carico azienda non scala il wallet');
+$personale = $ordini->invia($rossiUser, $rossiId, '2026-11-13', [$idsRossi[7]], $adesso);
+verifica($personale['ordine']['totale'] === '0.80' && $personale['saldo'] === '14.20', 'il vassoio personale convive con l\'ospite');
+verifica((int) $pdo->query('SELECT COUNT(*) FROM ordini WHERE utente_id = ' . $rossiUser . " AND data_pasto = '2026-11-13'")->fetchColumn() === 2, 'due buoni lo stesso giorno');
+$ospiteMio = $ordini->invia($rossiUser, $rossiId, '2026-11-13', [$idsRossi[7]], $adesso, true, 'Mario Ospite', 'dipendente');
+verifica($ospiteMio['ordine']['totale'] === '0.80' && $ospiteMio['saldo'] === '13.40', 'ospite a carico del dipendente');
+$ordini->invia($rossiUser, $rossiId, '2026-11-13', [], $adesso, true, 'Mario Ospite', 'dipendente');
+$ordini->invia($rossiUser, $rossiId, '2026-11-13', [], $adesso);
+verifica($ordini->saldo(AziendaConfig::trova($pdo, $rossiId), $rossiUser) === '15.00', 'annullo ospite e vassoio');
+verifica($prenotazioni->delGiorno($rossiId, '2026-11-13') === [], 'giorno di nuovo vuoto');
+
 $regoleServizio = new RegoleAzienda($pdo);
 $regoleNuove = $regoleServizio->salva($auroraId, [
     'max_scelte' => 3,
@@ -455,6 +493,62 @@ attesaEccezione('REGOLA_NON_VALIDA', fn () => $regoleServizio->salva($auroraId, 
     'limite_oggi' => '09:30',
     'limite_domani' => '18:00',
 ]), 'scelte fuori scala');
+$conBevanda = $regoleServizio->salva($auroraId, [
+    'max_scelte' => 5,
+    'permetti_doppio_primo' => false,
+    'permetti_doppio_contorno' => false,
+    'limite_oggi' => '09:30',
+    'limite_domani' => '18:00',
+    'modalita' => 'intranet',
+    'tipo_pagamento' => 'dipendente',
+    'bevanda_obbligatoria' => true,
+]);
+verifica($conBevanda->bevandaObbligatoria && $conBevanda->tipoPagamento === PagamentoType::Dipendente, 'pagamento e acqua salvati');
+verifica(AziendaConfig::trova($pdo, $rossiId)->bevandaObbligatoria === false, 'l\'acqua obbligatoria resta nel tenant');
+
+$anagrafica = new Anagrafica($pdo);
+$pagante = $anagrafica->creaUtente($auroraId, [
+    'nome' => 'Ada Pagante',
+    'matricola' => 'ADA',
+    'password' => 'MenuCraft!2026',
+    'pagamento' => 'pagante',
+    'saldo' => '10,00',
+]);
+$esitoPagante = $ordini->invia((int) $pagante['id'], $auroraId, '2026-11-13', [$idsAurora[3], $idsAurora[7]], $adesso);
+verifica($esitoPagante['ordine']['totale'] === '9.00' && $esitoPagante['saldo'] === '1.00', 'in welfare un pagante usa il listino');
+verifica(count(array_filter(
+    $anagrafica->elencoUtenti($rossiId),
+    static fn (array $utente): bool => $utente['matricola'] === 'ADA',
+)) === 0, 'l\'utente resta nella sua azienda');
+attesaEccezione('MATRICOLA_ESISTENTE', fn () => $anagrafica->creaUtente($auroraId, [
+    'nome' => 'Ada Doppia',
+    'matricola' => 'ADA',
+    'password' => 'MenuCraft!2026',
+    'pagamento' => 'eredita',
+]), 'matricola duplicata');
+
+$creata = $anagrafica->creaSocieta([
+    'nome' => 'Nuova Cucina QA',
+    'slug' => 'qa-nuova-cucina',
+    'tipo_pagamento' => 'welfare',
+    'modalita' => 'intranet',
+    'caterer_nome' => 'Cuoco QA',
+    'caterer_matricola' => 'CAT-QA',
+    'caterer_password' => 'MenuCraft!2026',
+]);
+verifica($creata['slug'] === 'qa-nuova-cucina' && $creata['caterer_matricola'] === 'CAT-QA', 'nuova cucina con catering');
+verifica(AziendaConfig::trova($pdo, (int) $creata['id'])->bevandaObbligatoria === true, 'la cucina nuova ha l\'acqua obbligatoria');
+attesaEccezione('SLUG_ESISTENTE', fn () => $anagrafica->creaSocieta([
+    'nome' => 'Nuova Cucina QA',
+    'slug' => 'qa-nuova-cucina',
+    'tipo_pagamento' => 'welfare',
+    'modalita' => 'intranet',
+    'caterer_nome' => 'Cuoco QA',
+    'caterer_matricola' => 'CAT-QA',
+    'caterer_password' => 'MenuCraft!2026',
+]), 'slug duplicato');
+$ruoloPiattaforma = (string) $pdo->query("SELECT u.ruolo FROM utenti u INNER JOIN aziende a ON a.id = u.azienda_id WHERE a.slug = 'menucraft' AND u.matricola = 'ADMIN'")->fetchColumn();
+verifica($ruoloPiattaforma === 'piattaforma', 'operatore del servizio');
 
 $pulizia->execute(['slug' => 'qa-%']);
 $pdo->prepare('DELETE FROM login_tentativi WHERE azienda_slug LIKE :slug')->execute(['slug' => 'qa-%']);

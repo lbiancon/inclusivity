@@ -47,7 +47,7 @@ final class KitchenSummary
         $porzioni->execute(['azienda' => $aziendaId, 'data' => $data]);
 
         $righe = $this->pdo->prepare(
-            'SELECT u.matricola, u.nome AS dipendente, p.codice, r.categoria, r.nome
+            'SELECT u.matricola, u.nome AS dipendente, o.ospite, o.ospite_nome, o.a_carico, p.codice, r.categoria, r.nome
              FROM ordini o
              INNER JOIN utenti u
                 ON u.id = o.utente_id
@@ -90,6 +90,8 @@ final class KitchenSummary
             $dettaglio[] = [
                 'matricola' => (string) $riga['matricola'],
                 'dipendente' => (string) $riga['dipendente'],
+                'ospite' => (int) $riga['ospite'] === 1 ? (string) ($riga['ospite_nome'] ?? '') : '',
+                'a_carico' => (string) $riga['a_carico'],
                 'codice' => CodicePiatto::etichetta((string) $riga['codice']),
                 'categoria' => (string) $riga['categoria'],
                 'nome' => (string) $riga['nome'],
@@ -120,9 +122,17 @@ final class KitchenSummary
         }
         $righe[] = [];
         $righe[] = ['BUONI'];
-        $righe[] = ['matricola', 'dipendente', 'categoria', 'codice', 'piatto'];
+        $righe[] = ['matricola', 'dipendente', 'ospite', 'a_carico', 'categoria', 'codice', 'piatto'];
         foreach ($riepilogo['buoni_righe'] as $riga) {
-            $righe[] = [$riga['matricola'], $riga['dipendente'], $riga['categoria'], $riga['codice'], $riga['nome']];
+            $righe[] = [
+                $riga['matricola'],
+                $riga['dipendente'],
+                $riga['ospite'],
+                $riga['a_carico'] === 'azienda' ? 'azienda' : 'dipendente',
+                $riga['categoria'],
+                $riga['codice'],
+                $riga['nome'],
+            ];
         }
 
         $csv = "\xEF\xBB\xBF";

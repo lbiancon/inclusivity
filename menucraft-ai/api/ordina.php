@@ -26,12 +26,17 @@ JsonResponse::guard(static function (): void {
         throw new MenuRuleException('PIATTO_NON_VALIDO', 'Elenco piatti non valido.');
     }
 
+    $ospite = ($body['ospite'] ?? false) === true || (string) ($body['ospite'] ?? '') === '1';
     $servizio = new OrderService($pdo, new MenuValidator($pdo));
     $esito = $servizio->invia(
         $utente['id'],
         $utente['azienda_id'],
         (string) ($body['data'] ?? ''),
         array_values($piatti),
+        null,
+        $ospite,
+        (string) ($body['ospite_nome'] ?? ''),
+        (string) ($body['a_carico'] ?? ''),
     );
 
     JsonResponse::send(200, ['ok' => true] + $esito);

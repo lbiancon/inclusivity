@@ -28,6 +28,7 @@ readonly class AziendaConfig
         public string $limiteOggi,
         public string $limiteDomani,
         public string $modalita = 'intranet',
+        public bool $bevandaObbligatoria = false,
     ) {
         if ($this->id < 1) {
             throw new \InvalidArgumentException('Identificativo azienda non valido.');
@@ -54,6 +55,7 @@ readonly class AziendaConfig
             limiteOggi: self::normalizzaOrario((string) $riga['limite_oggi']),
             limiteDomani: self::normalizzaOrario((string) $riga['limite_domani']),
             modalita: self::modalita((string) ($riga['modalita'] ?? 'intranet')),
+            bevandaObbligatoria: (int) ($riga['bevanda_obbligatoria'] ?? 0) === 1,
         );
     }
 
@@ -61,7 +63,7 @@ readonly class AziendaConfig
     {
         $stmt = $pdo->prepare(
             'SELECT id, nome, slug, tipo_pagamento, max_scelte, permetti_doppio_primo,
-                    permetti_doppio_contorno, limite_oggi, limite_domani, modalita
+                    permetti_doppio_contorno, limite_oggi, limite_domani, modalita, bevanda_obbligatoria
              FROM aziende
              WHERE id = :id'
         );
@@ -109,6 +111,8 @@ readonly class AziendaConfig
             'limite_domani' => substr($this->limiteDomani, 0, 5),
             'modalita' => $this->modalita,
             'modalita_etichetta' => $this->modalita === 'internet' ? 'Internet' : 'Intranet',
+            'bevanda_obbligatoria' => $this->bevandaObbligatoria,
+            'pagamento_etichetta' => $this->tipoPagamento->copertoDaAzienda() ? 'A carico dell\'azienda' : 'Paga il dipendente',
         ];
     }
 

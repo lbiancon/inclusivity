@@ -43,22 +43,23 @@ final class Installer
     {
         $this->creaTabelle();
         $this->assicuraModalita();
+        $this->assicuraServizio();
         $this->semeFestivita();
         $conteggio = (int) $this->pdo->query('SELECT COUNT(*) FROM aziende')->fetchColumn();
-        if ($conteggio > 0) {
-            return;
+        if ($conteggio === 0) {
+            $this->pdo->beginTransaction();
+            try {
+                $this->semeDemo();
+                $this->pdo->commit();
+            } catch (\Throwable $e) {
+                if ($this->pdo->inTransaction()) {
+                    $this->pdo->rollBack();
+                }
+                throw $e;
+            }
         }
 
-        $this->pdo->beginTransaction();
-        try {
-            $this->semeDemo();
-            $this->pdo->commit();
-        } catch (\Throwable $e) {
-            if ($this->pdo->inTransaction()) {
-                $this->pdo->rollBack();
-            }
-            throw $e;
-        }
+        $this->assicuraPiattaforma();
     }
 
     private function creaTabelle(): void
@@ -75,6 +76,7 @@ final class Installer
                 limite_oggi TIME NOT NULL,
                 limite_domani TIME NOT NULL,
                 modalita VARCHAR(20) NOT NULL DEFAULT \'intranet\',
+                bevanda_obbligatoria TINYINT(1) NOT NULL DEFAULT 1,
                 PRIMARY KEY (id),
                 UNIQUE KEY uq_aziende_slug (slug),
                 CONSTRAINT chk_tipo_pagamento CHECK (tipo_pagamento IN (\'welfare\', \'dipendente\')),
@@ -89,11 +91,13 @@ final class Installer
                 nome VARCHAR(120) NOT NULL,
                 password_hash VARCHAR(255) NOT NULL,
                 ruolo VARCHAR(20) NOT NULL,
+                pagamento VARCHAR(20) NOT NULL DEFAULT \'eredita\',
                 PRIMARY KEY (id),
                 UNIQUE KEY uq_utenti_matricola (azienda_id, matricola),
                 KEY idx_utenti_azienda (azienda_id),
                 CONSTRAINT fk_utenti_azienda FOREIGN KEY (azienda_id) REFERENCES aziende (id) ON DELETE CASCADE,
-                CONSTRAINT chk_ruolo CHECK (ruolo IN (\'dipendente\', \'caterer\'))
+                CONSTRAINT chk_ruolo CHECK (ruolo IN (\'dipendente\', \'caterer\', \'piattaforma\')),
+                CONSTRAINT chk_pagamento_utente CHECK (pagamento IN (\'eredita\', \'welfare\', \'pagante\'))
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci',
 
             'CREATE TABLE IF NOT EXISTS piatti (
@@ -180,8 +184,11 @@ final class Installer
                 totale DECIMAL(8,2) NOT NULL,
                 creato_il DATETIME NOT NULL,
                 aggiornato_il DATETIME NOT NULL,
+                ospite TINYINT(1) NOT NULL DEFAULT 0,
+                ospite_nome VARCHAR(120) NULL,
+                a_carico VARCHAR(20) NOT NULL DEFAULT \'azienda\',
                 PRIMARY KEY (id),
-                UNIQUE KEY uq_ordine_giorno (azienda_id, utente_id, data_pasto),
+                UNIQUE KEY uq_ordine_giorno (azienda_id, utente_id, data_pasto, ospite),
                 KEY idx_ordini_data (azienda_id, data_pasto),
                 CONSTRAINT fk_ordini_azienda FOREIGN KEY (azienda_id) REFERENCES aziende (id) ON DELETE CASCADE,
                 CONSTRAINT fk_ordini_utente FOREIGN KEY (utente_id) REFERENCES utenti (id) ON DELETE CASCADE,
@@ -222,6 +229,110 @@ final class Installer
         $this->pdo->exec(
             "UPDATE aziende SET modalita = 'internet' WHERE slug = 'officine-rossi'"
         );
+    }
+
+    private function assicuraServizio(): void
+    {
+        if (!$this->haColonna('aziende', 'bevanda_obbligatoria')) {
+            $this->pdo->exec(
+                'ALTER TABLE aziende ADD COLUMN bevanda_obbligatoria TINYINT(1) NOT NULL DEFAULT 1 AFTER modalita'
+            );
+        }
+        if (!$this->haColonna('utenti', 'pagamento')) {
+            $this->pdo->exec(
+                "ALTER TABLE utenti ADD COLUMN pagamento VARCHAR(20) NOT NULL DEFAULT 'eredita' AFTER ruolo"
+            );
+        }
+        if (!$this->haColonna('ordini', 'ospite')) {
+            $this->pdo->exec(
+                'ALTER TABLE ordini ADD COLUMN ospite TINYINT(1) NOT NULL DEFAULT 0 AFTER aggiornato_il'
+            );
+        }
+        if (!$this->haColonna('ordini', 'ospite_nome')) {
+            $this->pdo->exec(
+                'ALTER TABLE ordini ADD COLUMN ospite_nome VARCHAR(120) NULL AFTER ospite'
+            );
+        }
+        if (!$this->haColonna('ordini', 'a_carico')) {
+            $this->pdo->exec(
+                "ALTER TABLE ordini ADD COLUMN a_carico VARCHAR(20) NOT NULL DEFAULT 'azienda' AFTER ospite_nome"
+            );
+            $this->pdo->exec(
+                "UPDATE ordini o
+                 INNER JOIN aziende a ON a.id = o.azienda_id
+                 SET o.a_carico = IF(a.tipo_pagamento = 'dipendente', 'dipendente', 'azienda')"
+            );
+        }
+        $this->assicuraIndiceOspite();
+        $this->assicuraVincoloRuolo();
+    }
+
+    private function assicuraIndiceOspite(): void
+    {
+        $colonne = [];
+        foreach ($this->pdo->query("SHOW INDEX FROM ordini WHERE Key_name = 'uq_ordine_giorno'") as $riga) {
+            $colonne[] = (string) $riga['Column_name'];
+        }
+        if (in_array('ospite', $colonne, true)) {
+            return;
+        }
+        if ($colonne !== []) {
+            $this->pdo->exec('ALTER TABLE ordini DROP INDEX uq_ordine_giorno');
+        }
+        $this->pdo->exec(
+            'ALTER TABLE ordini ADD UNIQUE KEY uq_ordine_giorno (azienda_id, utente_id, data_pasto, ospite)'
+        );
+    }
+
+    private function assicuraVincoloRuolo(): void
+    {
+        $clausola = $this->pdo->query(
+            "SELECT CHECK_CLAUSE FROM information_schema.CHECK_CONSTRAINTS
+             WHERE CONSTRAINT_SCHEMA = DATABASE() AND CONSTRAINT_NAME = 'chk_ruolo'"
+        )->fetchColumn();
+        if (is_string($clausola) && str_contains($clausola, 'piattaforma')) {
+            return;
+        }
+        if ($clausola !== false) {
+            $this->pdo->exec('ALTER TABLE utenti DROP CONSTRAINT chk_ruolo');
+        }
+        $this->pdo->exec(
+            "ALTER TABLE utenti ADD CONSTRAINT chk_ruolo CHECK (ruolo IN ('dipendente', 'caterer', 'piattaforma'))"
+        );
+    }
+
+    private function assicuraPiattaforma(): void
+    {
+        $cerca = $this->pdo->prepare('SELECT id FROM aziende WHERE slug = :slug');
+        $cerca->execute(['slug' => 'menucraft']);
+        $id = $cerca->fetchColumn();
+        if ($id === false) {
+            $id = $this->inserisciAzienda('MenuCraft', 'menucraft', 'welfare', 5, false, false, 'intranet');
+        } else {
+            $id = (int) $id;
+        }
+
+        $utente = $this->pdo->prepare(
+            'SELECT id FROM utenti WHERE azienda_id = :azienda AND matricola = :matricola'
+        );
+        $utente->execute(['azienda' => $id, 'matricola' => 'ADMIN']);
+        if ($utente->fetchColumn() !== false) {
+            return;
+        }
+
+        $hash = password_hash(self::PASSWORD_DEMO, PASSWORD_BCRYPT, ['cost' => AuthService::COSTO_BCRYPT]);
+        $this->inserisciUtente($id, 'ADMIN', 'Operatore MenuCraft', $hash, 'piattaforma', null);
+    }
+
+    private function haColonna(string $tabella, string $colonna): bool
+    {
+        if (!in_array($tabella, ['aziende', 'utenti', 'ordini'], true) || preg_match('/^[a-z_]+$/', $colonna) !== 1) {
+            throw new \RuntimeException('Colonna non prevista.');
+        }
+
+        $stmt = $this->pdo->query('SHOW COLUMNS FROM ' . $tabella . ' LIKE ' . $this->pdo->quote($colonna));
+
+        return $stmt->fetch() !== false;
     }
 
     private function semeFestivita(): void
@@ -310,8 +421,8 @@ final class Installer
     ): int {
         $stmt = $this->pdo->prepare(
             'INSERT INTO aziende
-                (nome, slug, tipo_pagamento, max_scelte, permetti_doppio_primo, permetti_doppio_contorno, limite_oggi, limite_domani, modalita)
-             VALUES (:nome, :slug, :pagamento, :max, :primo, :contorno, :oggi, :domani, :modalita)'
+                (nome, slug, tipo_pagamento, max_scelte, permetti_doppio_primo, permetti_doppio_contorno, limite_oggi, limite_domani, modalita, bevanda_obbligatoria)
+             VALUES (:nome, :slug, :pagamento, :max, :primo, :contorno, :oggi, :domani, :modalita, 1)'
         );
         $stmt->execute([
             'nome' => $nome,
