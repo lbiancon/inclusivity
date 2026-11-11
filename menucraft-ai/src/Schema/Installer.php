@@ -68,7 +68,6 @@ final class Installer
         }
 
         $this->assicuraPiattaforma();
-        $this->assicuraMenuAmpio();
     }
 
     private function creaTabelle(): void
@@ -486,72 +485,6 @@ final class Installer
         }
         if (!$this->haColonna('ordini', 'nota_cucina')) {
             $this->pdo->exec('ALTER TABLE ordini ADD COLUMN nota_cucina VARCHAR(240) NULL AFTER a_carico');
-        }
-    }
-
-    private function assicuraMenuAmpio(): void
-    {
-        $extra = [
-            ['PR-MIN', 'Minestrone di verdure', 'primo', '3.20'],
-            ['SE-SPE', 'Spezzatino di manzo', 'secondo', '6.40'],
-            ['CO-PAT', 'Patate al forno', 'contorno', '1.60'],
-        ];
-        $aziende = $this->pdo->query('SELECT id FROM aziende')->fetchAll();
-        $cerca = $this->pdo->prepare('SELECT id FROM piatti WHERE azienda_id = :azienda AND codice = :codice');
-        $inserisci = $this->pdo->prepare(
-            'INSERT INTO piatti (azienda_id, codice, nome, categoria, prezzo)
-             VALUES (:azienda, :codice, :nome, :categoria, :prezzo)'
-        );
-        $giorni = $this->pdo->prepare(
-            'SELECT data_pasto, MIN(pubblicazione_id) AS pubblicazione_id
-             FROM menu_voci
-             WHERE azienda_id = :azienda
-             GROUP BY data_pasto'
-        );
-        $esisteVoce = $this->pdo->prepare(
-            'SELECT id FROM menu_voci WHERE azienda_id = :azienda AND data_pasto = :data AND piatto_id = :piatto'
-        );
-        $voce = $this->pdo->prepare(
-            'INSERT INTO menu_voci (azienda_id, pubblicazione_id, piatto_id, data_pasto)
-             VALUES (:azienda, :pubblicazione, :piatto, :data)'
-        );
-
-        foreach ($aziende as $azienda) {
-            $aziendaId = (int) $azienda['id'];
-            foreach ($extra as $piatto) {
-                $cerca->execute(['azienda' => $aziendaId, 'codice' => $piatto[0]]);
-                $piattoId = $cerca->fetchColumn();
-                if ($piattoId === false) {
-                    $inserisci->execute([
-                        'azienda' => $aziendaId,
-                        'codice' => $piatto[0],
-                        'nome' => $piatto[1],
-                        'categoria' => $piatto[2],
-                        'prezzo' => $piatto[3],
-                    ]);
-                    $piattoId = (int) $this->pdo->lastInsertId();
-                } else {
-                    $piattoId = (int) $piattoId;
-                }
-
-                $giorni->execute(['azienda' => $aziendaId]);
-                foreach ($giorni->fetchAll() as $giorno) {
-                    $esisteVoce->execute([
-                        'azienda' => $aziendaId,
-                        'data' => (string) $giorno['data_pasto'],
-                        'piatto' => $piattoId,
-                    ]);
-                    if ($esisteVoce->fetchColumn() !== false) {
-                        continue;
-                    }
-                    $voce->execute([
-                        'azienda' => $aziendaId,
-                        'pubblicazione' => (int) $giorno['pubblicazione_id'],
-                        'piatto' => $piattoId,
-                        'data' => (string) $giorno['data_pasto'],
-                    ]);
-                }
-            }
         }
     }
 
