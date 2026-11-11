@@ -70,46 +70,82 @@ final class MenuValidator
         }
 
         $totale = array_sum($conteggi);
-        if ($totale > $azienda->maxScelte) {
+        $bevande = $conteggi[PortataType::Bevanda->value];
+        $pietanze = $totale - $bevande;
+        if ($azienda->bevandaObbligatoria) {
+            if ($pietanze > $azienda->maxScelte) {
+                throw new MenuRuleException(
+                    'LIMITE_SCELTE',
+                    sprintf('Puoi scegliere al massimo %d pietanze. L\'acqua è a parte.', $azienda->maxScelte),
+                );
+            }
+        } elseif ($totale > $azienda->maxScelte) {
             throw new MenuRuleException(
                 'LIMITE_SCELTE',
                 sprintf('Puoi scegliere al massimo %d piatti per buono pasto.', $azienda->maxScelte),
             );
         }
 
-        if ($conteggi[PortataType::Secondo->value] > 1) {
-            throw new MenuRuleException('LIMITE_SECONDO', 'È consentito al massimo un secondo per vassoio.');
-        }
+        $this->limitePortata($azienda, PortataType::Secondo, $conteggi[PortataType::Secondo->value], 'LIMITE_SECONDO', 'secondo', 'secondi');
+        $this->limitePortata($azienda, PortataType::Primo, $conteggi[PortataType::Primo->value], 'LIMITE_PRIMO', 'primo', 'primi');
+        $this->limitePortata($azienda, PortataType::Contorno, $conteggi[PortataType::Contorno->value], 'LIMITE_CONTORNO', 'contorno', 'contorni');
 
-        $maxPrimo = $azienda->maxPerCategoria(PortataType::Primo);
-        if ($conteggi[PortataType::Primo->value] > $maxPrimo) {
-            throw new MenuRuleException(
-                'LIMITE_PRIMO',
-                $azienda->permettiDoppioPrimo
-                    ? 'Sono consentiti al massimo due primi.'
-                    : 'Per questa azienda il doppio primo non è consentito.',
-            );
-        }
-
-        $maxContorno = $azienda->maxPerCategoria(PortataType::Contorno);
-        if ($conteggi[PortataType::Contorno->value] > $maxContorno) {
-            throw new MenuRuleException(
-                'LIMITE_CONTORNO',
-                $azienda->permettiDoppioContorno
-                    ? 'Sono consentiti al massimo due contorni.'
-                    : 'Per questa azienda il doppio contorno non è consentito.',
-            );
-        }
-
-        if ($azienda->bevandaObbligatoria && $conteggi[PortataType::Bevanda->value] !== 1) {
+        if ($azienda->bevandaObbligatoria && $bevande !== 1) {
             throw new MenuRuleException(
                 'BEVANDA_OBBLIGATORIA',
                 sprintf(
-                    'L\'acqua è obbligatoria: una bevanda e al massimo %d altre scelte.',
-                    max(0, $azienda->maxScelte - 1),
+                    'L\'acqua è obbligatoria ed è a parte: al massimo %d pietanze più una bevanda.',
+                    $azienda->maxScelte,
                 ),
             );
         }
+    }
+
+    /**
+     * @param list<array{id: int, nome: string, categoria: PortataType}> $piatti
+     */
+    public function validaQuantita(AziendaConfig $azienda, array $piatti): void
+    {
+        /** @var array<int, array{n: int, nome: string, categoria: PortataType}> $perId */
+        $perId = [];
+        foreach ($piatti as $piatto) {
+            $id = (int) $piatto['id'];
+            if (!isset($perId[$id])) {
+                $perId[$id] = ['n' => 0, 'nome' => (string) $piatto['nome'], 'categoria' => $piatto['categoria']];
+            }
+            $perId[$id]['n']++;
+        }
+
+        foreach ($perId as $voce) {
+            if ($voce['n'] > 2) {
+                throw new MenuRuleException('DOPPIO_PIATTO', 'Lo stesso piatto si può prendere al massimo due volte.');
+            }
+            if ($voce['n'] === 2 && !$azienda->doppioStessoPiatto($voce['categoria'])) {
+                throw new MenuRuleException(
+                    'DOPPIO_PIATTO',
+                    sprintf('Per questa azienda non si può raddoppiare %s.', $voce['nome']),
+                );
+            }
+        }
+    }
+
+    private function limitePortata(
+        AziendaConfig $azienda,
+        PortataType $categoria,
+        int $conteggio,
+        string $codice,
+        string $singolare,
+        string $plurale,
+    ): void {
+        $massimo = $azienda->maxPerCategoria($categoria);
+        if ($conteggio <= $massimo) {
+            return;
+        }
+
+        $messaggio = $massimo === 1
+            ? sprintf('Per questa azienda è consentito un solo %s.', $singolare)
+            : sprintf('Sono consentiti al massimo %d %s.', $massimo, $plurale);
+        throw new MenuRuleException($codice, $messaggio);
     }
 
     public function validaCutoff(
@@ -399,7 +435,8 @@ final class MenuValidator
             ];
         }
 
-        if (count($perId) !== count($piattoIds)) {
+        $unici = array_values(array_unique($piattoIds));
+        if (count($perId) !== count($unici)) {
             throw new MenuRuleException(
                 'PIATTI_NON_DISPONIBILI',
                 'Uno o più piatti non sono disponibili per questa azienda in questa data.',
@@ -442,11 +479,11 @@ final class MenuValidator
             $ids[] = $valore;
         }
 
-        if (count($ids) !== count(array_unique($ids))) {
-            throw new MenuRuleException(
-                'PIATTO_DUPLICATO',
-                'Lo stesso piatto non può comparire due volte sullo stesso vassoio.',
-            );
+        $conteggi = array_count_values($ids);
+        foreach ($conteggi as $volte) {
+            if ($volte > 2) {
+                throw new MenuRuleException('DOPPIO_PIATTO', 'Lo stesso piatto si può prendere al massimo due volte.');
+            }
         }
 
         return $ids;

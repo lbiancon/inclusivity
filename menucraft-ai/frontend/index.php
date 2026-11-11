@@ -15,6 +15,15 @@ header('Content-Type: text/html; charset=utf-8');
     <link rel="stylesheet" href="../assets/app.css">
     <style>
         [hidden] { display: none !important; }
+        #banner.is-toast {
+            position: fixed;
+            right: 1rem;
+            bottom: 1rem;
+            z-index: 40;
+            width: min(24rem, calc(100% - 2rem));
+            box-shadow: 0 12px 30px rgba(29, 36, 32, 0.18);
+        }
+        .portata-primo { background: #f6d7c8; }
         body { font-family: "Source Sans 3", ui-sans-serif, sans-serif; background: #efe6d2; color: #1d2420; }
         h1, h2, h3, .font-serif { font-family: "Barlow Condensed", Impact, sans-serif; letter-spacing: 0.01em; }
         .counter { background: #1d4a38; color: #f6f3ea; }
@@ -113,7 +122,6 @@ header('Content-Type: text/html; charset=utf-8');
 
         <main class="mx-auto grid max-w-6xl gap-6 px-4 py-6 lg:grid-cols-[minmax(0,1fr)_320px]">
             <section class="space-y-5">
-                <div id="banner" hidden role="alert" class="rounded-3xl border p-4"></div>
                 <p id="modalita-nota" class="text-sm text-ink/70"></p>
                 <div id="weeks" class="space-y-4"></div>
                 <div id="menu" class="space-y-4"></div>
@@ -140,6 +148,10 @@ header('Content-Type: text/html; charset=utf-8');
                 <div id="pips" class="mt-4 flex gap-2" aria-hidden="true"></div>
                 <ul id="summary-lines" class="mt-4 space-y-2 text-sm"></ul>
                 <div id="bill" class="mt-5 rounded-2xl bg-cream p-4" aria-live="polite"></div>
+                <label class="mt-4 block text-sm font-semibold">Intolleranze o allergie
+                    <textarea id="allergie" maxlength="240" rows="2" class="mt-1 w-full rounded-2xl border border-ink/10 bg-white px-3 py-2 text-sm font-normal" placeholder="Es. lattosio, glutine, frutta a guscio"></textarea>
+                </label>
+                <button id="salva-allergie" type="button" class="mt-2 w-full rounded-2xl border border-ink/15 px-3 py-2 text-sm">Segnala in cucina</button>
                 <div class="mt-4 grid gap-2">
                     <button id="submit-order" type="button" class="rounded-2xl bg-moss px-4 py-3 font-semibold text-white disabled:cursor-not-allowed disabled:bg-ink/20">Conferma prenotazione</button>
                     <button id="cancel-order" type="button" hidden class="rounded-2xl border border-ink/15 px-4 py-3 text-sm">Annulla buono</button>
@@ -147,6 +159,7 @@ header('Content-Type: text/html; charset=utf-8');
             </aside>
         </main>
     </div>
+    <div id="banner" hidden role="alert" class="is-toast rounded-3xl border p-4"></div>
     <noscript class="mx-auto block max-w-xl p-8 text-center">MenuCraft AI ha bisogno di JavaScript per inviare la prenotazione al validatore.</noscript>
     <script>
         const API = '../api/';
@@ -206,8 +219,8 @@ header('Content-Type: text/html; charset=utf-8');
             }
             banner.hidden = false;
             banner.className = tipo === 'ok'
-                ? 'rounded-3xl border border-emerald-200 bg-emerald-50 p-4 text-emerald-950'
-                : 'rounded-3xl border border-red-200 bg-red-50 p-4 text-red-900';
+                ? 'is-toast rounded-3xl border border-emerald-200 bg-emerald-50 p-4 text-emerald-950'
+                : 'is-toast rounded-3xl border border-red-200 bg-red-50 p-4 text-red-900';
             banner.replaceChildren();
             const titolo = document.createElement('p');
             titolo.className = 'font-medium';
@@ -311,7 +324,8 @@ header('Content-Type: text/html; charset=utf-8');
                 titolo.textContent = prenotazione.data + ' · ' + chi + ' · ' + carico + ' · ' + String(prenotazione.totale).replace('.', ',') + ' €';
                 const piatti = document.createElement('p');
                 piatti.className = 'mt-1 text-ink/70';
-                piatti.textContent = prenotazione.piatti.map((piatto) => piatto.nome).join(' · ');
+                piatti.textContent = prenotazione.piatti.map((piatto) => piatto.nome).join(' · ')
+                    + (prenotazione.nota_cucina ? ' · Allergie: ' + prenotazione.nota_cucina : '');
                 voce.append(titolo, piatti);
                 lista.append(voce);
             });
@@ -343,8 +357,12 @@ header('Content-Type: text/html; charset=utf-8');
             document.getElementById('utente-meta').textContent = state.utente.matricola + ' · ' + paga;
             const nota = document.getElementById('modalita-nota');
             const acqua = payload.regole.bevanda_obbligatoria
-                ? ' Acqua obbligatoria: ' + payload.regole.max_altre + ' scelte + 1 bevanda.'
+                ? ' Acqua obbligatoria a parte: ' + payload.regole.max_scelte + ' pietanze + 1 bevanda.'
                 : '';
+            const campoAllergie = document.getElementById('allergie');
+            if (document.activeElement !== campoAllergie) {
+                campoAllergie.value = payload.allergie || '';
+            }
             nota.textContent = (payload.azienda.modalita === 'internet'
                 ? 'Questa azienda è in internet: il pasto di oggi si prenota solo dalla rete aziendale.'
                 : 'Questa azienda è in intranet: oggi si prenota fino all’orario di chiusura della linea.') + acqua;
@@ -381,33 +399,58 @@ header('Content-Type: text/html; charset=utf-8');
             return ids.filter((id) => state.catalogo.get(id)?.categoria === 'bevanda').length;
         }
 
+        function doppioConsentito(categoria) {
+            if (categoria === 'primo') {
+                return state.regole.doppio_primo === true;
+            }
+            if (categoria === 'secondo') {
+                return state.regole.doppio_secondo === true;
+            }
+            if (categoria === 'contorno') {
+                return state.regole.doppio_contorno === true;
+            }
+            return false;
+        }
+
         function limiteMessaggio(ids) {
             const regole = state.regole;
-            if (ids.length > regole.max_scelte) {
-                return 'Puoi scegliere al massimo ' + regole.max_scelte + ' piatti per buono pasto.';
+            const pietanze = regole.bevanda_obbligatoria
+                ? ids.filter((id) => state.catalogo.get(id)?.categoria !== 'bevanda')
+                : ids;
+            if (pietanze.length > regole.max_scelte) {
+                return regole.bevanda_obbligatoria
+                    ? 'Puoi scegliere al massimo ' + regole.max_scelte + ' pietanze. L’acqua è a parte.'
+                    : 'Puoi scegliere al massimo ' + regole.max_scelte + ' piatti per buono pasto.';
             }
+            const perPiatto = {};
             const conteggi = { primo: 0, secondo: 0, contorno: 0 };
             ids.forEach((id) => {
                 const piatto = state.catalogo.get(id);
+                perPiatto[id] = (perPiatto[id] || 0) + 1;
                 if (conteggi[piatto.categoria] !== undefined) {
                     conteggi[piatto.categoria] += 1;
                 }
             });
-            if (conteggi.secondo > regole.max_secondo) {
-                return 'È consentito al massimo un secondo per vassoio.';
+            const nomi = { primo: 'primi', secondo: 'secondi', contorno: 'contorni' };
+            for (const id of Object.keys(perPiatto)) {
+                const piatto = state.catalogo.get(Number(id));
+                if (perPiatto[id] > 2) {
+                    return 'Lo stesso piatto si può prendere al massimo due volte.';
+                }
+                if (perPiatto[id] > 1 && !doppioConsentito(piatto.categoria)) {
+                    return 'Per questa portata non si può raddoppiare ' + piatto.nome + '.';
+                }
             }
-            if (conteggi.primo > regole.max_primo) {
-                return regole.max_primo > 1
-                    ? 'Sono consentiti al massimo due primi.'
-                    : 'Per questa azienda il doppio primo non è consentito.';
-            }
-            if (conteggi.contorno > regole.max_contorno) {
-                return regole.max_contorno > 1
-                    ? 'Sono consentiti al massimo due contorni.'
-                    : 'Per questa azienda il doppio contorno non è consentito.';
+            for (const categoria of ['secondo', 'primo', 'contorno']) {
+                const massimo = regole['max_' + categoria];
+                if (conteggi[categoria] > massimo) {
+                    return massimo === 1
+                        ? 'Per questa azienda se ne sceglie soltanto uno tra i ' + nomi[categoria] + '.'
+                        : 'Sono consentiti al massimo ' + massimo + ' ' + nomi[categoria] + '.';
+                }
             }
             if (regole.bevanda_obbligatoria && contaBevande(ids) > 1) {
-                return 'È obbligatoria una sola bevanda.';
+                return 'L’acqua è una sola, ed è a parte.';
             }
             return null;
         }
@@ -417,9 +460,11 @@ header('Content-Type: text/html; charset=utf-8');
                 return;
             }
             const attivi = selezione();
-            const presenti = attivi.includes(id);
-            const prossimi = presenti ? attivi.filter((voce) => voce !== id) : attivi.concat(id);
-            if (!presenti) {
+            const gia = attivi.filter((voce) => voce === id).length;
+            const categoria = state.catalogo.get(id)?.categoria;
+            const aggiungi = gia === 0 || (gia === 1 && doppioConsentito(categoria));
+            const prossimi = aggiungi ? attivi.concat(id) : attivi.filter((voce) => voce !== id);
+            if (aggiungi) {
                 const messaggio = limiteMessaggio(prossimi);
                 if (messaggio) {
                     mostraBanner('errore', messaggio, 'REGOLA');
@@ -519,7 +564,7 @@ header('Content-Type: text/html; charset=utf-8');
             }
             giorno.portate.forEach((portata) => {
                 const blocco = document.createElement('section');
-                blocco.className = 'rounded-3xl bg-white p-5 shadow-sm shadow-ink/5';
+                blocco.className = 'rounded-3xl p-5 shadow-sm shadow-ink/5 ' + (portata.categoria === 'primo' ? 'portata-primo' : 'bg-white');
                 const intestazione = document.createElement('div');
                 intestazione.className = 'mb-3 flex items-baseline justify-between gap-3';
                 const titolo = document.createElement('h3');
@@ -527,18 +572,18 @@ header('Content-Type: text/html; charset=utf-8');
                 titolo.textContent = portata.etichetta;
                 const limite = document.createElement('p');
                 limite.className = 'text-xs uppercase tracking-wider text-ink/50';
+                const doppio = doppioConsentito(portata.categoria);
                 limite.textContent = portata.categoria === 'bevanda' && state.regole.bevanda_obbligatoria
-                    ? 'Obbligatoria, una sola'
-                    : portata.categoria === 'secondo'
-                    ? 'Massimo 1'
-                    : (portata.categoria === 'primo' || portata.categoria === 'contorno')
-                        ? 'Massimo ' + portata.massimo
-                        : 'Nel tetto delle ' + state.regole.max_scelte + ' scelte';
+                    ? 'A parte, una sola'
+                    : (portata.categoria === 'primo' || portata.categoria === 'secondo' || portata.categoria === 'contorno')
+                        ? 'In menu ' + portata.piatti.length + ' · massimo ' + portata.massimo + (doppio ? ' · anche doppio dello stesso' : '')
+                        : 'Nel tetto delle ' + state.regole.max_scelte + ' pietanze';
                 intestazione.append(titolo, limite);
                 const griglia = document.createElement('div');
                 griglia.className = 'grid gap-2 sm:grid-cols-2';
                 portata.piatti.forEach((piatto) => {
-                    const scelto = selezione().includes(piatto.id);
+                    const quantita = selezione().filter((voce) => voce === piatto.id).length;
+                    const scelto = quantita > 0;
                     const bottone = document.createElement('button');
                     bottone.type = 'button';
                     bottone.dataset.piatto = String(piatto.id);
@@ -552,10 +597,11 @@ header('Content-Type: text/html; charset=utf-8');
                     testo.className = 'min-w-0 flex-1 py-2 pr-3';
                     const nome = document.createElement('span');
                     nome.className = 'block font-semibold';
-                    nome.textContent = piatto.nome;
+                    nome.textContent = piatto.nome + (quantita > 1 ? ' ×' + quantita : '');
                     const meta = document.createElement('span');
                     meta.className = 'block text-sm text-ink/60';
-                    meta.textContent = euro(cents(prezzoDi(piatto)));
+                    const invito = quantita === 1 && doppioConsentito(piatto.categoria) ? ' · clicca per il doppio' : '';
+                    meta.textContent = euro(cents(prezzoDi(piatto))) + invito;
                     testo.append(nome, meta);
                     bottone.append(codice, testo);
                     griglia.append(bottone);
@@ -567,7 +613,7 @@ header('Content-Type: text/html; charset=utf-8');
             document.getElementById('summary-title').textContent = giorno.etichetta + ' ' + giorno.numero;
             const ids = selezione();
             const acqua = state.regole.bevanda_obbligatoria
-                ? 'Acqua obbligatoria: ' + state.regole.max_altre + ' scelte + 1 bevanda. '
+                ? 'Massimo ' + state.regole.max_scelte + ' pietanze + 1 acqua a parte. '
                 : 'Massimo ' + state.regole.max_scelte + ' scelte. ';
             const mancaAcqua = state.regole.bevanda_obbligatoria && ids.length > 0 && contaBevande(ids) !== 1;
             document.getElementById('summary-reason').textContent = giorno.selezionabile
@@ -579,10 +625,19 @@ header('Content-Type: text/html; charset=utf-8');
 
             const pips = document.getElementById('pips');
             pips.replaceChildren();
+            const posti = state.regole.bevanda_obbligatoria
+                ? ids.filter((id) => state.catalogo.get(id)?.categoria !== 'bevanda').length
+                : ids.length;
             for (let i = 0; i < state.regole.max_scelte; i += 1) {
                 const pip = document.createElement('span');
-                pip.className = 'h-2 flex-1 rounded-full ' + (i < ids.length ? 'bg-terracotta' : 'bg-ink/10');
+                pip.className = 'h-2 flex-1 rounded-full ' + (i < posti ? 'bg-terracotta' : 'bg-ink/10');
                 pips.append(pip);
+            }
+            if (state.regole.bevanda_obbligatoria) {
+                const acquaPip = document.createElement('span');
+                acquaPip.className = 'h-2 w-6 rounded-full ' + (contaBevande(ids) === 1 ? 'bg-moss' : 'bg-ink/10');
+                acquaPip.title = 'Acqua';
+                pips.append(acquaPip);
             }
 
             const lines = document.getElementById('summary-lines');
@@ -593,14 +648,23 @@ header('Content-Type: text/html; charset=utf-8');
                 vuoto.textContent = state.modo === 'ospite' ? 'Nessun piatto per l’ospite.' : 'Nessun piatto sul vassoio.';
                 lines.append(vuoto);
             }
+            const raggruppati = [];
             ids.forEach((id) => {
-                const piatto = state.catalogo.get(id);
+                const ultimo = raggruppati[raggruppati.length - 1];
+                if (ultimo && ultimo.id === id) {
+                    ultimo.quantita += 1;
+                } else {
+                    raggruppati.push({ id, quantita: 1 });
+                }
+            });
+            raggruppati.forEach((voce) => {
+                const piatto = state.catalogo.get(voce.id);
                 const item = document.createElement('li');
                 item.className = 'flex justify-between gap-3';
                 const nome = document.createElement('span');
-                nome.textContent = piatto.nome;
+                nome.textContent = piatto.nome + (voce.quantita > 1 ? ' ×' + voce.quantita : '');
                 const prezzo = document.createElement('span');
-                prezzo.textContent = euro(cents(prezzoDi(piatto)));
+                prezzo.textContent = euro(cents(prezzoDi(piatto)) * voce.quantita);
                 item.append(nome, prezzo);
                 lines.append(item);
             });
@@ -617,13 +681,18 @@ header('Content-Type: text/html; charset=utf-8');
             importo.textContent = euro(totale);
             bill.append(etichetta, importo);
             const saldoCentesimi = aCaricoPersona && state.portafoglio !== null ? cents(state.portafoglio) : null;
+            const ordinePersonale = state.modo === 'mio' ? state.giorno.ordine : null;
+            const giaImpegnato = ordinePersonale && ordinePersonale.a_carico === 'dipendente'
+                ? cents(ordinePersonale.totale)
+                : 0;
             if (aCaricoPersona) {
                 const saldo = document.createElement('p');
                 saldo.className = 'mt-1 text-sm text-ink/70';
                 saldo.textContent = 'Wallet ' + euro(saldoCentesimi || 0);
                 bill.append(saldo);
             }
-            const oltreWallet = aCaricoPersona && saldoCentesimi !== null && totale > saldoCentesimi && ids.length > 0;
+            const disponibile = saldoCentesimi === null ? null : saldoCentesimi + giaImpegnato;
+            const oltreWallet = aCaricoPersona && disponibile !== null && totale > disponibile && ids.length > 0;
             if (oltreWallet) {
                 const avviso = document.createElement('p');
                 avviso.className = 'mt-2 text-sm font-medium text-red-700';
@@ -649,7 +718,11 @@ header('Content-Type: text/html; charset=utf-8');
             state.pending = true;
             disegna();
             try {
-                const corpo = { data: state.giorno.data, piatti };
+                const corpo = {
+                    data: state.giorno.data,
+                    piatti,
+                    allergie: document.getElementById('allergie').value,
+                };
                 if (state.modo === 'ospite') {
                     corpo.ospite = true;
                     corpo.ospite_nome = document.getElementById('ospite-nome').value.trim();
@@ -730,6 +803,20 @@ header('Content-Type: text/html; charset=utf-8');
         document.getElementById('ospite-nome').addEventListener('input', () => disegna());
         document.getElementById('carico-azienda').addEventListener('change', () => disegna());
         document.getElementById('carico-mio').addEventListener('change', () => disegna());
+
+        document.getElementById('salva-allergie').addEventListener('click', async () => {
+            try {
+                const payload = await api(API + 'allergie.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ allergie: document.getElementById('allergie').value }),
+                });
+                state.csrf = payload.csrf || state.csrf;
+                mostraBanner('ok', payload.messaggio, null, []);
+            } catch (error) {
+                mostraBanner('errore', error.message, error.codice, error.dettagli);
+            }
+        });
 
         document.getElementById('submit-order').addEventListener('click', () => {
             invia(selezione());

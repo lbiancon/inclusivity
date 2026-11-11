@@ -24,6 +24,7 @@ final class PrenotazioniAzienda
         $data = $this->data($data);
         $stmt = $this->pdo->prepare(
             'SELECT o.id, u.matricola, u.nome, o.ospite, o.ospite_nome, o.a_carico, o.totale,
+                    COALESCE(NULLIF(o.nota_cucina, \'\'), u.allergie) AS nota_cucina,
                     r.nome AS piatto, r.categoria
              FROM ordini o
              INNER JOIN utenti u
@@ -50,6 +51,7 @@ final class PrenotazioniAzienda
                     'ospite_nome' => $riga['ospite_nome'] !== null ? (string) $riga['ospite_nome'] : null,
                     'a_carico' => (string) $riga['a_carico'],
                     'totale' => (string) $riga['totale'],
+                    'nota_cucina' => $riga['nota_cucina'] !== null ? (string) $riga['nota_cucina'] : '',
                     'piatti' => [],
                 ];
             }

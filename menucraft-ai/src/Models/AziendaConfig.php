@@ -29,6 +29,10 @@ readonly class AziendaConfig
         public string $limiteDomani,
         public string $modalita = 'intranet',
         public bool $bevandaObbligatoria = false,
+        public bool $permettiDoppioSecondo = false,
+        public int $maxPrimo = 0,
+        public int $maxSecondo = 0,
+        public int $maxContorno = 0,
     ) {
         if ($this->id < 1) {
             throw new \InvalidArgumentException('Identificativo azienda non valido.');
@@ -56,6 +60,10 @@ readonly class AziendaConfig
             limiteDomani: self::normalizzaOrario((string) $riga['limite_domani']),
             modalita: self::modalita((string) ($riga['modalita'] ?? 'intranet')),
             bevandaObbligatoria: (int) ($riga['bevanda_obbligatoria'] ?? 0) === 1,
+            permettiDoppioSecondo: (int) ($riga['permetti_doppio_secondo'] ?? 0) === 1,
+            maxPrimo: (int) ($riga['max_primo'] ?? 0),
+            maxSecondo: (int) ($riga['max_secondo'] ?? 0),
+            maxContorno: (int) ($riga['max_contorno'] ?? 0),
         );
     }
 
@@ -63,7 +71,8 @@ readonly class AziendaConfig
     {
         $stmt = $pdo->prepare(
             'SELECT id, nome, slug, tipo_pagamento, max_scelte, permetti_doppio_primo,
-                    permetti_doppio_contorno, limite_oggi, limite_domani, modalita, bevanda_obbligatoria
+                    permetti_doppio_contorno, permetti_doppio_secondo, max_primo, max_secondo, max_contorno,
+                    limite_oggi, limite_domani, modalita, bevanda_obbligatoria
              FROM aziende
              WHERE id = :id'
         );
@@ -78,11 +87,35 @@ readonly class AziendaConfig
 
     public function maxPerCategoria(PortataType $categoria): int
     {
-        return match ($categoria) {
-            PortataType::Secondo => 1,
+        $base = match ($categoria) {
+            PortataType::Secondo => $this->permettiDoppioSecondo ? 2 : 1,
             PortataType::Primo => $this->permettiDoppioPrimo ? 2 : 1,
             PortataType::Contorno => $this->permettiDoppioContorno ? 2 : 1,
             default => $this->maxScelte,
+        };
+        $salvato = match ($categoria) {
+            PortataType::Primo => $this->maxPrimo,
+            PortataType::Secondo => $this->maxSecondo,
+            PortataType::Contorno => $this->maxContorno,
+            default => 0,
+        };
+        if ($salvato < 1) {
+            return $base;
+        }
+        if ($this->doppioStessoPiatto($categoria) && $salvato < 2) {
+            return 2;
+        }
+
+        return $salvato;
+    }
+
+    public function doppioStessoPiatto(PortataType $categoria): bool
+    {
+        return match ($categoria) {
+            PortataType::Primo => $this->permettiDoppioPrimo,
+            PortataType::Secondo => $this->permettiDoppioSecondo,
+            PortataType::Contorno => $this->permettiDoppioContorno,
+            default => false,
         };
     }
 
@@ -106,7 +139,11 @@ readonly class AziendaConfig
             'tipo_pagamento_etichetta' => $this->tipoPagamento->etichetta(),
             'max_scelte' => $this->maxScelte,
             'permetti_doppio_primo' => $this->permettiDoppioPrimo,
+            'permetti_doppio_secondo' => $this->permettiDoppioSecondo,
             'permetti_doppio_contorno' => $this->permettiDoppioContorno,
+            'max_primo' => $this->maxPerCategoria(PortataType::Primo),
+            'max_secondo' => $this->maxPerCategoria(PortataType::Secondo),
+            'max_contorno' => $this->maxPerCategoria(PortataType::Contorno),
             'limite_oggi' => substr($this->limiteOggi, 0, 5),
             'limite_domani' => substr($this->limiteDomani, 0, 5),
             'modalita' => $this->modalita,

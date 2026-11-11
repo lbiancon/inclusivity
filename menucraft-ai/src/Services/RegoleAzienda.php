@@ -38,12 +38,34 @@ final class RegoleAzienda
         $bevanda = array_key_exists('bevanda_obbligatoria', $input)
             ? ($this->flag($input['bevanda_obbligatoria']) ? 1 : 0)
             : ($attuale->bevandaObbligatoria ? 1 : 0);
+        $doppioPrimo = array_key_exists('permetti_doppio_primo', $input)
+            ? ($this->flag($input['permetti_doppio_primo']) ? 1 : 0)
+            : ($attuale->permettiDoppioPrimo ? 1 : 0);
+        $doppioSecondo = array_key_exists('permetti_doppio_secondo', $input)
+            ? ($this->flag($input['permetti_doppio_secondo']) ? 1 : 0)
+            : ($attuale->permettiDoppioSecondo ? 1 : 0);
+        $doppioContorno = array_key_exists('permetti_doppio_contorno', $input)
+            ? ($this->flag($input['permetti_doppio_contorno']) ? 1 : 0)
+            : ($attuale->permettiDoppioContorno ? 1 : 0);
+        $maxPrimo = array_key_exists('max_primo', $input)
+            ? $this->porzioni($input['max_primo'], 'Il massimo dei primi è tra 1 e 4.')
+            : max(1, $attuale->maxPerCategoria(\MenuCraft\Enums\PortataType::Primo));
+        $maxSecondo = array_key_exists('max_secondo', $input)
+            ? $this->porzioni($input['max_secondo'], 'Il massimo dei secondi è tra 1 e 4.')
+            : max(1, $attuale->maxPerCategoria(\MenuCraft\Enums\PortataType::Secondo));
+        $maxContorno = array_key_exists('max_contorno', $input)
+            ? $this->porzioni($input['max_contorno'], 'Il massimo dei contorni è tra 1 e 4.')
+            : max(1, $attuale->maxPerCategoria(\MenuCraft\Enums\PortataType::Contorno));
 
         $stmt = $this->pdo->prepare(
             'UPDATE aziende
              SET max_scelte = :max,
                  permetti_doppio_primo = :primo,
+                 permetti_doppio_secondo = :secondo,
                  permetti_doppio_contorno = :contorno,
+                 max_primo = :max_primo,
+                 max_secondo = :max_secondo,
+                 max_contorno = :max_contorno,
                  limite_oggi = :oggi,
                  limite_domani = :domani,
                  modalita = :modalita,
@@ -53,8 +75,12 @@ final class RegoleAzienda
         );
         $stmt->execute([
             'max' => $max,
-            'primo' => $this->flag($input['permetti_doppio_primo'] ?? false) ? 1 : 0,
-            'contorno' => $this->flag($input['permetti_doppio_contorno'] ?? false) ? 1 : 0,
+            'primo' => $doppioPrimo,
+            'secondo' => $doppioSecondo,
+            'contorno' => $doppioContorno,
+            'max_primo' => $maxPrimo,
+            'max_secondo' => $maxSecondo,
+            'max_contorno' => $maxContorno,
             'oggi' => $oggi,
             'domani' => $domani,
             'modalita' => $modalita,
@@ -64,6 +90,16 @@ final class RegoleAzienda
         ]);
 
         return AziendaConfig::trova($this->pdo, $aziendaId);
+    }
+
+    private function porzioni(mixed $valore, string $messaggio): int
+    {
+        $numero = filter_var($valore, FILTER_VALIDATE_INT);
+        if ($numero === false || $numero < 1 || $numero > 4) {
+            throw new MenuRuleException('REGOLA_NON_VALIDA', $messaggio);
+        }
+
+        return $numero;
     }
 
     private function pagamento(mixed $valore): string

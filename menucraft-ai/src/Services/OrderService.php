@@ -53,7 +53,8 @@ final class OrderService
             $this->validator->validaCutoff($azienda, $dataPasto, $now);
 
             $ordine = $this->bloccaOrdine($azienda->id, $utenteId, $dataPasto, $ospite);
-            $ids = $this->validator->normalizzaIdPiatti($piattoIds, $azienda->maxScelte);
+            $tetto = $azienda->maxScelte + ($azienda->bevandaObbligatoria ? 1 : 0);
+            $ids = $this->validator->normalizzaIdPiatti($piattoIds, $tetto);
             if ($ospite && $ids !== []) {
                 $ospiteNome = $this->nomeOspite($ospiteNome);
                 if (!in_array($aCarico, ['azienda', 'dipendente'], true)) {
@@ -71,6 +72,7 @@ final class OrderService
             } else {
                 $this->validator->assertMenuVisibile($azienda->id, $dataPasto, $now);
                 $piatti = $this->validator->piattiPrenotabili($azienda, $dataPasto, $ids, $now);
+                $this->validator->validaQuantita($azienda, $piatti);
                 $categorie = [];
                 foreach ($piatti as $piatto) {
                     $categorie[] = $piatto['categoria'];
@@ -86,6 +88,7 @@ final class OrderService
                     $ospite,
                     $ospite ? $ospiteNome : null,
                     $aCaricoSalvato,
+                    $utente['allergie'],
                 );
             }
 
@@ -143,7 +146,7 @@ final class OrderService
     private function bloccaUtente(int $utenteId, int $aziendaId): array
     {
         $stmt = $this->pdo->prepare(
-            'SELECT ruolo, pagamento FROM utenti WHERE id = :id AND azienda_id = :azienda FOR UPDATE'
+            'SELECT ruolo, pagamento, allergie FROM utenti WHERE id = :id AND azienda_id = :azienda FOR UPDATE'
         );
         $stmt->execute(['id' => $utenteId, 'azienda' => $aziendaId]);
         $riga = $stmt->fetch();
@@ -154,6 +157,9 @@ final class OrderService
         return [
             'ruolo' => (string) $riga['ruolo'],
             'pagamento' => (string) ($riga['pagamento'] ?? 'eredita'),
+            'allergie' => $riga['allergie'] !== null && trim((string) $riga['allergie']) !== ''
+                ? trim((string) $riga['allergie'])
+                : null,
         ];
     }
 
@@ -248,6 +254,7 @@ final class OrderService
         bool $ospite,
         ?string $ospiteNome,
         string $aCarico,
+        ?string $notaCucina,
     ): array {
         $addebita = $aCarico === 'dipendente';
         $nuovo = 0;
@@ -274,8 +281,8 @@ final class OrderService
         if ($ordine === null) {
             $insert = $this->pdo->prepare(
                 'INSERT INTO ordini
-                    (azienda_id, utente_id, data_pasto, totale, creato_il, aggiornato_il, ospite, ospite_nome, a_carico)
-                 VALUES (:azienda, :utente, :data, :totale, :creato, :aggiornato, :ospite, :ospite_nome, :a_carico)'
+                    (azienda_id, utente_id, data_pasto, totale, creato_il, aggiornato_il, ospite, ospite_nome, a_carico, nota_cucina)
+                 VALUES (:azienda, :utente, :data, :totale, :creato, :aggiornato, :ospite, :ospite_nome, :a_carico, :nota)'
             );
             $insert->execute([
                 'azienda' => $azienda->id,
@@ -287,12 +294,14 @@ final class OrderService
                 'ospite' => $ospite ? 1 : 0,
                 'ospite_nome' => $ospiteNome,
                 'a_carico' => $aCarico,
+                'nota' => $notaCucina,
             ]);
             $ordineId = (int) $this->pdo->lastInsertId();
         } else {
             $update = $this->pdo->prepare(
                 'UPDATE ordini
-                 SET totale = :totale, aggiornato_il = :aggiornato, ospite_nome = :ospite_nome, a_carico = :a_carico
+                 SET totale = :totale, aggiornato_il = :aggiornato, ospite_nome = :ospite_nome, a_carico = :a_carico,
+                     nota_cucina = :nota
                  WHERE id = :id AND azienda_id = :azienda AND utente_id = :utente'
             );
             $update->execute([
@@ -300,6 +309,7 @@ final class OrderService
                 'aggiornato' => $istante,
                 'ospite_nome' => $ospiteNome,
                 'a_carico' => $aCarico,
+                'nota' => $notaCucina,
                 'id' => $ordine['id'],
                 'azienda' => $azienda->id,
                 'utente' => $utenteId,

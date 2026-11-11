@@ -135,7 +135,24 @@ attesaEccezione('LIMITE_SCELTE', fn () => $validator->validaComposizione($aziend
     PortataType::Yogurt,
     PortataType::Bevanda,
 ]), 'sesta scelta');
-$conAcqua = new AziendaConfig(9, 'Acqua', 'acqua', PagamentoType::Welfare, 5, false, false, '09:30:00', '18:00:00', 'intranet', true);
+$conAcqua = new AziendaConfig(9, 'Acqua', 'acqua', PagamentoType::Welfare, 4, false, false, '09:30:00', '18:00:00', 'intranet', true);
+$ampio = new AziendaConfig(10, 'Ampio', 'ampio', PagamentoType::Dipendente, 4, true, true, '09:30:00', '18:00:00', 'intranet', true, false, 2, 1, 3);
+$validator->validaComposizione($ampio, [PortataType::Contorno, PortataType::Contorno, PortataType::Contorno, PortataType::Secondo, PortataType::Bevanda]);
+$validator->validaQuantita($ampio, [
+    ['id' => 1, 'nome' => 'Patate', 'categoria' => PortataType::Contorno],
+    ['id' => 1, 'nome' => 'Patate', 'categoria' => PortataType::Contorno],
+    ['id' => 2, 'nome' => 'Insalata', 'categoria' => PortataType::Contorno],
+    ['id' => 3, 'nome' => 'Pollo', 'categoria' => PortataType::Secondo],
+]);
+$validator->validaQuantita($ampio, [
+    ['id' => 8, 'nome' => 'Pasta', 'categoria' => PortataType::Primo],
+    ['id' => 8, 'nome' => 'Pasta', 'categoria' => PortataType::Primo],
+]);
+attesaEccezione('DOPPIO_PIATTO', fn () => $validator->validaQuantita($ampio, [
+    ['id' => 3, 'nome' => 'Pollo', 'categoria' => PortataType::Secondo],
+    ['id' => 3, 'nome' => 'Pollo', 'categoria' => PortataType::Secondo],
+]), 'doppio secondo non consentito');
+attesaEccezione('LIMITE_PRIMO', fn () => $validator->validaComposizione($ampio, [PortataType::Primo, PortataType::Primo, PortataType::Primo, PortataType::Bevanda]), 'tre primi');
 $validator->validaComposizione($conAcqua, [PortataType::Primo, PortataType::Secondo, PortataType::Contorno, PortataType::Frutta, PortataType::Bevanda]);
 attesaEccezione('BEVANDA_OBBLIGATORIA', fn () => $validator->validaComposizione($conAcqua, [PortataType::Primo, PortataType::Secondo]), 'manca l\'acqua');
 attesaEccezione('BEVANDA_OBBLIGATORIA', fn () => $validator->validaComposizione($conAcqua, [PortataType::Bevanda, PortataType::Bevanda]), 'due bevande');
@@ -466,6 +483,11 @@ verifica($ospiteMio['ordine']['totale'] === '0.80' && $ospiteMio['saldo'] === '1
 $ordini->invia($rossiUser, $rossiId, '2026-11-13', [], $adesso, true, 'Mario Ospite', 'dipendente');
 $ordini->invia($rossiUser, $rossiId, '2026-11-13', [], $adesso);
 verifica($ordini->saldo(AziendaConfig::trova($pdo, $rossiId), $rossiUser) === '15.00', 'annullo ospite e vassoio');
+$doppioPrimo = $ordini->invia($rossiUser, $rossiId, '2026-11-13', [$idsRossi[0], $idsRossi[0]], $adesso);
+verifica($doppioPrimo['ordine']['totale'] === '7.00' && $doppioPrimo['saldo'] === '8.00', 'doppio dello stesso primo');
+$ordini->invia($rossiUser, $rossiId, '2026-11-13', [], $adesso);
+verifica($ordini->saldo(AziendaConfig::trova($pdo, $rossiId), $rossiUser) === '15.00', 'annullo del doppio');
+attesaEccezione('DOPPIO_PIATTO', fn () => $ordini->invia($rossiUser, $rossiId, '2026-11-13', [$idsRossi[0], $idsRossi[0], $idsRossi[0]], $adesso), 'tre volte lo stesso piatto');
 verifica($prenotazioni->delGiorno($rossiId, '2026-11-13') === [], 'giorno di nuovo vuoto');
 
 $regoleServizio = new RegoleAzienda($pdo);
@@ -547,6 +569,15 @@ attesaEccezione('SLUG_ESISTENTE', fn () => $anagrafica->creaSocieta([
     'caterer_matricola' => 'CAT-QA',
     'caterer_password' => 'MenuCraft!2026',
 ]), 'slug duplicato');
+$anagrafica->segnalaAllergie($auroraId, $auroraUser, 'Lattosio');
+$pdo->prepare('INSERT INTO portafogli (azienda_id, utente_id, saldo_centesimi) VALUES (?, ?, 2000) ON DUPLICATE KEY UPDATE saldo_centesimi = 2000')
+    ->execute([$auroraId, $auroraUser]);
+$ordini->invia($auroraUser, $auroraId, '2026-11-13', [$idsAurora[3], $idsAurora[7]], $adesso);
+$segnalate = array_values(array_filter(
+    (new PrenotazioniAzienda($pdo))->delGiorno($auroraId, '2026-11-13'),
+    static fn (array $riga): bool => $riga['matricola'] === 'DIP' && $riga['nota_cucina'] === 'Lattosio' && $riga['ospite'] === false,
+));
+verifica(count($segnalate) === 1, 'la cucina vede l\'allergia sulla prenotazione');
 $ruoloPiattaforma = (string) $pdo->query("SELECT u.ruolo FROM utenti u INNER JOIN aziende a ON a.id = u.azienda_id WHERE a.slug = 'menucraft' AND u.matricola = 'ADMIN'")->fetchColumn();
 verifica($ruoloPiattaforma === 'piattaforma', 'operatore del servizio');
 

@@ -30,6 +30,9 @@ final class Installer
         ['codice' => 'CO-VER', 'nome' => 'Verdure grigliate', 'categoria' => 'contorno', 'prezzo' => '2.10'],
         ['codice' => 'DE-BUD', 'nome' => 'Budino alla vaniglia', 'categoria' => 'dessert', 'prezzo' => '2.40'],
         ['codice' => 'YO-BIA', 'nome' => 'Yogurt bianco', 'categoria' => 'yogurt', 'prezzo' => '1.20'],
+        ['codice' => 'PR-MIN', 'nome' => 'Minestrone di verdure', 'categoria' => 'primo', 'prezzo' => '3.20'],
+        ['codice' => 'SE-SPE', 'nome' => 'Spezzatino di manzo', 'categoria' => 'secondo', 'prezzo' => '6.40'],
+        ['codice' => 'CO-PAT', 'nome' => 'Patate al forno', 'categoria' => 'contorno', 'prezzo' => '1.60'],
         ['codice' => 'FR-MEL', 'nome' => 'Mela', 'categoria' => 'frutta', 'prezzo' => '1.00'],
         ['codice' => 'BE-NAT', 'nome' => 'Acqua naturale', 'categoria' => 'bevanda', 'prezzo' => '0.80'],
         ['codice' => 'BE-FRI', 'nome' => 'Acqua frizzante', 'categoria' => 'bevanda', 'prezzo' => '0.80'],
@@ -44,6 +47,8 @@ final class Installer
         $this->creaTabelle();
         $this->assicuraModalita();
         $this->assicuraServizio();
+        $this->assicuraPorzioni();
+        $this->assicuraAllergie();
         $this->semeFestivita();
         $conteggio = (int) $this->pdo->query('SELECT COUNT(*) FROM aziende')->fetchColumn();
         if ($conteggio === 0) {
@@ -60,6 +65,7 @@ final class Installer
         }
 
         $this->assicuraPiattaforma();
+        $this->assicuraMenuAmpio();
     }
 
     private function creaTabelle(): void
@@ -72,7 +78,11 @@ final class Installer
                 tipo_pagamento VARCHAR(20) NOT NULL,
                 max_scelte TINYINT UNSIGNED NOT NULL DEFAULT 5,
                 permetti_doppio_primo TINYINT(1) NOT NULL DEFAULT 0,
+                permetti_doppio_secondo TINYINT(1) NOT NULL DEFAULT 0,
                 permetti_doppio_contorno TINYINT(1) NOT NULL DEFAULT 0,
+                max_primo TINYINT UNSIGNED NOT NULL DEFAULT 1,
+                max_secondo TINYINT UNSIGNED NOT NULL DEFAULT 1,
+                max_contorno TINYINT UNSIGNED NOT NULL DEFAULT 1,
                 limite_oggi TIME NOT NULL,
                 limite_domani TIME NOT NULL,
                 modalita VARCHAR(20) NOT NULL DEFAULT \'intranet\',
@@ -92,6 +102,7 @@ final class Installer
                 password_hash VARCHAR(255) NOT NULL,
                 ruolo VARCHAR(20) NOT NULL,
                 pagamento VARCHAR(20) NOT NULL DEFAULT \'eredita\',
+                allergie VARCHAR(240) NULL,
                 PRIMARY KEY (id),
                 UNIQUE KEY uq_utenti_matricola (azienda_id, matricola),
                 KEY idx_utenti_azienda (azienda_id),
@@ -187,6 +198,7 @@ final class Installer
                 ospite TINYINT(1) NOT NULL DEFAULT 0,
                 ospite_nome VARCHAR(120) NULL,
                 a_carico VARCHAR(20) NOT NULL DEFAULT \'azienda\',
+                nota_cucina VARCHAR(240) NULL,
                 PRIMARY KEY (id),
                 UNIQUE KEY uq_ordine_giorno (azienda_id, utente_id, data_pasto, ospite),
                 KEY idx_ordini_data (azienda_id, data_pasto),
@@ -335,6 +347,107 @@ final class Installer
         return $stmt->fetch() !== false;
     }
 
+    private function assicuraPorzioni(): void
+    {
+        if ($this->haColonna('aziende', 'max_primo')) {
+            return;
+        }
+
+        $this->pdo->exec(
+            'ALTER TABLE aziende
+             ADD COLUMN permetti_doppio_secondo TINYINT(1) NOT NULL DEFAULT 0 AFTER permetti_doppio_contorno,
+             ADD COLUMN max_primo TINYINT UNSIGNED NOT NULL DEFAULT 1 AFTER permetti_doppio_secondo,
+             ADD COLUMN max_secondo TINYINT UNSIGNED NOT NULL DEFAULT 1 AFTER max_primo,
+             ADD COLUMN max_contorno TINYINT UNSIGNED NOT NULL DEFAULT 1 AFTER max_secondo'
+        );
+        $this->pdo->exec(
+            'UPDATE aziende
+             SET max_primo = IF(permetti_doppio_primo = 1, 2, 1),
+                 max_secondo = 1,
+                 max_contorno = IF(permetti_doppio_contorno = 1, 3, 1)'
+        );
+        $this->pdo->exec(
+            'UPDATE aziende SET max_scelte = max_scelte - 1
+             WHERE bevanda_obbligatoria = 1 AND max_scelte = 5'
+        );
+    }
+
+    private function assicuraAllergie(): void
+    {
+        if (!$this->haColonna('utenti', 'allergie')) {
+            $this->pdo->exec('ALTER TABLE utenti ADD COLUMN allergie VARCHAR(240) NULL AFTER pagamento');
+        }
+        if (!$this->haColonna('ordini', 'nota_cucina')) {
+            $this->pdo->exec('ALTER TABLE ordini ADD COLUMN nota_cucina VARCHAR(240) NULL AFTER a_carico');
+        }
+    }
+
+    private function assicuraMenuAmpio(): void
+    {
+        $extra = [
+            ['PR-MIN', 'Minestrone di verdure', 'primo', '3.20'],
+            ['SE-SPE', 'Spezzatino di manzo', 'secondo', '6.40'],
+            ['CO-PAT', 'Patate al forno', 'contorno', '1.60'],
+        ];
+        $aziende = $this->pdo->query('SELECT id FROM aziende')->fetchAll();
+        $cerca = $this->pdo->prepare('SELECT id FROM piatti WHERE azienda_id = :azienda AND codice = :codice');
+        $inserisci = $this->pdo->prepare(
+            'INSERT INTO piatti (azienda_id, codice, nome, categoria, prezzo)
+             VALUES (:azienda, :codice, :nome, :categoria, :prezzo)'
+        );
+        $giorni = $this->pdo->prepare(
+            'SELECT data_pasto, MIN(pubblicazione_id) AS pubblicazione_id
+             FROM menu_voci
+             WHERE azienda_id = :azienda
+             GROUP BY data_pasto'
+        );
+        $esisteVoce = $this->pdo->prepare(
+            'SELECT id FROM menu_voci WHERE azienda_id = :azienda AND data_pasto = :data AND piatto_id = :piatto'
+        );
+        $voce = $this->pdo->prepare(
+            'INSERT INTO menu_voci (azienda_id, pubblicazione_id, piatto_id, data_pasto)
+             VALUES (:azienda, :pubblicazione, :piatto, :data)'
+        );
+
+        foreach ($aziende as $azienda) {
+            $aziendaId = (int) $azienda['id'];
+            foreach ($extra as $piatto) {
+                $cerca->execute(['azienda' => $aziendaId, 'codice' => $piatto[0]]);
+                $piattoId = $cerca->fetchColumn();
+                if ($piattoId === false) {
+                    $inserisci->execute([
+                        'azienda' => $aziendaId,
+                        'codice' => $piatto[0],
+                        'nome' => $piatto[1],
+                        'categoria' => $piatto[2],
+                        'prezzo' => $piatto[3],
+                    ]);
+                    $piattoId = (int) $this->pdo->lastInsertId();
+                } else {
+                    $piattoId = (int) $piattoId;
+                }
+
+                $giorni->execute(['azienda' => $aziendaId]);
+                foreach ($giorni->fetchAll() as $giorno) {
+                    $esisteVoce->execute([
+                        'azienda' => $aziendaId,
+                        'data' => (string) $giorno['data_pasto'],
+                        'piatto' => $piattoId,
+                    ]);
+                    if ($esisteVoce->fetchColumn() !== false) {
+                        continue;
+                    }
+                    $voce->execute([
+                        'azienda' => $aziendaId,
+                        'pubblicazione' => (int) $giorno['pubblicazione_id'],
+                        'piatto' => $piattoId,
+                        'data' => (string) $giorno['data_pasto'],
+                    ]);
+                }
+            }
+        }
+    }
+
     private function semeFestivita(): void
     {
         $fuso = new DateTimeZone(MenuValidator::FUSO);
@@ -370,7 +483,7 @@ final class Installer
             'Aurora Welfare',
             'aurora-welfare',
             'welfare',
-            5,
+            4,
             false,
             false,
         );
@@ -378,7 +491,7 @@ final class Installer
             'Officine Rossi',
             'officine-rossi',
             'dipendente',
-            5,
+            4,
             true,
             true,
             'internet',
@@ -421,8 +534,9 @@ final class Installer
     ): int {
         $stmt = $this->pdo->prepare(
             'INSERT INTO aziende
-                (nome, slug, tipo_pagamento, max_scelte, permetti_doppio_primo, permetti_doppio_contorno, limite_oggi, limite_domani, modalita, bevanda_obbligatoria)
-             VALUES (:nome, :slug, :pagamento, :max, :primo, :contorno, :oggi, :domani, :modalita, 1)'
+                (nome, slug, tipo_pagamento, max_scelte, permetti_doppio_primo, permetti_doppio_contorno,
+                 max_primo, max_secondo, max_contorno, limite_oggi, limite_domani, modalita, bevanda_obbligatoria)
+             VALUES (:nome, :slug, :pagamento, :max, :primo, :contorno, :max_primo, 1, :max_contorno, :oggi, :domani, :modalita, 1)'
         );
         $stmt->execute([
             'nome' => $nome,
@@ -431,6 +545,8 @@ final class Installer
             'max' => $maxScelte,
             'primo' => $doppioPrimo ? 1 : 0,
             'contorno' => $doppioContorno ? 1 : 0,
+            'max_primo' => $doppioPrimo ? 2 : 1,
+            'max_contorno' => $doppioContorno ? 3 : 1,
             'oggi' => '09:30:00',
             'domani' => '18:00:00',
             'modalita' => $modalita,

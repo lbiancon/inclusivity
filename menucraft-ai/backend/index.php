@@ -122,7 +122,7 @@ header('Content-Type: text/html; charset=utf-8');
                 <section class="rounded-3xl border border-[#d5cbb8] bg-white p-5">
                     <h2 class="font-serif text-3xl uppercase">Regole del vassoio</h2>
                     <div class="mt-4 grid gap-3 sm:grid-cols-2">
-                        <label class="text-sm font-semibold">Scelte massime per buono
+                        <label class="text-sm font-semibold">Pietanze massime, acqua a parte
                             <input id="regola-max" name="max_scelte" type="number" min="1" max="10" required class="mt-1 w-full rounded-xl border border-ink/15 bg-cream px-3 py-2">
                         </label>
                         <label class="text-sm font-semibold">Chiusura di oggi, solo intranet
@@ -132,11 +132,24 @@ header('Content-Type: text/html; charset=utf-8');
                             <input id="regola-domani" name="limite_domani" type="time" required class="mt-1 w-full rounded-xl border border-ink/15 bg-cream px-3 py-2">
                         </label>
                         <div class="flex flex-col justify-end gap-2 text-sm">
-                            <label class="flex items-center gap-2"><input id="regola-primo" type="checkbox"> Doppio primo consentito</label>
-                            <label class="flex items-center gap-2"><input id="regola-contorno" type="checkbox"> Doppio contorno consentito</label>
-                            <label class="flex items-center gap-2"><input id="regola-bevanda" type="checkbox"> Acqua obbligatoria dentro le scelte</label>
+                            <label class="flex items-center gap-2"><input id="regola-primo" type="checkbox"> Doppio dello stesso primo</label>
+                            <label class="flex items-center gap-2"><input id="regola-secondo" type="checkbox"> Doppio dello stesso secondo</label>
+                            <label class="flex items-center gap-2"><input id="regola-contorno" type="checkbox"> Doppio dello stesso contorno</label>
+                            <label class="flex items-center gap-2"><input id="regola-bevanda" type="checkbox"> Acqua obbligatoria, a parte</label>
                         </div>
                     </div>
+                    <div class="mt-4 grid gap-3 sm:grid-cols-3">
+                        <label class="text-sm font-semibold">Massimo primi
+                            <input id="regola-max-primo" type="number" min="1" max="4" required class="mt-1 w-full rounded-xl border border-ink/15 bg-cream px-3 py-2">
+                        </label>
+                        <label class="text-sm font-semibold">Massimo secondi
+                            <input id="regola-max-secondo" type="number" min="1" max="4" required class="mt-1 w-full rounded-xl border border-ink/15 bg-cream px-3 py-2">
+                        </label>
+                        <label class="text-sm font-semibold">Massimo contorni
+                            <input id="regola-max-contorno" type="number" min="1" max="4" required class="mt-1 w-full rounded-xl border border-ink/15 bg-cream px-3 py-2">
+                        </label>
+                    </div>
+                    <p class="mt-3 text-sm text-ink/60">Con il doppio si può prendere due volte lo stesso piatto. Se i contorni sono 3, si possono prendere due di uno e uno di un terzo. Il totale resta le pietanze, l’acqua non le consuma.</p>
                     <div class="mt-4 grid gap-3 sm:grid-cols-2 text-sm">
                         <label class="rounded-2xl border border-ink/10 bg-cream p-4">
                             <input id="paga-azienda" name="tipo_pagamento" type="radio" value="welfare" class="mr-2"> A carico dell’azienda
@@ -187,6 +200,9 @@ header('Content-Type: text/html; charset=utf-8');
                     </label>
                     <label class="text-sm font-semibold">Saldo iniziale, se paga
                         <input id="utente-saldo" inputmode="decimal" class="mt-1 w-full rounded-xl border border-ink/15 bg-cream px-3 py-2" placeholder="0,00">
+                    </label>
+                    <label class="text-sm font-semibold sm:col-span-2">Intolleranze o allergie
+                        <input id="utente-allergie" maxlength="240" class="mt-1 w-full rounded-xl border border-ink/15 bg-cream px-3 py-2" placeholder="Lattosio, glutine">
                     </label>
                     <button type="submit" class="self-end rounded-xl bg-moss px-4 py-3 text-sm font-semibold text-white">Crea utente</button>
                 </form>
@@ -254,7 +270,11 @@ header('Content-Type: text/html; charset=utf-8');
             document.getElementById('regola-oggi').value = payload.azienda.limite_oggi;
             document.getElementById('regola-domani').value = payload.azienda.limite_domani;
             document.getElementById('regola-primo').checked = payload.azienda.permetti_doppio_primo === true;
+            document.getElementById('regola-secondo').checked = payload.azienda.permetti_doppio_secondo === true;
             document.getElementById('regola-contorno').checked = payload.azienda.permetti_doppio_contorno === true;
+            document.getElementById('regola-max-primo').value = payload.azienda.max_primo;
+            document.getElementById('regola-max-secondo').value = payload.azienda.max_secondo;
+            document.getElementById('regola-max-contorno').value = payload.azienda.max_contorno;
             document.getElementById('regola-bevanda').checked = payload.azienda.bevanda_obbligatoria === true;
             document.getElementById(payload.azienda.tipo_pagamento === 'dipendente' ? 'paga-dipendente' : 'paga-azienda').checked = true;
             document.getElementById(payload.azienda.modalita === 'internet' ? 'modalita-internet' : 'modalita-intranet').checked = true;
@@ -306,7 +326,8 @@ header('Content-Type: text/html; charset=utf-8');
             const righe = payload.utenti.map((utente) => {
                 const item = document.createElement('li');
                 item.className = 'rounded-2xl bg-cream px-4 py-3';
-                item.textContent = utente.matricola + ' · ' + utente.nome + ' · ' + utente.ruolo + ' · ' + etichettaPagamento(utente.pagamento);
+                const allergia = utente.allergie ? ' · allergie: ' + utente.allergie : '';
+                item.textContent = utente.matricola + ' · ' + utente.nome + ' · ' + utente.ruolo + ' · ' + etichettaPagamento(utente.pagamento) + allergia;
                 return item;
             });
             disegnaVoci(lista, 'Nessun utente in questa azienda.', righe);
@@ -327,7 +348,8 @@ header('Content-Type: text/html; charset=utf-8');
                 const chi = voce.ospite ? 'Ospite ' + (voce.ospite_nome || '') : voce.nome;
                 const piatti = voce.piatti.map((piatto) => piatto.nome).join(', ');
                 const carico = voce.a_carico === 'dipendente' ? 'paga il dipendente' : 'a carico azienda';
-                item.textContent = voce.matricola + ' · ' + chi + ' · ' + piatti + ' · ' + carico + ' · ' + String(voce.totale).replace('.', ',') + ' €';
+                const allergia = voce.nota_cucina ? ' · ATTENZIONE ' + voce.nota_cucina : '';
+                item.textContent = voce.matricola + ' · ' + chi + ' · ' + piatti + ' · ' + carico + ' · ' + String(voce.totale).replace('.', ',') + ' €' + allergia;
                 return item;
             });
             disegnaVoci(lista, 'Nessuna prenotazione in questo giorno.', righe);
@@ -400,7 +422,11 @@ header('Content-Type: text/html; charset=utf-8');
                         limite_oggi: document.getElementById('regola-oggi').value,
                         limite_domani: document.getElementById('regola-domani').value,
                         permetti_doppio_primo: document.getElementById('regola-primo').checked,
+                        permetti_doppio_secondo: document.getElementById('regola-secondo').checked,
                         permetti_doppio_contorno: document.getElementById('regola-contorno').checked,
+                        max_primo: Number(document.getElementById('regola-max-primo').value),
+                        max_secondo: Number(document.getElementById('regola-max-secondo').value),
+                        max_contorno: Number(document.getElementById('regola-max-contorno').value),
                         bevanda_obbligatoria: document.getElementById('regola-bevanda').checked,
                         tipo_pagamento: document.getElementById('paga-dipendente').checked ? 'dipendente' : 'welfare',
                         modalita,
@@ -502,6 +528,7 @@ header('Content-Type: text/html; charset=utf-8');
                         password: document.getElementById('utente-password').value,
                         pagamento: document.getElementById('utente-pagamento').value,
                         saldo: document.getElementById('utente-saldo').value,
+                        allergie: document.getElementById('utente-allergie').value,
                     }),
                 });
                 state.csrf = payload.csrf;

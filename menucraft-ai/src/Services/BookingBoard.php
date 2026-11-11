@@ -74,12 +74,16 @@ final class BookingBoard
             'regole' => [
                 'max_scelte' => $azienda->maxScelte,
                 'max_primo' => $azienda->maxPerCategoria(PortataType::Primo),
-                'max_secondo' => 1,
+                'max_secondo' => $azienda->maxPerCategoria(PortataType::Secondo),
                 'max_contorno' => $azienda->maxPerCategoria(PortataType::Contorno),
+                'doppio_primo' => $azienda->permettiDoppioPrimo,
+                'doppio_secondo' => $azienda->permettiDoppioSecondo,
+                'doppio_contorno' => $azienda->permettiDoppioContorno,
                 'bevanda_obbligatoria' => $azienda->bevandaObbligatoria,
-                'max_altre' => max(0, $azienda->maxScelte - ($azienda->bevandaObbligatoria ? 1 : 0)),
+                'max_altre' => $azienda->maxScelte,
                 'pagamento_effettivo' => $pagamento,
             ],
+            'allergie' => $this->allergieUtente($aziendaId, $utenteId),
             'saldo' => $pagamento === 'dipendente' ? $this->ordini->saldo($azienda, $utenteId, true) : null,
             'portafoglio' => $this->ordini->saldo($azienda, $utenteId, true),
             'settimane' => $settimane,
@@ -226,6 +230,17 @@ final class BookingBoard
             'ordine' => $this->ordineEsistente($azienda->id, $utenteId, $data, false),
             'ordine_ospite' => $this->ordineEsistente($azienda->id, $utenteId, $data, true),
         ];
+    }
+
+    private function allergieUtente(int $aziendaId, int $utenteId): string
+    {
+        $stmt = $this->pdo->prepare(
+            'SELECT allergie FROM utenti WHERE id = :id AND azienda_id = :azienda'
+        );
+        $stmt->execute(['id' => $utenteId, 'azienda' => $aziendaId]);
+        $testo = $stmt->fetchColumn();
+
+        return is_string($testo) ? trim($testo) : '';
     }
 
     private function pagamentoEffettivo(AziendaConfig $azienda, int $utenteId): string

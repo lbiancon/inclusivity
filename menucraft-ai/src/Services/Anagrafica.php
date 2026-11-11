@@ -67,8 +67,8 @@ final class Anagrafica
             $insert = $this->pdo->prepare(
                 'INSERT INTO aziende
                     (nome, slug, tipo_pagamento, max_scelte, permetti_doppio_primo, permetti_doppio_contorno,
-                     limite_oggi, limite_domani, modalita, bevanda_obbligatoria)
-                 VALUES (:nome, :slug, :pagamento, 5, 0, 0, :oggi, :domani, :modalita, 1)'
+                     limite_oggi, limite_domani, modalita, bevanda_obbligatoria, max_primo, max_secondo, max_contorno)
+                 VALUES (:nome, :slug, :pagamento, 4, 0, 0, :oggi, :domani, :modalita, 1, 1, 1, 1)'
             );
             $insert->execute([
                 'nome' => $nome,
@@ -116,7 +116,7 @@ final class Anagrafica
     public function elencoUtenti(int $aziendaId): array
     {
         $stmt = $this->pdo->prepare(
-            'SELECT id, matricola, nome, ruolo, pagamento
+            'SELECT id, matricola, nome, ruolo, pagamento, allergie
              FROM utenti
              WHERE azienda_id = :azienda AND ruolo <> :piattaforma
              ORDER BY ruolo, matricola'
@@ -130,6 +130,7 @@ final class Anagrafica
                 'nome' => (string) $riga['nome'],
                 'ruolo' => (string) $riga['ruolo'],
                 'pagamento' => (string) $riga['pagamento'],
+                'allergie' => $riga['allergie'] !== null ? (string) $riga['allergie'] : '',
             ];
         }
 
@@ -156,6 +157,7 @@ final class Anagrafica
         $this->pdo->beginTransaction();
         try {
             $id = $this->inserisciUtente($aziendaId, $matricola, $nome, $password, 'dipendente', $pagamento, $saldo);
+            $this->scriviAllergie($aziendaId, $id, (string) ($input['allergie'] ?? ''));
             $this->pdo->commit();
         } catch (MenuRuleException $e) {
             if ($this->pdo->inTransaction()) {
@@ -179,6 +181,38 @@ final class Anagrafica
             'pagamento' => $pagamento,
             'messaggio' => sprintf('Utente %s creato. Entra con azienda %s e matricola %s.', $nome, $azienda['slug'], $matricola),
         ];
+    }
+
+    public function segnalaAllergie(int $aziendaId, int $utenteId, string $testo): string
+    {
+        $this->azienda($aziendaId);
+        $cerca = $this->pdo->prepare('SELECT id FROM utenti WHERE id = :id AND azienda_id = :azienda');
+        $cerca->execute(['id' => $utenteId, 'azienda' => $aziendaId]);
+        if ($cerca->fetchColumn() === false) {
+            throw new MenuRuleException('UTENTE_SCONOSCIUTO', 'Utente non trovato in questa azienda.', 404);
+        }
+
+        return $this->scriviAllergie($aziendaId, $utenteId, $testo);
+    }
+
+    private function scriviAllergie(int $aziendaId, int $utenteId, string $testo): string
+    {
+        $testo = preg_replace('/\s+/u', ' ', trim($testo)) ?? '';
+        $testo = preg_replace('/[\x00-\x1F\x7F]/u', '', $testo) ?? '';
+        $testo = trim($testo);
+        if (mb_strlen($testo) > 240) {
+            throw new MenuRuleException('ALLERGIA_NON_VALIDA', 'La segnalazione può avere al massimo 240 caratteri.');
+        }
+        $stmt = $this->pdo->prepare(
+            'UPDATE utenti SET allergie = :testo WHERE id = :id AND azienda_id = :azienda'
+        );
+        $stmt->execute([
+            'testo' => $testo === '' ? null : $testo,
+            'id' => $utenteId,
+            'azienda' => $aziendaId,
+        ]);
+
+        return $testo;
     }
 
     /** @return array{slug: string, tipo_pagamento: string} */

@@ -47,7 +47,8 @@ final class KitchenSummary
         $porzioni->execute(['azienda' => $aziendaId, 'data' => $data]);
 
         $righe = $this->pdo->prepare(
-            'SELECT u.matricola, u.nome AS dipendente, o.ospite, o.ospite_nome, o.a_carico, p.codice, r.categoria, r.nome
+            'SELECT u.matricola, u.nome AS dipendente, o.ospite, o.ospite_nome, o.a_carico,
+                    COALESCE(NULLIF(o.nota_cucina, \'\'), u.allergie) AS nota_cucina, p.codice, r.categoria, r.nome
              FROM ordini o
              INNER JOIN utenti u
                 ON u.id = o.utente_id
@@ -92,6 +93,7 @@ final class KitchenSummary
                 'dipendente' => (string) $riga['dipendente'],
                 'ospite' => (int) $riga['ospite'] === 1 ? (string) ($riga['ospite_nome'] ?? '') : '',
                 'a_carico' => (string) $riga['a_carico'],
+                'nota_cucina' => $riga['nota_cucina'] !== null ? (string) $riga['nota_cucina'] : '',
                 'codice' => CodicePiatto::etichetta((string) $riga['codice']),
                 'categoria' => (string) $riga['categoria'],
                 'nome' => (string) $riga['nome'],
@@ -122,7 +124,7 @@ final class KitchenSummary
         }
         $righe[] = [];
         $righe[] = ['BUONI'];
-        $righe[] = ['matricola', 'dipendente', 'ospite', 'a_carico', 'categoria', 'codice', 'piatto'];
+        $righe[] = ['matricola', 'dipendente', 'ospite', 'a_carico', 'categoria', 'codice', 'piatto', 'allergie'];
         foreach ($riepilogo['buoni_righe'] as $riga) {
             $righe[] = [
                 $riga['matricola'],
@@ -132,6 +134,7 @@ final class KitchenSummary
                 $riga['categoria'],
                 $riga['codice'],
                 $riga['nome'],
+                $riga['nota_cucina'],
             ];
         }
 

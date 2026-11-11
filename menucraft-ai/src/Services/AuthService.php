@@ -64,7 +64,8 @@ final class AuthService
             $stmt = $this->pdo->prepare(
                 'SELECT u.id, u.azienda_id, u.matricola, u.nome, u.password_hash, u.ruolo,
                         a.nome AS azienda_nome, a.slug, a.tipo_pagamento, a.max_scelte,
-                        a.permetti_doppio_primo, a.permetti_doppio_contorno, a.limite_oggi, a.limite_domani,
+                        a.permetti_doppio_primo, a.permetti_doppio_contorno, a.permetti_doppio_secondo,
+                        a.max_primo, a.max_secondo, a.max_contorno, a.limite_oggi, a.limite_domani,
                         a.modalita, a.bevanda_obbligatoria
                  FROM utenti u
                  INNER JOIN aziende a ON a.id = u.azienda_id
@@ -122,6 +123,10 @@ final class AuthService
             'max_scelte' => $utente['max_scelte'],
             'permetti_doppio_primo' => $utente['permetti_doppio_primo'],
             'permetti_doppio_contorno' => $utente['permetti_doppio_contorno'],
+            'permetti_doppio_secondo' => $utente['permetti_doppio_secondo'] ?? 0,
+            'max_primo' => $utente['max_primo'] ?? 0,
+            'max_secondo' => $utente['max_secondo'] ?? 0,
+            'max_contorno' => $utente['max_contorno'] ?? 0,
             'limite_oggi' => $utente['limite_oggi'],
             'limite_domani' => $utente['limite_domani'],
             'modalita' => $utente['modalita'],
