@@ -43,6 +43,8 @@ readonly class AziendaConfig
         public string $contattoLinea = '',
         public string $caricamentoMenu = 'sempre',
         public bool $menuBanco = true,
+        public bool $apriSabato = false,
+        public bool $apriDomenica = false,
     ) {
         if ($this->id < 1) {
             throw new \InvalidArgumentException('Identificativo azienda non valido.');
@@ -109,6 +111,8 @@ readonly class AziendaConfig
             contattoLinea: trim((string) ($riga['contatto_linea'] ?? '')),
             caricamentoMenu: self::caricamentoMenu((string) ($riga['caricamento_menu'] ?? 'sempre')),
             menuBanco: (int) ($riga['menu_banco'] ?? 1) === 1,
+            apriSabato: (int) ($riga['apri_sabato'] ?? 0) === 1,
+            apriDomenica: (int) ($riga['apri_domenica'] ?? 0) === 1,
         );
     }
 
@@ -119,7 +123,7 @@ readonly class AziendaConfig
                     permetti_doppio_contorno, permetti_doppio_secondo, permetti_doppio_frutta, permetti_doppio_dessert,
                     max_primo, max_secondo, max_contorno, max_frutta, max_dessert, logo,
                     limite_oggi, limite_domani, modalita, bevanda_obbligatoria, guida_linea, contatto_linea,
-                    caricamento_menu, menu_banco
+                    caricamento_menu, menu_banco, apri_sabato, apri_domenica
              FROM aziende
              WHERE id = :id'
         );
@@ -215,8 +219,19 @@ readonly class AziendaConfig
                 ? 'Solo giovedì dopo le 19:00'
                 : 'Quando serve',
             'menu_banco' => $this->menuBanco,
+            'apri_sabato' => $this->apriSabato,
+            'apri_domenica' => $this->apriDomenica,
             'pagamento_etichetta' => $this->tipoPagamento->copertoDaAzienda() ? 'A carico dell\'azienda' : 'Paga il dipendente',
         ];
+    }
+
+    public function weekendAperto(int $giornoSettimana): bool
+    {
+        return match ($giornoSettimana) {
+            6 => $this->apriSabato,
+            7 => $this->apriDomenica,
+            default => true,
+        };
     }
 
     private static function caricamentoMenu(string $valore): string

@@ -54,5 +54,26 @@ JsonResponse::guard(static function (): void {
         ]);
     }
 
+    if ($azione === 'apri') {
+        $voce = $calendario->apri($utente['azienda_id'], $body);
+        JsonResponse::send(200, [
+            'ok' => true,
+            'csrf' => $utente['csrf'],
+            'messaggio' => 'Il ' . (new DateTimeImmutable($voce['data']))->format('d/m/Y') . ' è lavorativo per questo servizio.',
+            'voce' => $voce,
+            'chiusure' => $calendario->elenco($utente['azienda_id']),
+        ]);
+    }
+
+    if ($azione === 'togli_apertura') {
+        $calendario->togliApertura($utente['azienda_id'], (int) ($body['id'] ?? 0));
+        JsonResponse::send(200, [
+            'ok' => true,
+            'csrf' => $utente['csrf'],
+            'messaggio' => 'Il giorno torna chiuso secondo le regole generali.',
+            'chiusure' => $calendario->elenco($utente['azienda_id']),
+        ]);
+    }
+
     throw new MenuRuleException('AZIONE', 'Azione chiusura non riconosciuta.');
 });

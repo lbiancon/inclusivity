@@ -156,7 +156,7 @@ final class BookingBoard
         DateTimeImmutable $oggi,
     ): array {
         $chiave = $data->format('Y-m-d');
-        $chiusura = $this->validator->motivoCalendario($azienda->id, $data, $chiusure);
+        $chiusura = $this->validator->motivoCalendario($azienda->id, $data, $chiusure, $azienda);
         $info = $menu[$chiave] ?? null;
         $motivo = $chiusura;
         $selezionabile = false;

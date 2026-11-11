@@ -89,6 +89,12 @@ final class RegoleAzienda
         $menuBanco = array_key_exists('menu_banco', $input)
             ? ($this->flag($input['menu_banco']) ? 1 : 0)
             : ($attuale->menuBanco ? 1 : 0);
+        $apriSabato = array_key_exists('apri_sabato', $input)
+            ? ($this->flag($input['apri_sabato']) ? 1 : 0)
+            : ($attuale->apriSabato ? 1 : 0);
+        $apriDomenica = array_key_exists('apri_domenica', $input)
+            ? ($this->flag($input['apri_domenica']) ? 1 : 0)
+            : ($attuale->apriDomenica ? 1 : 0);
 
         $stmt = $this->pdo->prepare(
             'UPDATE aziende
@@ -112,7 +118,9 @@ final class RegoleAzienda
                  guida_linea = :guida,
                  contatto_linea = :contatto,
                  caricamento_menu = :caricamento,
-                 menu_banco = :banco
+                 menu_banco = :banco,
+                 apri_sabato = :sabato,
+                 apri_domenica = :domenica
              WHERE id = :id'
         );
         $stmt->execute([
@@ -137,6 +145,8 @@ final class RegoleAzienda
             'contatto' => $contatto !== '' ? $contatto : null,
             'caricamento' => $caricamento,
             'banco' => $menuBanco,
+            'sabato' => $apriSabato,
+            'domenica' => $apriDomenica,
             'id' => $aziendaId,
         ]);
 

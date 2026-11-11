@@ -99,6 +99,8 @@ final class Installer
                 contatto_linea VARCHAR(120) NULL,
                 caricamento_menu VARCHAR(20) NOT NULL DEFAULT \'sempre\',
                 menu_banco TINYINT(1) NOT NULL DEFAULT 1,
+                apri_sabato TINYINT(1) NOT NULL DEFAULT 0,
+                apri_domenica TINYINT(1) NOT NULL DEFAULT 0,
                 PRIMARY KEY (id),
                 UNIQUE KEY uq_aziende_slug (slug),
                 CONSTRAINT chk_tipo_pagamento CHECK (tipo_pagamento IN (\'welfare\', \'dipendente\')),
@@ -149,6 +151,17 @@ final class Installer
                 UNIQUE KEY uq_chiusura (azienda_scope, data_chiusura),
                 KEY idx_chiusura_data (data_chiusura),
                 CONSTRAINT fk_chiusura_azienda FOREIGN KEY (azienda_id) REFERENCES aziende (id) ON DELETE CASCADE
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci',
+
+            'CREATE TABLE IF NOT EXISTS calendario_aperture (
+                id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+                azienda_id BIGINT UNSIGNED NOT NULL,
+                data_apertura DATE NOT NULL,
+                nota VARCHAR(160) NULL,
+                PRIMARY KEY (id),
+                UNIQUE KEY uq_apertura (azienda_id, data_apertura),
+                KEY idx_apertura_data (data_apertura),
+                CONSTRAINT fk_apertura_azienda FOREIGN KEY (azienda_id) REFERENCES aziende (id) ON DELETE CASCADE
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci',
 
             'CREATE TABLE IF NOT EXISTS portafogli (
@@ -431,6 +444,30 @@ final class Installer
                  ADD COLUMN menu_banco TINYINT(1) NOT NULL DEFAULT 1 AFTER caricamento_menu"
             );
         }
+        if (!$this->haColonna('aziende', 'apri_sabato')) {
+            $this->pdo->exec(
+                "ALTER TABLE aziende
+                 ADD COLUMN apri_sabato TINYINT(1) NOT NULL DEFAULT 0 AFTER menu_banco"
+            );
+        }
+        if (!$this->haColonna('aziende', 'apri_domenica')) {
+            $this->pdo->exec(
+                "ALTER TABLE aziende
+                 ADD COLUMN apri_domenica TINYINT(1) NOT NULL DEFAULT 0 AFTER apri_sabato"
+            );
+        }
+        $this->pdo->exec(
+            'CREATE TABLE IF NOT EXISTS calendario_aperture (
+                id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+                azienda_id BIGINT UNSIGNED NOT NULL,
+                data_apertura DATE NOT NULL,
+                nota VARCHAR(160) NULL,
+                PRIMARY KEY (id),
+                UNIQUE KEY uq_apertura (azienda_id, data_apertura),
+                KEY idx_apertura_data (data_apertura),
+                CONSTRAINT fk_apertura_azienda FOREIGN KEY (azienda_id) REFERENCES aziende (id) ON DELETE CASCADE
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci'
+        );
         $this->pdo->exec(
             "UPDATE aziende
              SET guida_linea = COALESCE(NULLIF(guida_linea, ''), 'Prenota il vassoio entro l''orario di chiusura indicato. Se la linea è già chiusa, chiama o scrivi al numero indicato.'),

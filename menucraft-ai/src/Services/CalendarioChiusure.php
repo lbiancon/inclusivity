@@ -6,6 +6,7 @@ namespace MenuCraft\Services;
 
 use DateTimeImmutable;
 use DateTimeZone;
+use MenuCraft\Models\AziendaConfig;
 use PDO;
 
 if (!defined('MENUCRAFT_APP')) {
@@ -19,12 +20,13 @@ final class CalendarioChiusure
     {
     }
 
-    /** @return array{proprie: list<array<string, mixed>>, nazionali: list<array<string, mixed>>} */
+    /** @return array<string, mixed> */
     public function elenco(int $aziendaId, ?DateTimeImmutable $dal = null, ?DateTimeImmutable $al = null): array
     {
         $fuso = new DateTimeZone(MenuValidator::FUSO);
         $dal = ($dal ?? new DateTimeImmutable('today', $fuso))->setTime(0, 0, 0);
         $al = ($al ?? $dal->modify('+18 months'))->setTime(0, 0, 0);
+        $azienda = AziendaConfig::trova($this->pdo, $aziendaId);
 
         $stmt = $this->pdo->prepare(
             'SELECT id, azienda_id, data_chiusura, descrizione
@@ -39,14 +41,42 @@ final class CalendarioChiusure
             'azienda' => $aziendaId,
         ]);
 
+        $aperture = $this->pdo->prepare(
+            'SELECT id, data_apertura, nota
+             FROM calendario_aperture
+             WHERE azienda_id = :azienda
+               AND data_apertura BETWEEN :dal AND :al
+             ORDER BY data_apertura ASC'
+        );
+        $aperture->execute([
+            'azienda' => $aziendaId,
+            'dal' => $dal->format('Y-m-d'),
+            'al' => $al->format('Y-m-d'),
+        ]);
+        $lavorativi = [];
+        $dateAperte = [];
+        foreach ($aperture as $riga) {
+            $data = (string) $riga['data_apertura'];
+            $dateAperte[$data] = true;
+            $lavorativi[] = [
+                'id' => (int) $riga['id'],
+                'data' => $data,
+                'descrizione' => trim((string) ($riga['nota'] ?? '')) !== ''
+                    ? (string) $riga['nota']
+                    : 'Giorno reso lavorativo',
+            ];
+        }
+
         $proprie = [];
         $nazionali = [];
         foreach ($stmt as $riga) {
+            $data = (string) $riga['data_chiusura'];
             $voce = [
                 'id' => (int) $riga['id'],
-                'data' => (string) $riga['data_chiusura'],
+                'data' => $data,
                 'descrizione' => (string) $riga['descrizione'],
                 'propria' => $riga['azienda_id'] !== null,
+                'lavorativo' => isset($dateAperte[$data]),
             ];
             if ($voce['propria']) {
                 $proprie[] = $voce;
@@ -58,6 +88,9 @@ final class CalendarioChiusure
         return [
             'proprie' => $proprie,
             'nazionali' => $nazionali,
+            'lavorativi' => $lavorativi,
+            'apri_sabato' => $azienda->apriSabato,
+            'apri_domenica' => $azienda->apriDomenica,
             'dal' => $dal->format('Y-m-d'),
             'al' => $al->format('Y-m-d'),
         ];
@@ -70,10 +103,12 @@ final class CalendarioChiusure
     {
         $data = $this->data((string) ($input['data'] ?? ''));
         $descrizione = $this->descrizione((string) ($input['descrizione'] ?? ''));
-        if ($this->motivoWeekend($data) !== null) {
+        $azienda = AziendaConfig::trova($this->pdo, $aziendaId);
+        $giorno = (int) (new DateTimeImmutable($data, new DateTimeZone(MenuValidator::FUSO)))->format('N');
+        if (!$azienda->weekendAperto($giorno) && ($giorno === 6 || $giorno === 7)) {
             throw new MenuRuleException(
                 'CHIUSURA_NON_NECESSARIA',
-                'Sabato e domenica sono già chiusi per tutti i servizi.',
+                'Sabato e domenica sono già chiusi. Attiva “lavora il sabato/domenica” se vuoi gestirli giorno per giorno.',
             );
         }
 
@@ -120,9 +155,60 @@ final class CalendarioChiusure
         if ($stmt->rowCount() < 1) {
             throw new MenuRuleException(
                 'CHIUSURA_NON_TROVATA',
-                'Puoi togliere solo le chiusure del tuo servizio, non le feste nazionali.',
+                'Puoi togliere solo le chiusure del tuo servizio. Per una festa nazionale usa “Rendi lavorativo”.',
                 404,
             );
+        }
+    }
+
+    /** @param array<string, mixed> $input
+     * @return array<string, mixed>
+     */
+    public function apri(int $aziendaId, array $input): array
+    {
+        $data = $this->data((string) ($input['data'] ?? ''));
+        $nota = $this->descrizione((string) ($input['descrizione'] ?? 'Giorno reso lavorativo'));
+
+        try {
+            $stmt = $this->pdo->prepare(
+                'INSERT INTO calendario_aperture (azienda_id, data_apertura, nota)
+                 VALUES (:azienda, :data, :nota)'
+            );
+            $stmt->execute([
+                'azienda' => $aziendaId,
+                'data' => $data,
+                'nota' => $nota,
+            ]);
+        } catch (\PDOException $e) {
+            if ($e->getCode() === '23000') {
+                throw new MenuRuleException(
+                    'APERTURA_DUPLICATA',
+                    'Questa data è già segnata come lavorativa per il servizio.',
+                    409,
+                );
+            }
+            throw $e;
+        }
+
+        return [
+            'id' => (int) $this->pdo->lastInsertId(),
+            'data' => $data,
+            'descrizione' => $nota,
+        ];
+    }
+
+    public function togliApertura(int $aziendaId, int $aperturaId): void
+    {
+        if ($aperturaId < 1) {
+            throw new MenuRuleException('APERTURA_NON_VALIDA', 'Indica il giorno lavorativo da togliere.');
+        }
+        $stmt = $this->pdo->prepare(
+            'DELETE FROM calendario_aperture
+             WHERE id = :id AND azienda_id = :azienda'
+        );
+        $stmt->execute(['id' => $aperturaId, 'azienda' => $aziendaId]);
+        if ($stmt->rowCount() < 1) {
+            throw new MenuRuleException('APERTURA_NON_TROVATA', 'Giorno lavorativo non trovato.', 404);
         }
     }
 
@@ -131,11 +217,11 @@ final class CalendarioChiusure
         $fuso = new DateTimeZone(MenuValidator::FUSO);
         $parsata = DateTimeImmutable::createFromFormat('!Y-m-d', $valore, $fuso);
         if ($parsata === false || $parsata->format('Y-m-d') !== $valore) {
-            throw new MenuRuleException('DATA_NON_VALIDA', 'La data di chiusura non è valida.');
+            throw new MenuRuleException('DATA_NON_VALIDA', 'La data non è valida.');
         }
         $oggi = new DateTimeImmutable('today', $fuso);
         if ($parsata < $oggi) {
-            throw new MenuRuleException('DATA_PASSATA', 'Una chiusura già trascorsa non si modifica.');
+            throw new MenuRuleException('DATA_PASSATA', 'Una data già trascorsa non si modifica.');
         }
 
         return $valore;
@@ -153,16 +239,5 @@ final class CalendarioChiusure
         }
 
         return $testo;
-    }
-
-    private function motivoWeekend(string $data): ?string
-    {
-        $giorno = (int) (new DateTimeImmutable($data, new DateTimeZone(MenuValidator::FUSO)))->format('N');
-
-        return match ($giorno) {
-            6 => 'Sabato',
-            7 => 'Domenica',
-            default => null,
-        };
     }
 }

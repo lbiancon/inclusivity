@@ -225,9 +225,12 @@ final class MenuValidator
         }
     }
 
-    public function motivoWeekend(DateTimeImmutable $data): ?string
+    public function motivoWeekend(DateTimeImmutable $data, ?\MenuCraft\Models\AziendaConfig $azienda = null): ?string
     {
         $giorno = (int) $this->giornoCivile($data)->format('N');
+        if ($azienda !== null && $azienda->weekendAperto($giorno)) {
+            return null;
+        }
 
         return match ($giorno) {
             6 => 'Sabato: la mensa è chiusa.',
@@ -261,17 +264,53 @@ final class MenuValidator
             $mappa[(string) $riga['data_chiusura']] = (string) $riga['descrizione'];
         }
 
+        foreach ($this->apertureNelPeriodo($aziendaId, $dal, $al) as $giorno => $nota) {
+            unset($mappa[$giorno]);
+        }
+
         return $mappa;
     }
 
-    public function motivoCalendario(int $aziendaId, DateTimeImmutable $data, ?array $chiusure = null): ?string
+    /** @return array<string, string> */
+    public function apertureNelPeriodo(int $aziendaId, DateTimeImmutable $dal, DateTimeImmutable $al): array
     {
-        $weekend = $this->motivoWeekend($data);
+        $stmt = $this->pdo->prepare(
+            'SELECT data_apertura, nota
+             FROM calendario_aperture
+             WHERE azienda_id = :azienda
+               AND data_apertura BETWEEN :dal AND :al'
+        );
+        $stmt->execute([
+            'azienda' => $aziendaId,
+            'dal' => $this->giornoCivile($dal)->format('Y-m-d'),
+            'al' => $this->giornoCivile($al)->format('Y-m-d'),
+        ]);
+        $mappa = [];
+        foreach ($stmt as $riga) {
+            $mappa[(string) $riga['data_apertura']] = trim((string) ($riga['nota'] ?? ''));
+        }
+
+        return $mappa;
+    }
+
+    public function motivoCalendario(
+        int $aziendaId,
+        DateTimeImmutable $data,
+        ?array $chiusure = null,
+        ?\MenuCraft\Models\AziendaConfig $azienda = null,
+    ): ?string {
+        $azienda ??= \MenuCraft\Models\AziendaConfig::trova($this->pdo, $aziendaId);
+        $chiave = $this->giornoCivile($data)->format('Y-m-d');
+        $aperture = $this->apertureNelPeriodo($aziendaId, $data, $data);
+        if (isset($aperture[$chiave])) {
+            return null;
+        }
+
+        $weekend = $this->motivoWeekend($data, $azienda);
         if ($weekend !== null) {
             return $weekend;
         }
 
-        $chiave = $this->giornoCivile($data)->format('Y-m-d');
         $mappa = $chiusure ?? $this->chiusureNelPeriodo($aziendaId, $data, $data);
         if (!isset($mappa[$chiave])) {
             return null;

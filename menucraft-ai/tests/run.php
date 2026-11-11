@@ -124,6 +124,9 @@ $validator->validaCutoff(
 verifica($validator->motivoWeekend(new DateTimeImmutable('2026-11-14', $fuso)) !== null, 'sabato chiuso');
 verifica($validator->motivoWeekend(new DateTimeImmutable('2026-11-15', $fuso)) !== null, 'domenica chiusa');
 verifica($validator->motivoWeekend(new DateTimeImmutable('2026-11-13', $fuso)) === null, 'venerdì aperto');
+$sabatoAperto = new AziendaConfig(30, 'Sabato', 'sabato', PagamentoType::Welfare, 5, false, false, '09:30:00', '18:00:00', 'intranet', true, false, 0, 0, 0, false, false, 0, 0, null, 5, '', '', 'sempre', true, true, false);
+verifica($validator->motivoWeekend(new DateTimeImmutable('2026-11-14', $fuso), $sabatoAperto) === null, 'sabato lavorativo per il servizio');
+verifica($validator->motivoWeekend(new DateTimeImmutable('2026-11-15', $fuso), $sabatoAperto) !== null, 'domenica resta chiusa se non aperta');
 
 $validator->validaComposizione($azienda, [PortataType::Primo, PortataType::Secondo, PortataType::Contorno, PortataType::Frutta, PortataType::Bevanda]);
 attesaEccezione('LIMITE_SECONDO', fn () => $validator->validaComposizione($azienda, [PortataType::Secondo, PortataType::Secondo]), 'due secondi');
@@ -437,11 +440,24 @@ verifica($validator->motivoCalendario($auroraId, new DateTimeImmutable('2026-11-
 attesaEccezione('CHIUSURA_NON_NECESSARIA', fn () => $calendario->aggiungi($auroraId, [
     'data' => '2026-11-14',
     'descrizione' => 'Sabato inutile',
-]), 'sabato non si segna come chiusura');
+]), 'sabato non si segna come chiusura se resta chiuso');
 $nazionaleId = (int) ($elencoChiusure['nazionali'][0]['id'] ?? 0);
+$nazionaleData = (string) ($elencoChiusure['nazionali'][0]['data'] ?? '');
 if ($nazionaleId > 0) {
     attesaEccezione('CHIUSURA_NON_TROVATA', fn () => $calendario->togli($auroraId, $nazionaleId), 'le feste nazionali non si cancellano dal banco');
 }
+if ($nazionaleData !== '') {
+    $apertura = $calendario->apri($auroraId, [
+        'data' => $nazionaleData,
+        'descrizione' => 'Aperto in deroga',
+    ]);
+    verifica($validator->motivoCalendario($auroraId, new DateTimeImmutable($nazionaleData, $fuso)) === null, 'festa nazionale resa lavorativa');
+    $calendario->togliApertura($auroraId, (int) $apertura['id']);
+    verifica($validator->motivoCalendario($auroraId, new DateTimeImmutable($nazionaleData, $fuso)) !== null, 'togliendo la deroga la festa torna chiusa');
+}
+$pdo->prepare('UPDATE aziende SET apri_sabato = 1 WHERE id = :id')->execute(['id' => $auroraId]);
+verifica($validator->motivoCalendario($auroraId, new DateTimeImmutable('2026-11-14', $fuso)) === null, 'con apri_sabato il sabato è lavorativo');
+$pdo->prepare('UPDATE aziende SET apri_sabato = 0 WHERE id = :id')->execute(['id' => $auroraId]);
 $calendario->aggiungi($auroraId, [
     'data' => '2026-11-16',
     'descrizione' => 'Festa patronale QA',

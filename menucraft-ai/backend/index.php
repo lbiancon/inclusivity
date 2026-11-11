@@ -268,9 +268,20 @@ header('Content-Type: text/html; charset=utf-8');
             </form>
             <section data-pannello="regole" class="rounded-3xl border border-[#d5cbb8] bg-white p-5">
                 <h2 class="font-serif text-3xl uppercase">Giorni di chiusura</h2>
-                <p class="mt-2 text-sm text-ink/70">Sabato, domenica e le feste nazionali valgono per tutti. Qui il servizio segna le sue chiusure (ponte, patrono, ferie): in quei giorni non si prenota e il menu non entra.</p>
+                <p class="mt-2 text-sm text-ink/70">Di base sabato, domenica e le feste nazionali sono chiusi. Ogni servizio può aprirli se lavora, oppure aggiungere chiusure proprie (ponte, patrono, ferie).</p>
+                <div class="mt-4 grid gap-3 sm:grid-cols-2 text-sm">
+                    <label class="flex items-start gap-3 rounded-2xl border border-ink/10 bg-cream p-4">
+                        <input id="apri-sabato" type="checkbox" class="mt-1">
+                        <span><strong class="font-semibold">Lavora il sabato</strong><span class="mt-1 block text-ink/60">Se attivo, il sabato è prenotabile come un giorno feriale.</span></span>
+                    </label>
+                    <label class="flex items-start gap-3 rounded-2xl border border-ink/10 bg-cream p-4">
+                        <input id="apri-domenica" type="checkbox" class="mt-1">
+                        <span><strong class="font-semibold">Lavora la domenica</strong><span class="mt-1 block text-ink/60">Se attivo, la domenica è prenotabile come un giorno feriale.</span></span>
+                    </label>
+                </div>
+                <p class="mt-3 text-xs text-ink/50">Salva le regole qui sotto per fissare sabato e domenica. Le feste e le chiusure singole si gestiscono subito con i tasti di questa sezione.</p>
                 <form id="chiusura-form" class="mt-4 grid gap-3 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
-                    <label class="text-sm font-semibold">Data
+                    <label class="text-sm font-semibold">Data chiusura
                         <input id="chiusura-data" type="date" required class="mt-1 w-full rounded-xl border border-ink/15 bg-cream px-3 py-2">
                     </label>
                     <label class="text-sm font-semibold">Motivo
@@ -280,8 +291,10 @@ header('Content-Type: text/html; charset=utf-8');
                 </form>
                 <h3 class="mt-6 text-sm font-semibold uppercase tracking-wider text-ink/50">Chiusure di questo servizio</h3>
                 <ul id="chiusure-proprie" class="mt-2 space-y-2 text-sm"></ul>
-                <h3 class="mt-6 text-sm font-semibold uppercase tracking-wider text-ink/50">Feste nazionali (solo lettura)</h3>
-                <ul id="chiusure-nazionali" class="mt-2 space-y-2 text-sm text-ink/70"></ul>
+                <h3 class="mt-6 text-sm font-semibold uppercase tracking-wider text-ink/50">Feste nazionali</h3>
+                <ul id="chiusure-nazionali" class="mt-2 space-y-2 text-sm"></ul>
+                <h3 class="mt-6 text-sm font-semibold uppercase tracking-wider text-ink/50">Giorni resi lavorativi</h3>
+                <ul id="chiusure-lavorativi" class="mt-2 space-y-2 text-sm"></ul>
             </section>
             <section data-pannello="regole" class="rounded-3xl border border-[#d5cbb8] bg-white p-5">
                 <h2 class="font-serif text-3xl uppercase">Logo dell’azienda</h2>
@@ -478,6 +491,8 @@ header('Content-Type: text/html; charset=utf-8');
             document.getElementById('regola-contatto').value = payload.azienda.contatto_linea || '';
             document.getElementById(payload.azienda.caricamento_menu === 'giovedi' ? 'carica-giovedi' : 'carica-sempre').checked = true;
             document.getElementById('menu-banco').checked = payload.azienda.menu_banco !== false;
+            document.getElementById('apri-sabato').checked = !!payload.azienda.apri_sabato;
+            document.getElementById('apri-domenica').checked = !!payload.azienda.apri_domenica;
             document.getElementById(payload.azienda.tipo_pagamento === 'dipendente' ? 'paga-dipendente' : 'paga-azienda').checked = true;
             applicaMenuBanco(payload.azienda.menu_banco !== false);
             document.getElementById(payload.azienda.modalita === 'internet' ? 'modalita-internet' : 'modalita-intranet').checked = true;
@@ -820,6 +835,8 @@ header('Content-Type: text/html; charset=utf-8');
                         contatto_linea: document.getElementById('regola-contatto').value,
                         caricamento_menu: document.getElementById('carica-giovedi').checked ? 'giovedi' : 'sempre',
                         menu_banco: document.getElementById('menu-banco').checked,
+                        apri_sabato: document.getElementById('apri-sabato').checked,
+                        apri_domenica: document.getElementById('apri-domenica').checked,
                         tipo_pagamento: document.getElementById('paga-dipendente').checked ? 'dipendente' : 'welfare',
                         modalita,
                     }),
@@ -1120,8 +1137,15 @@ header('Content-Type: text/html; charset=utf-8');
         }
 
         function disegnaChiusure(chiusure) {
+            document.getElementById('apri-sabato').checked = !!chiusure.apri_sabato;
+            document.getElementById('apri-domenica').checked = !!chiusure.apri_domenica;
+            if (state.azienda) {
+                state.azienda.apri_sabato = !!chiusure.apri_sabato;
+                state.azienda.apri_domenica = !!chiusure.apri_domenica;
+            }
             const proprie = document.getElementById('chiusure-proprie');
             const nazionali = document.getElementById('chiusure-nazionali');
+            const lavorativi = document.getElementById('chiusure-lavorativi');
             const righeProprie = (chiusure.proprie || []).map((voce) => {
                 const item = document.createElement('li');
                 item.className = 'flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-cream px-4 py-3';
@@ -1148,14 +1172,69 @@ header('Content-Type: text/html; charset=utf-8');
                 item.append(testo, togli);
                 return item;
             });
-            disegnaVoci(proprie, 'Nessuna chiusura propria: solo weekend e feste nazionali.', righeProprie);
+            disegnaVoci(proprie, 'Nessuna chiusura propria oltre a weekend e feste.', righeProprie);
             const righeNazionali = (chiusure.nazionali || []).map((voce) => {
                 const item = document.createElement('li');
-                item.className = 'rounded-2xl border border-ink/10 px-4 py-3';
-                item.textContent = formatDataIt(voce.data) + ' · ' + voce.descrizione;
+                item.className = 'flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-ink/10 px-4 py-3';
+                const testo = document.createElement('span');
+                testo.textContent = formatDataIt(voce.data) + ' · ' + voce.descrizione
+                    + (voce.lavorativo ? ' · già reso lavorativo' : '');
+                item.append(testo);
+                if (!voce.lavorativo) {
+                    const apri = document.createElement('button');
+                    apri.type = 'button';
+                    apri.className = 'rounded-full border border-ink/15 px-3 py-1';
+                    apri.textContent = 'Rendi lavorativo';
+                    apri.addEventListener('click', async () => {
+                        try {
+                            const payload = await api(API + 'chiusure.php', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                    azione: 'apri',
+                                    data: voce.data,
+                                    descrizione: 'Aperto: ' + voce.descrizione,
+                                }),
+                            });
+                            state.csrf = payload.csrf || state.csrf;
+                            disegnaChiusure(payload.chiusure);
+                            mostraBanner('ok', payload.messaggio);
+                        } catch (error) {
+                            mostraBanner('errore', error.message);
+                        }
+                    });
+                    item.append(apri);
+                }
                 return item;
             });
             disegnaVoci(nazionali, 'Nessuna festa nazionale nel periodo mostrato.', righeNazionali);
+            const righeLavorativi = (chiusure.lavorativi || []).map((voce) => {
+                const item = document.createElement('li');
+                item.className = 'flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-cream px-4 py-3';
+                const testo = document.createElement('span');
+                testo.textContent = formatDataIt(voce.data) + ' · ' + voce.descrizione;
+                const togli = document.createElement('button');
+                togli.type = 'button';
+                togli.className = 'rounded-full border border-ink/15 px-3 py-1';
+                togli.textContent = 'Togli';
+                togli.addEventListener('click', async () => {
+                    try {
+                        const payload = await api(API + 'chiusure.php', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ azione: 'togli_apertura', id: voce.id }),
+                        });
+                        state.csrf = payload.csrf || state.csrf;
+                        disegnaChiusure(payload.chiusure);
+                        mostraBanner('ok', payload.messaggio);
+                    } catch (error) {
+                        mostraBanner('errore', error.message);
+                    }
+                });
+                item.append(testo, togli);
+                return item;
+            });
+            disegnaVoci(lavorativi, 'Nessuna festa o chiusura resa lavorativa.', righeLavorativi);
         }
 
         async function caricaChiusure() {
