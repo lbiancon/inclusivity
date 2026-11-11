@@ -83,6 +83,9 @@ final class RegoleAzienda
         $contatto = array_key_exists('contatto_linea', $input)
             ? $this->contatto((string) $input['contatto_linea'])
             : $attuale->contattoLinea;
+        $caricamento = array_key_exists('caricamento_menu', $input)
+            ? $this->caricamentoMenu($input['caricamento_menu'])
+            : $attuale->caricamentoMenu;
 
         $stmt = $this->pdo->prepare(
             'UPDATE aziende
@@ -104,7 +107,8 @@ final class RegoleAzienda
                  tipo_pagamento = :pagamento,
                  bevanda_obbligatoria = :bevanda,
                  guida_linea = :guida,
-                 contatto_linea = :contatto
+                 contatto_linea = :contatto,
+                 caricamento_menu = :caricamento
              WHERE id = :id'
         );
         $stmt->execute([
@@ -127,6 +131,7 @@ final class RegoleAzienda
             'bevanda' => $bevanda,
             'guida' => $guida !== '' ? $guida : null,
             'contatto' => $contatto !== '' ? $contatto : null,
+            'caricamento' => $caricamento,
             'id' => $aziendaId,
         ]);
 
@@ -161,6 +166,19 @@ final class RegoleAzienda
         }
 
         return $modalita;
+    }
+
+    private function caricamentoMenu(mixed $valore): string
+    {
+        $modo = strtolower(trim((string) $valore));
+        if (!in_array($modo, ['sempre', 'giovedi'], true)) {
+            throw new MenuRuleException(
+                'REGOLA_NON_VALIDA',
+                'Il caricamento del menu è libero oppure solo il giovedì dopo le 19:00.',
+            );
+        }
+
+        return $modo;
     }
 
     private function flag(mixed $valore): bool

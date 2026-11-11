@@ -98,11 +98,13 @@ final class Installer
                 bevanda_obbligatoria TINYINT(1) NOT NULL DEFAULT 1,
                 guida_linea TEXT NULL,
                 contatto_linea VARCHAR(120) NULL,
+                caricamento_menu VARCHAR(20) NOT NULL DEFAULT \'sempre\',
                 PRIMARY KEY (id),
                 UNIQUE KEY uq_aziende_slug (slug),
                 CONSTRAINT chk_tipo_pagamento CHECK (tipo_pagamento IN (\'welfare\', \'dipendente\')),
                 CONSTRAINT chk_max_scelte CHECK (max_scelte BETWEEN 1 AND 10),
-                CONSTRAINT chk_modalita CHECK (modalita IN (\'intranet\', \'internet\'))
+                CONSTRAINT chk_modalita CHECK (modalita IN (\'intranet\', \'internet\')),
+                CONSTRAINT chk_caricamento_menu CHECK (caricamento_menu IN (\'sempre\', \'giovedi\'))
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci',
 
             'CREATE TABLE IF NOT EXISTS utenti (
@@ -408,6 +410,20 @@ final class Installer
         }
         if (!$this->haColonna('aziende', 'contatto_linea')) {
             $this->pdo->exec('ALTER TABLE aziende ADD COLUMN contatto_linea VARCHAR(120) NULL AFTER guida_linea');
+        }
+        if (!$this->haColonna('aziende', 'caricamento_menu')) {
+            $this->pdo->exec(
+                "ALTER TABLE aziende
+                 ADD COLUMN caricamento_menu VARCHAR(20) NOT NULL DEFAULT 'sempre' AFTER contatto_linea"
+            );
+            try {
+                $this->pdo->exec(
+                    "ALTER TABLE aziende
+                     ADD CONSTRAINT chk_caricamento_menu CHECK (caricamento_menu IN ('sempre', 'giovedi'))"
+                );
+            } catch (\Throwable) {
+                // Vincolo già presente.
+            }
         }
         $this->pdo->exec(
             "UPDATE aziende

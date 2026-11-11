@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MenuCraft\Services;
 
 use DateTimeImmutable;
+use MenuCraft\Models\AziendaConfig;
 use MenuCraft\Support\LetteraPasto;
 use PDO;
 
@@ -38,7 +39,8 @@ final class MenuPublisher
             throw new MenuRuleException('RUOLO', 'Solo il caterer può pubblicare il menu.', 403);
         }
 
-        $finestra = $this->validator->finestraPubblicazione($adesso);
+        $azienda = AziendaConfig::trova($this->pdo, $aziendaId);
+        $finestra = $this->validator->finestraPubblicazione($azienda, $adesso);
         $lette = $this->parser->parse($path, $filename);
         $righe = [];
         foreach ($lette as $riga) {

@@ -288,13 +288,17 @@ final class MenuValidator
         }
     }
 
-    public function assertCaricamentoConsentito(DateTimeImmutable $adesso): void
+    public function assertCaricamentoConsentito(\MenuCraft\Models\AziendaConfig $azienda, DateTimeImmutable $adesso): void
     {
+        if (!$azienda->caricaSoloGiovedi()) {
+            return;
+        }
+
         $now = $this->adesso($adesso);
         if ((int) $now->format('N') !== 4) {
             throw new MenuRuleException(
                 'CARICAMENTO_GIORNO',
-                'Il menu della settimana successiva si carica solo il giovedì, dopo le 19:00.',
+                'Per questa azienda il file della settimana successiva si carica solo il giovedì, dopo le 19:00.',
             );
         }
 
@@ -302,7 +306,7 @@ final class MenuValidator
         if ($now < $apertura) {
             throw new MenuRuleException(
                 'CARICAMENTO_ORARIO',
-                'Il giovedì il caricamento del menu apre alle 19:00.',
+                'Per questa azienda il giovedì il caricamento del file apre alle 19:00.',
             );
         }
     }
@@ -310,17 +314,28 @@ final class MenuValidator
     /**
      * @return array{dal: DateTimeImmutable, al: DateTimeImmutable, visibile_dal: DateTimeImmutable}
      */
-    public function finestraPubblicazione(DateTimeImmutable $adesso): array
+    public function finestraPubblicazione(\MenuCraft\Models\AziendaConfig $azienda, DateTimeImmutable $adesso): array
     {
-        $this->assertCaricamentoConsentito($adesso);
-        $giovedi = $this->giornoCivile($this->adesso($adesso));
-        $lunedi = $giovedi->modify('next monday');
-        $fine = $giovedi->modify('first day of next month')->modify('last day of this month');
+        $this->assertCaricamentoConsentito($azienda, $adesso);
+        $oggi = $this->giornoCivile($this->adesso($adesso));
+
+        if (!$azienda->caricaSoloGiovedi()) {
+            $fine = $oggi->modify('first day of next month')->modify('last day of this month');
+
+            return [
+                'dal' => $oggi,
+                'al' => $fine,
+                'visibile_dal' => $this->adesso($adesso),
+            ];
+        }
+
+        $lunedi = $oggi->modify('next monday');
+        $fine = $oggi->modify('first day of next month')->modify('last day of this month');
 
         return [
             'dal' => $lunedi,
             'al' => $fine,
-            'visibile_dal' => $this->combina($giovedi->modify('+1 day'), self::ORARIO_PRENOTAZIONI),
+            'visibile_dal' => $this->combina($oggi->modify('+1 day'), self::ORARIO_PRENOTAZIONI),
         ];
     }
 

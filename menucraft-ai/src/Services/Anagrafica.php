@@ -76,8 +76,8 @@ final class Anagrafica
                 'INSERT INTO aziende
                     (nome, slug, tipo_pagamento, max_scelte, min_scelte, permetti_doppio_primo, permetti_doppio_contorno,
                      limite_oggi, limite_domani, modalita, bevanda_obbligatoria, max_primo, max_secondo, max_contorno,
-                     guida_linea, contatto_linea)
-                 VALUES (:nome, :slug, :pagamento, 5, 5, 0, 0, :oggi, :domani, :modalita, 1, 1, 1, 1, :guida, :contatto)'
+                     guida_linea, contatto_linea, caricamento_menu)
+                 VALUES (:nome, :slug, :pagamento, 5, 5, 0, 0, :oggi, :domani, :modalita, 1, 1, 1, 1, :guida, :contatto, \'sempre\')'
             );
             $insert->execute([
                 'nome' => $nome,

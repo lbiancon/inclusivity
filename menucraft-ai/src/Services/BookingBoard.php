@@ -95,7 +95,7 @@ final class BookingBoard
             'settimane' => $settimane,
             'focus' => $focus,
             'giorno' => $this->dettaglio($azienda, $utenteId, $scelta, $chiusure, $menu, $now, $oggi),
-            'caricamento' => $this->statoCaricamento($now),
+            'caricamento' => $this->statoCaricamento($azienda, $now),
         ];
     }
 
@@ -394,23 +394,32 @@ final class BookingBoard
         return $menu;
     }
 
-    /** @return array{aperto: bool, messaggio: string} */
-    private function statoCaricamento(DateTimeImmutable $now): array
+    /** @return array{aperto: bool, messaggio: string, modo: string} */
+    private function statoCaricamento(AziendaConfig $azienda, DateTimeImmutable $now): array
     {
         try {
-            $finestra = $this->validator->finestraPubblicazione($now);
+            $finestra = $this->validator->finestraPubblicazione($azienda, $now);
+            $messaggio = $azienda->caricaSoloGiovedi()
+                ? sprintf(
+                    'Finestra aperta. Puoi caricare il file dal %s al %s. I dipendenti prenotano da venerdì alle 07:00.',
+                    $finestra['dal']->format('d/m/Y'),
+                    $finestra['al']->format('d/m/Y'),
+                )
+                : sprintf(
+                    'Puoi aggiornare il menu quando serve, anche giorno per giorno. Date ammesse dal %s al %s.',
+                    $finestra['dal']->format('d/m/Y'),
+                    $finestra['al']->format('d/m/Y'),
+                );
 
             return [
                 'aperto' => true,
-                'messaggio' => sprintf(
-                    'Finestra aperta. Puoi caricare il menu dal %s al %s. I dipendenti prenotano da venerdì alle 07:00.',
-                    $finestra['dal']->format('d/m/Y'),
-                    $finestra['al']->format('d/m/Y'),
-                ),
+                'modo' => $azienda->caricamentoMenu,
+                'messaggio' => $messaggio,
             ];
         } catch (MenuRuleException $e) {
             return [
                 'aperto' => false,
+                'modo' => $azienda->caricamentoMenu,
                 'messaggio' => $e->getMessage(),
             ];
         }

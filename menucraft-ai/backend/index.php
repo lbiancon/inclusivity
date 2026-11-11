@@ -50,6 +50,14 @@ header('Content-Type: text/html; charset=utf-8');
             line-height: 1;
             padding: 0.2rem;
         }
+        #banner.is-toast {
+            position: fixed;
+            right: 1rem;
+            bottom: 1rem;
+            z-index: 40;
+            width: min(24rem, calc(100% - 2rem));
+            box-shadow: 0 12px 30px rgba(29, 36, 32, 0.18);
+        }
     </style>
 </head>
 <body class="min-h-screen bg-cream text-ink">
@@ -97,8 +105,8 @@ header('Content-Type: text/html; charset=utf-8');
                 <button id="logout" type="button" class="rounded-full border border-white/30 px-4 py-2 text-sm text-white">Esci</button>
             </div>
         </header>
+        <div id="banner" hidden role="alert" class="is-toast rounded-3xl border p-4"></div>
         <main class="mx-auto max-w-6xl space-y-4 px-4 py-6">
-            <div id="banner" hidden role="alert" class="rounded-3xl border p-4"></div>
             <nav id="sezioni" hidden class="flex flex-wrap gap-2">
                 <button type="button" class="sezione rounded-full bg-moss px-4 py-2 text-sm font-semibold text-white" data-sezione="regole">Regole</button>
                 <button type="button" class="sezione rounded-full border border-ink/15 bg-white px-4 py-2 text-sm font-semibold" data-sezione="menu">Menu</button>
@@ -155,6 +163,20 @@ header('Content-Type: text/html; charset=utf-8');
                         <label class="rounded-2xl border border-ink/10 bg-cream p-4 text-sm">
                             <input id="modalita-internet" name="modalita" type="radio" value="internet" class="mr-2"> Internet
                             <span class="mt-1 block text-ink/60">Il pasto di oggi è chiuso. Si prenota da domani in poi, con lo stesso blocco serale. Il file cucina si scarica anche da fuori sede e si manda con l’applicazione esterna.</span>
+                        </label>
+                    </div>
+                </section>
+                <section class="rounded-3xl border border-[#d5cbb8] bg-white p-5">
+                    <h2 class="font-serif text-3xl uppercase">Quando si carica il menu</h2>
+                    <p class="mt-2 text-sm text-ink/70">Non è una regola fissa del prodotto: ogni servizio sceglie se aggiornare giorno per giorno oppure solo il file della settimana il giovedì sera.</p>
+                    <div class="mt-4 grid gap-3 sm:grid-cols-2">
+                        <label class="rounded-2xl border border-ink/10 bg-cream p-4 text-sm">
+                            <input id="carica-sempre" name="caricamento_menu" type="radio" value="sempre" class="mr-2"> Quando serve
+                            <span class="mt-1 block text-ink/60">Puoi aggiornare il menu giorno per giorno dal tab Menu, oppure caricare un file settimanale o mensile in qualsiasi momento.</span>
+                        </label>
+                        <label class="rounded-2xl border border-ink/10 bg-cream p-4 text-sm">
+                            <input id="carica-giovedi" name="caricamento_menu" type="radio" value="giovedi" class="mr-2"> Solo giovedì dopo le 19:00
+                            <span class="mt-1 block text-ink/60">Il file della settimana successiva si carica solo il giovedì sera. Il menu del giorno si può comunque ritoccare dal tab Menu.</span>
                         </label>
                     </div>
                 </section>
@@ -285,9 +307,9 @@ header('Content-Type: text/html; charset=utf-8');
                     </label>
                     <button type="submit" class="rounded-xl border border-ink px-4 py-3 text-sm font-semibold sm:col-span-2">Crea e metti nel giorno</button>
                 </form>
-                <h3 class="mt-6 font-serif text-2xl uppercase">Oppure il file del giovedì</h3>
-                <p id="upload-window" class="mt-2 text-sm text-ink/70"></p>
-                <p class="mt-2 text-sm text-ink/60">Carica un CSV o Excel: il menu della settimana o del mese entra in automatico. Puoi scaricare i modelli pronti, compilarli e ricaricarli qui. Un .xls vecchio va salvato come .xlsx.</p>
+                <h3 class="mt-6 font-serif text-2xl uppercase">File settimanale o mensile</h3>
+                <div id="upload-window" class="mt-3 rounded-2xl border border-[#d5cbb8] bg-cream px-4 py-3 text-sm font-medium text-ink"></div>
+                <p class="mt-2 text-sm text-ink/60">Carica un CSV o Excel: il menu della settimana o del mese entra in automatico. I modelli pronti si scaricano qui sotto. Un .xls vecchio va salvato come .xlsx. La finestra di caricamento dipende dalla regola scelta in Regole.</p>
                 <div class="mt-3 flex flex-wrap gap-2 text-sm">
                     <a class="rounded-full border border-ink/15 px-3 py-2 font-semibold" href="../esempi/menu-settimanale.csv" download>Scarica menu settimanale</a>
                     <a class="rounded-full border border-ink/15 px-3 py-2 font-semibold" href="../esempi/menu-mensile.csv" download>Scarica menu mensile</a>
@@ -358,7 +380,7 @@ header('Content-Type: text/html; charset=utf-8');
                 return;
             }
             banner.hidden = false;
-            banner.className = 'rounded-3xl border p-4 ' + (tipo === 'ok'
+            banner.className = 'is-toast rounded-3xl border p-4 ' + (tipo === 'ok'
                 ? 'border-emerald-200 bg-emerald-50 text-emerald-950'
                 : 'border-red-200 bg-red-50 text-red-900');
             banner.textContent = messaggio;
@@ -415,6 +437,7 @@ header('Content-Type: text/html; charset=utf-8');
             document.getElementById('regola-bevanda').checked = payload.azienda.bevanda_obbligatoria === true;
             document.getElementById('regola-guida').value = payload.azienda.guida_linea || '';
             document.getElementById('regola-contatto').value = payload.azienda.contatto_linea || '';
+            document.getElementById(payload.azienda.caricamento_menu === 'giovedi' ? 'carica-giovedi' : 'carica-sempre').checked = true;
             document.getElementById(payload.azienda.tipo_pagamento === 'dipendente' ? 'paga-dipendente' : 'paga-azienda').checked = true;
             document.getElementById(payload.azienda.modalita === 'internet' ? 'modalita-internet' : 'modalita-intranet').checked = true;
             document.getElementById('modalita-testo').textContent = testoModalita(payload.azienda.modalita);
@@ -753,6 +776,7 @@ header('Content-Type: text/html; charset=utf-8');
                         bevanda_obbligatoria: document.getElementById('regola-bevanda').checked,
                         guida_linea: document.getElementById('regola-guida').value,
                         contatto_linea: document.getElementById('regola-contatto').value,
+                        caricamento_menu: document.getElementById('carica-giovedi').checked ? 'giovedi' : 'sempre',
                         tipo_pagamento: document.getElementById('paga-dipendente').checked ? 'dipendente' : 'welfare',
                         modalita,
                     }),
@@ -798,7 +822,7 @@ header('Content-Type: text/html; charset=utf-8');
             event.preventDefault();
             const input = document.getElementById('menu-file');
             if (!input.files || !input.files[0]) {
-                mostraBanner('errore', 'Seleziona il template del giovedì.');
+                mostraBanner('errore', 'Seleziona il file del menu da caricare.');
                 return;
             }
             const body = new FormData();

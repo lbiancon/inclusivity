@@ -41,6 +41,7 @@ readonly class AziendaConfig
         public int $minScelte = 0,
         public string $guidaLinea = '',
         public string $contattoLinea = '',
+        public string $caricamentoMenu = 'sempre',
     ) {
         if ($this->id < 1) {
             throw new \InvalidArgumentException('Identificativo azienda non valido.');
@@ -54,6 +55,14 @@ readonly class AziendaConfig
         if (!in_array($this->modalita, ['intranet', 'internet'], true)) {
             throw new \InvalidArgumentException('Modalità azienda non valida.');
         }
+        if (!in_array($this->caricamentoMenu, ['sempre', 'giovedi'], true)) {
+            throw new \InvalidArgumentException('Modalità di caricamento menu non valida.');
+        }
+    }
+
+    public function caricaSoloGiovedi(): bool
+    {
+        return $this->caricamentoMenu === 'giovedi';
     }
 
     public function minimoScelte(): int
@@ -92,6 +101,7 @@ readonly class AziendaConfig
             minScelte: (int) ($riga['min_scelte'] ?? 0),
             guidaLinea: trim((string) ($riga['guida_linea'] ?? '')),
             contattoLinea: trim((string) ($riga['contatto_linea'] ?? '')),
+            caricamentoMenu: self::caricamentoMenu((string) ($riga['caricamento_menu'] ?? 'sempre')),
         );
     }
 
@@ -101,7 +111,8 @@ readonly class AziendaConfig
             'SELECT id, nome, slug, tipo_pagamento, max_scelte, min_scelte, permetti_doppio_primo,
                     permetti_doppio_contorno, permetti_doppio_secondo, permetti_doppio_frutta, permetti_doppio_dessert,
                     max_primo, max_secondo, max_contorno, max_frutta, max_dessert, logo,
-                    limite_oggi, limite_domani, modalita, bevanda_obbligatoria, guida_linea, contatto_linea
+                    limite_oggi, limite_domani, modalita, bevanda_obbligatoria, guida_linea, contatto_linea,
+                    caricamento_menu
              FROM aziende
              WHERE id = :id'
         );
@@ -192,8 +203,19 @@ readonly class AziendaConfig
             'bevanda_obbligatoria' => $this->bevandaObbligatoria,
             'guida_linea' => $this->guidaLinea,
             'contatto_linea' => $this->contattoLinea,
+            'caricamento_menu' => $this->caricamentoMenu,
+            'caricamento_menu_etichetta' => $this->caricaSoloGiovedi()
+                ? 'Solo giovedì dopo le 19:00'
+                : 'Quando serve, anche giorno per giorno',
             'pagamento_etichetta' => $this->tipoPagamento->copertoDaAzienda() ? 'A carico dell\'azienda' : 'Paga il dipendente',
         ];
+    }
+
+    private static function caricamentoMenu(string $valore): string
+    {
+        $valore = strtolower(trim($valore));
+
+        return in_array($valore, ['sempre', 'giovedi'], true) ? $valore : 'sempre';
     }
 
     private static function modalita(string $valore): string

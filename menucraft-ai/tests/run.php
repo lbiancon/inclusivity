@@ -176,12 +176,17 @@ verifica($welfare->prezzoApplicato('8.20') === '0.00', 'welfare azzera il prezzo
 verifica($azienda->prezzoApplicato('8.20') === '8.20', 'dipendente paga il listino');
 
 $giovediSera = new DateTimeImmutable('2026-11-12 19:00:00', $fuso);
-$finestra = $validator->finestraPubblicazione($giovediSera);
+$soloGiovedi = new AziendaConfig(20, 'Giovedi', 'giovedi', PagamentoType::Welfare, 5, false, false, '09:30:00', '18:00:00', 'intranet', true, false, 0, 0, 0, false, false, 0, 0, null, 5, '', '', 'giovedi');
+$sempreAperto = new AziendaConfig(21, 'Sempre', 'sempre', PagamentoType::Welfare, 5, false, false, '09:30:00', '18:00:00', 'intranet', true, false, 0, 0, 0, false, false, 0, 0, null, 5, '', '', 'sempre');
+$finestra = $validator->finestraPubblicazione($soloGiovedi, $giovediSera);
 verifica($finestra['dal']->format('Y-m-d') === '2026-11-16', 'caricamento dal lunedì successivo');
 verifica($finestra['al']->format('Y-m-d') === '2026-12-31', 'caricamento fino a fine mese successivo');
 verifica($finestra['visibile_dal']->format('Y-m-d H:i') === '2026-11-13 07:00', 'prenotazioni dal venerdì mattina');
-attesaEccezione('CARICAMENTO_ORARIO', fn () => $validator->assertCaricamentoConsentito(new DateTimeImmutable('2026-11-12 18:59:59', $fuso)), 'giovedì prima delle 19');
-attesaEccezione('CARICAMENTO_GIORNO', fn () => $validator->assertCaricamentoConsentito(new DateTimeImmutable('2026-11-11 20:00:00', $fuso)), 'caricamento fuori giovedì');
+attesaEccezione('CARICAMENTO_ORARIO', fn () => $validator->assertCaricamentoConsentito($soloGiovedi, new DateTimeImmutable('2026-11-12 18:59:59', $fuso)), 'giovedì prima delle 19');
+attesaEccezione('CARICAMENTO_GIORNO', fn () => $validator->assertCaricamentoConsentito($soloGiovedi, new DateTimeImmutable('2026-11-11 20:00:00', $fuso)), 'caricamento fuori giovedì');
+$validator->assertCaricamentoConsentito($sempreAperto, new DateTimeImmutable('2026-11-11 20:00:00', $fuso));
+$finestraLibera = $validator->finestraPubblicazione($sempreAperto, new DateTimeImmutable('2026-11-11 20:00:00', $fuso));
+verifica($finestraLibera['dal']->format('Y-m-d') === '2026-11-11', 'servizio libero carica dal giorno corrente');
 
 $parser = new SpreadsheetMenuParser($fuso);
 $csv = tempnam(sys_get_temp_dir(), 'mc');
@@ -290,8 +295,8 @@ $pdo->prepare('DELETE FROM login_tentativi WHERE azienda_slug LIKE :slug')->exec
 function creaTenant(PDO $pdo, string $slug, string $tipo, bool $doppioPrimo, bool $doppioContorno, int $wallet): array
 {
     $azienda = $pdo->prepare(
-        'INSERT INTO aziende (nome, slug, tipo_pagamento, max_scelte, permetti_doppio_primo, permetti_doppio_contorno, limite_oggi, limite_domani, bevanda_obbligatoria)
-         VALUES (:nome, :slug, :tipo, 5, :primo, :contorno, \'09:30:00\', \'18:00:00\', 0)'
+        'INSERT INTO aziende (nome, slug, tipo_pagamento, max_scelte, permetti_doppio_primo, permetti_doppio_contorno, limite_oggi, limite_domani, bevanda_obbligatoria, caricamento_menu)
+         VALUES (:nome, :slug, :tipo, 5, :primo, :contorno, \'09:30:00\', \'18:00:00\', 0, \'giovedi\')'
     );
     $azienda->execute([
         'nome' => $slug,
@@ -440,6 +445,19 @@ attesaEccezione('CARICAMENTO_GIORNO', fn () => $publisher->pubblica(
     'settimana.csv',
     new DateTimeImmutable('2026-11-11 20:00:00', $fuso),
 ), 'upload fuori finestra');
+$pdo->prepare('UPDATE aziende SET caricamento_menu = \'sempre\' WHERE id = :id')->execute(['id' => $rossiId]);
+$csvLibero = tempnam(sys_get_temp_dir(), 'mc');
+file_put_contents($csvLibero, "data,codice,nome,categoria,prezzo\n2026-11-12,LIB-1,Zuppa libera,primo,3.00\n");
+$libero = $publisher->pubblica(
+    $rossiId,
+    $rossiCaterer,
+    $csvLibero,
+    'libero.csv',
+    new DateTimeImmutable('2026-11-11 20:00:00', $fuso),
+);
+verifica($libero['giorni'] === 1, 'servizio libero carica il file fuori dal giovedì');
+unlink($csvLibero);
+$pdo->prepare('UPDATE aziende SET caricamento_menu = \'giovedi\' WHERE id = :id')->execute(['id' => $rossiId]);
 
 $conteggioRossi = (int) $pdo->query('SELECT COUNT(*) FROM piatti WHERE azienda_id = ' . $rossiId)->fetchColumn();
 $conteggioAurora = (int) $pdo->query('SELECT COUNT(*) FROM piatti WHERE azienda_id = ' . $auroraId . " AND codice = 'NX-1'")->fetchColumn();
