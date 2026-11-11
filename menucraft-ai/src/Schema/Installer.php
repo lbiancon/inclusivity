@@ -99,6 +99,7 @@ final class Installer
                 guida_linea TEXT NULL,
                 contatto_linea VARCHAR(120) NULL,
                 caricamento_menu VARCHAR(20) NOT NULL DEFAULT \'sempre\',
+                menu_banco TINYINT(1) NOT NULL DEFAULT 1,
                 PRIMARY KEY (id),
                 UNIQUE KEY uq_aziende_slug (slug),
                 CONSTRAINT chk_tipo_pagamento CHECK (tipo_pagamento IN (\'welfare\', \'dipendente\')),
@@ -424,6 +425,12 @@ final class Installer
             } catch (\Throwable) {
                 // Vincolo già presente.
             }
+        }
+        if (!$this->haColonna('aziende', 'menu_banco')) {
+            $this->pdo->exec(
+                "ALTER TABLE aziende
+                 ADD COLUMN menu_banco TINYINT(1) NOT NULL DEFAULT 1 AFTER caricamento_menu"
+            );
         }
         $this->pdo->exec(
             "UPDATE aziende

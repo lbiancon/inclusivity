@@ -6,6 +6,7 @@ namespace MenuCraft\Services;
 
 use DateTimeImmutable;
 use MenuCraft\Enums\PortataType;
+use MenuCraft\Models\AziendaConfig;
 use MenuCraft\Support\CodicePiatto;
 use MenuCraft\Support\LetteraPasto;
 use MenuCraft\Support\Money;
@@ -66,11 +67,14 @@ final class MenuBanco
             ];
         }
 
+        $azienda = AziendaConfig::trova($this->pdo, $aziendaId);
+
         return [
             'data' => $giorno,
             'piatti' => $piatti,
             'catalogo' => $disponibili,
             'lettere' => LetteraPasto::ALFABETO,
+            'menu_banco' => $azienda->permetteMenuBanco(),
         ];
     }
 
@@ -80,6 +84,7 @@ final class MenuBanco
     public function aggiungi(int $aziendaId, int $attoreId, array $input): array
     {
         $this->ruolo($aziendaId, $attoreId);
+        $this->assertMenuBanco($aziendaId);
         $giorno = $this->data((string) ($input['data'] ?? ''));
         $this->dataAperta($giorno);
         $piattoId = (int) ($input['piatto_id'] ?? 0);
@@ -109,6 +114,7 @@ final class MenuBanco
     public function crea(int $aziendaId, int $attoreId, array $input): array
     {
         $this->ruolo($aziendaId, $attoreId);
+        $this->assertMenuBanco($aziendaId);
         $giorno = $this->data((string) ($input['data'] ?? ''));
         $this->dataAperta($giorno);
         $nome = preg_replace('/\s+/u', ' ', trim((string) ($input['nome'] ?? ''))) ?? '';
@@ -179,6 +185,7 @@ final class MenuBanco
     public function togli(int $aziendaId, int $attoreId, string $data, int $piattoId): array
     {
         $this->ruolo($aziendaId, $attoreId);
+        $this->assertMenuBanco($aziendaId);
         $giorno = $this->data($data);
         $this->dataAperta($giorno);
         if ($piattoId < 1) {
@@ -203,6 +210,17 @@ final class MenuBanco
         $ruolo = (string) $stmt->fetchColumn();
         if (!in_array($ruolo, ['caterer', 'piattaforma'], true)) {
             throw new MenuRuleException('RUOLO', 'Solo il banco può comporre il menu.', 403);
+        }
+    }
+
+    private function assertMenuBanco(int $aziendaId): void
+    {
+        $azienda = AziendaConfig::trova($this->pdo, $aziendaId);
+        if (!$azienda->permetteMenuBanco()) {
+            throw new MenuRuleException(
+                'MENU_BANCO_CHIUSO',
+                'Questa azienda carica il menu solo da file. Attiva la composizione giorno per giorno nelle Regole se ti serve.',
+            );
         }
     }
 

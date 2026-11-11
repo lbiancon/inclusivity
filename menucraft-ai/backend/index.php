@@ -168,15 +168,22 @@ header('Content-Type: text/html; charset=utf-8');
                 </section>
                 <section class="rounded-3xl border border-[#d5cbb8] bg-white p-5">
                     <h2 class="font-serif text-3xl uppercase">Quando si carica il menu</h2>
-                    <p class="mt-2 text-sm text-ink/70">Non è una regola fissa del prodotto: ogni servizio sceglie se aggiornare giorno per giorno oppure solo il file della settimana il giovedì sera.</p>
+                    <p class="mt-2 text-sm text-ink/70">Ogni servizio sceglie se aggiungere i piatti a mano e quando accettare il file.</p>
+                    <label class="mt-4 flex items-start gap-3 rounded-2xl border border-ink/10 bg-cream p-4 text-sm">
+                        <input id="menu-banco" name="menu_banco" type="checkbox" class="mt-1">
+                        <span>
+                            <strong class="font-semibold">Aggiungi e togli piatti dal tab Menu</strong>
+                            <span class="mt-1 block text-ink/60">Se spegni questa voce, il menu arriva solo dal file CSV/Excel: niente composizione giorno per giorno.</span>
+                        </span>
+                    </label>
                     <div class="mt-4 grid gap-3 sm:grid-cols-2">
                         <label class="rounded-2xl border border-ink/10 bg-cream p-4 text-sm">
-                            <input id="carica-sempre" name="caricamento_menu" type="radio" value="sempre" class="mr-2"> Quando serve
-                            <span class="mt-1 block text-ink/60">Puoi aggiornare il menu giorno per giorno dal tab Menu, oppure caricare un file settimanale o mensile in qualsiasi momento.</span>
+                            <input id="carica-sempre" name="caricamento_menu" type="radio" value="sempre" class="mr-2"> File quando serve
+                            <span class="mt-1 block text-ink/60">Il CSV o Excel si carica in qualsiasi giorno e orario.</span>
                         </label>
                         <label class="rounded-2xl border border-ink/10 bg-cream p-4 text-sm">
-                            <input id="carica-giovedi" name="caricamento_menu" type="radio" value="giovedi" class="mr-2"> Solo giovedì dopo le 19:00
-                            <span class="mt-1 block text-ink/60">Il file della settimana successiva si carica solo il giovedì sera. Il menu del giorno si può comunque ritoccare dal tab Menu.</span>
+                            <input id="carica-giovedi" name="caricamento_menu" type="radio" value="giovedi" class="mr-2"> File solo giovedì dopo le 19:00
+                            <span class="mt-1 block text-ink/60">Il file della settimana successiva si carica solo il giovedì sera.</span>
                         </label>
                     </div>
                 </section>
@@ -256,13 +263,19 @@ header('Content-Type: text/html; charset=utf-8');
                             <input id="paga-dipendente" name="tipo_pagamento" type="radio" value="dipendente" class="mr-2"> Paga il dipendente
                         </label>
                     </div>
-                    <label class="mt-4 block text-sm font-semibold">Logo dell’azienda
-                        <span class="mt-1 block text-xs font-normal text-ink/60">Viene ridimensionato in un quadrato uguale per tutte le aziende, così resta allineato all’intestazione.</span>
-                        <input id="logo-file" type="file" accept="image/png,image/jpeg,image/webp,image/gif" class="mt-1 block w-full text-sm">
-                    </label>
-                    <button type="submit" class="mt-4 w-full rounded-xl bg-moss px-4 py-3 text-sm font-semibold text-white">Salva sul backend</button>
+                    <button type="submit" class="mt-4 w-full rounded-xl bg-moss px-4 py-3 text-sm font-semibold text-white">Salva le regole</button>
                 </section>
             </form>
+            <section data-pannello="regole" class="rounded-3xl border border-[#d5cbb8] bg-white p-5">
+                <h2 class="font-serif text-3xl uppercase">Logo dell’azienda</h2>
+                <p class="mt-2 text-sm text-ink/70">Viene ridimensionato in un quadrato uguale per tutte le aziende, così resta allineato all’intestazione.</p>
+                <form id="logo-form" class="mt-4 flex flex-col gap-3 sm:flex-row sm:items-end">
+                    <label class="block flex-1 text-sm font-semibold">Scegli l’immagine
+                        <input id="logo-file" type="file" accept="image/png,image/jpeg,image/webp,image/gif" class="mt-1 block w-full text-sm">
+                    </label>
+                    <button type="submit" class="rounded-xl bg-moss px-4 py-3 text-sm font-semibold text-white">Carica logo</button>
+                </form>
+            </section>
             <section data-pannello="cucina" hidden class="rounded-3xl border border-[#d5cbb8] bg-white p-5">
                 <h2 class="font-serif text-3xl uppercase">File per la cucina</h2>
                 <p id="cucina-testo" class="mt-2 text-sm text-ink/70"></p>
@@ -271,53 +284,62 @@ header('Content-Type: text/html; charset=utf-8');
                 </label>
                 <button id="scarica-riepilogo" type="button" class="mt-4 rounded-xl bg-terracotta px-4 py-3 text-sm font-semibold text-white">Scarica il file</button>
             </section>
-            <section data-pannello="menu" hidden class="rounded-3xl border border-[#d5cbb8] bg-white p-5">
-                <h2 class="font-serif text-3xl uppercase">Menu del giorno</h2>
-                <p class="mt-2 text-sm text-ink/70">Qui componi il menu che vede chi prenota. Ogni pasto tiene il codice già in uso e, accanto, la lettera del giorno: togliendo o aggiungendo un piatto le lettere ripartono da A B C, senza saltare a Q.</p>
-                <label class="mt-4 block text-sm font-semibold">Giorno del menu
-                    <input id="menu-giorno" type="date" class="mt-1 rounded-xl border border-ink/15 bg-cream px-3 py-2">
-                </label>
-                <ul id="menu-elenco" class="mt-4 space-y-2 text-sm"></ul>
-                <form id="menu-esistente" class="mt-4 grid gap-3 sm:grid-cols-[1fr_auto]">
-                    <label class="text-sm font-semibold">Dal catalogo
-                        <select id="menu-catalogo" class="mt-1 w-full rounded-xl border border-ink/15 bg-cream px-3 py-2"></select>
+            <section data-pannello="menu" hidden class="space-y-4">
+                <div id="menu-banco-box" class="rounded-3xl border border-[#d5cbb8] bg-white p-5">
+                    <h2 class="font-serif text-3xl uppercase">Menu del giorno</h2>
+                    <p class="mt-2 text-sm text-ink/70">Qui componi il menu che vede chi prenota. Ogni pasto tiene il codice già in uso e, accanto, la lettera del giorno: togliendo o aggiungendo un piatto le lettere ripartono da A B C, senza saltare a Q.</p>
+                    <p id="menu-banco-chiuso" hidden class="mt-3 rounded-2xl border border-[#d5cbb8] bg-cream px-4 py-3 text-sm font-medium text-ink">Questa azienda non aggiunge piatti a mano: carica solo il file qui sotto. Puoi riattivare la composizione in Regole.</p>
+                    <label class="mt-4 block text-sm font-semibold">Giorno del menu
+                        <input id="menu-giorno" type="date" class="mt-1 rounded-xl border border-ink/15 bg-cream px-3 py-2">
                     </label>
-                    <button type="submit" class="self-end rounded-xl bg-moss px-4 py-3 text-sm font-semibold text-white">Aggiungi al giorno</button>
-                </form>
-                <form id="menu-nuovo" class="mt-4 grid gap-3 sm:grid-cols-2">
-                    <label class="text-sm font-semibold">Nome nuovo piatto
-                        <input id="piatto-nome" maxlength="120" class="mt-1 w-full rounded-xl border border-ink/15 bg-cream px-3 py-2">
-                    </label>
-                    <label class="text-sm font-semibold">Codice, se ne hai già uno
-                        <input id="piatto-codice" maxlength="32" class="mt-1 w-full rounded-xl border border-ink/15 bg-cream px-3 py-2" placeholder="PR-POM">
-                    </label>
-                    <label class="text-sm font-semibold">Portata
-                        <select id="piatto-categoria" class="mt-1 w-full rounded-xl border border-ink/15 bg-cream px-3 py-2">
-                            <option value="primo">Primo</option>
-                            <option value="secondo">Secondo</option>
-                            <option value="contorno">Contorno</option>
-                            <option value="dessert">Dolce</option>
-                            <option value="yogurt">Yogurt</option>
-                            <option value="frutta">Frutta</option>
-                            <option value="bevanda">Bevanda</option>
-                        </select>
-                    </label>
-                    <label class="text-sm font-semibold">Prezzo
-                        <input id="piatto-prezzo" inputmode="decimal" class="mt-1 w-full rounded-xl border border-ink/15 bg-cream px-3 py-2" placeholder="3,50">
-                    </label>
-                    <button type="submit" class="rounded-xl border border-ink px-4 py-3 text-sm font-semibold sm:col-span-2">Crea e metti nel giorno</button>
-                </form>
-                <h3 class="mt-6 font-serif text-2xl uppercase">File settimanale o mensile</h3>
-                <div id="upload-window" class="mt-3 rounded-2xl border border-[#d5cbb8] bg-cream px-4 py-3 text-sm font-medium text-ink"></div>
-                <p class="mt-2 text-sm text-ink/60">Carica un CSV o Excel: il menu della settimana o del mese entra in automatico. I modelli pronti si scaricano qui sotto. Un .xls vecchio va salvato come .xlsx. La finestra di caricamento dipende dalla regola scelta in Regole.</p>
-                <div class="mt-3 flex flex-wrap gap-2 text-sm">
-                    <a class="rounded-full border border-ink/15 px-3 py-2 font-semibold" href="../esempi/menu-settimanale.csv" download>Scarica menu settimanale</a>
-                    <a class="rounded-full border border-ink/15 px-3 py-2 font-semibold" href="../esempi/menu-mensile.csv" download>Scarica menu mensile</a>
+                    <ul id="menu-elenco" class="mt-4 space-y-2 text-sm"></ul>
+                    <div id="menu-banco-azioni">
+                        <form id="menu-esistente" class="mt-4 grid gap-3 sm:grid-cols-[1fr_auto]">
+                            <label class="text-sm font-semibold">Dal catalogo
+                                <select id="menu-catalogo" class="mt-1 w-full rounded-xl border border-ink/15 bg-cream px-3 py-2"></select>
+                            </label>
+                            <button type="submit" class="self-end rounded-xl bg-moss px-4 py-3 text-sm font-semibold text-white">Aggiungi al giorno</button>
+                        </form>
+                        <form id="menu-nuovo" class="mt-4 grid gap-3 sm:grid-cols-2">
+                            <label class="text-sm font-semibold">Nome nuovo piatto
+                                <input id="piatto-nome" maxlength="120" class="mt-1 w-full rounded-xl border border-ink/15 bg-cream px-3 py-2">
+                            </label>
+                            <label class="text-sm font-semibold">Codice, se ne hai già uno
+                                <input id="piatto-codice" maxlength="32" class="mt-1 w-full rounded-xl border border-ink/15 bg-cream px-3 py-2" placeholder="PR-POM">
+                            </label>
+                            <label class="text-sm font-semibold">Portata
+                                <select id="piatto-categoria" class="mt-1 w-full rounded-xl border border-ink/15 bg-cream px-3 py-2">
+                                    <option value="primo">Primo</option>
+                                    <option value="secondo">Secondo</option>
+                                    <option value="contorno">Contorno</option>
+                                    <option value="dessert">Dolce</option>
+                                    <option value="yogurt">Yogurt</option>
+                                    <option value="frutta">Frutta</option>
+                                    <option value="bevanda">Bevanda</option>
+                                </select>
+                            </label>
+                            <label class="text-sm font-semibold">Prezzo
+                                <input id="piatto-prezzo" inputmode="decimal" class="mt-1 w-full rounded-xl border border-ink/15 bg-cream px-3 py-2" placeholder="3,50">
+                            </label>
+                            <button type="submit" class="rounded-xl border border-ink px-4 py-3 text-sm font-semibold sm:col-span-2">Crea e metti nel giorno</button>
+                        </form>
+                    </div>
                 </div>
-                <form id="upload-form" class="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center">
-                    <input id="menu-file" name="menu" type="file" accept=".csv,.txt,.xlsx,.xls" class="block w-full text-sm">
-                    <button type="submit" class="rounded-2xl bg-ink px-4 py-3 text-sm text-white">Carica menu</button>
-                </form>
+                <div class="rounded-3xl border border-[#d5cbb8] bg-white p-5">
+                    <h2 class="font-serif text-3xl uppercase">Carica file settimanale o mensile</h2>
+                    <div id="upload-window" class="mt-3 rounded-2xl border border-[#d5cbb8] bg-cream px-4 py-3 text-sm font-medium text-ink"></div>
+                    <p class="mt-2 text-sm text-ink/60">Scegli il CSV o Excel, poi premi Carica menu. I modelli pronti si scaricano qui sotto. Un .xls vecchio va salvato come .xlsx. La finestra di caricamento dipende dalla regola scelta in Regole.</p>
+                    <div class="mt-3 flex flex-wrap gap-2 text-sm">
+                        <a class="rounded-full border border-ink/15 px-3 py-2 font-semibold" href="../esempi/menu-settimanale.csv" download>Scarica menu settimanale</a>
+                        <a class="rounded-full border border-ink/15 px-3 py-2 font-semibold" href="../esempi/menu-mensile.csv" download>Scarica menu mensile</a>
+                    </div>
+                    <form id="upload-form" class="mt-4 grid gap-3 sm:grid-cols-[1fr_auto] sm:items-end">
+                        <label class="block text-sm font-semibold">File del menu
+                            <input id="menu-file" name="menu" type="file" accept=".csv,.txt,.xlsx,.xls" class="mt-1 block w-full text-sm">
+                        </label>
+                        <button type="submit" class="rounded-xl bg-moss px-5 py-3 text-sm font-semibold text-white">Carica menu</button>
+                    </form>
+                </div>
             </section>
             <section data-pannello="utenti" hidden class="rounded-3xl border border-[#d5cbb8] bg-white p-5">
                 <h2 class="font-serif text-3xl uppercase">Chi può prenotare</h2>
@@ -438,7 +460,9 @@ header('Content-Type: text/html; charset=utf-8');
             document.getElementById('regola-guida').value = payload.azienda.guida_linea || '';
             document.getElementById('regola-contatto').value = payload.azienda.contatto_linea || '';
             document.getElementById(payload.azienda.caricamento_menu === 'giovedi' ? 'carica-giovedi' : 'carica-sempre').checked = true;
+            document.getElementById('menu-banco').checked = payload.azienda.menu_banco !== false;
             document.getElementById(payload.azienda.tipo_pagamento === 'dipendente' ? 'paga-dipendente' : 'paga-azienda').checked = true;
+            applicaMenuBanco(payload.azienda.menu_banco !== false);
             document.getElementById(payload.azienda.modalita === 'internet' ? 'modalita-internet' : 'modalita-intranet').checked = true;
             document.getElementById('modalita-testo').textContent = testoModalita(payload.azienda.modalita);
             document.getElementById('cucina-testo').textContent = payload.azienda.modalita === 'internet'
@@ -777,6 +801,7 @@ header('Content-Type: text/html; charset=utf-8');
                         guida_linea: document.getElementById('regola-guida').value,
                         contatto_linea: document.getElementById('regola-contatto').value,
                         caricamento_menu: document.getElementById('carica-giovedi').checked ? 'giovedi' : 'sempre',
+                        menu_banco: document.getElementById('menu-banco').checked,
                         tipo_pagamento: document.getElementById('paga-dipendente').checked ? 'dipendente' : 'welfare',
                         modalita,
                     }),
@@ -932,6 +957,11 @@ header('Content-Type: text/html; charset=utf-8');
             }
             const payload = await api(API + 'menu-banco.php?data=' + encodeURIComponent(data));
             state.csrf = payload.csrf;
+            const bancoAttivo = payload.menu.menu_banco !== false;
+            if (state.azienda) {
+                state.azienda.menu_banco = bancoAttivo;
+            }
+            applicaMenuBanco(bancoAttivo);
             const lista = document.getElementById('menu-elenco');
             const righe = payload.menu.piatti.map((piatto) => {
                 const item = document.createElement('li');
@@ -941,8 +971,10 @@ header('Content-Type: text/html; charset=utf-8');
                 testo.textContent = lettera + piatto.codice + ' · ' + piatto.nome + ' · ' + piatto.categoria + ' · ' + String(piatto.prezzo).replace('.', ',') + ' €';
                 const togli = document.createElement('button');
                 togli.type = 'button';
+                togli.dataset.togliMenu = '1';
                 togli.className = 'rounded-full border border-ink/15 px-3 py-1';
                 togli.textContent = 'Togli';
+                togli.hidden = !(state.azienda && state.azienda.menu_banco !== false);
                 togli.addEventListener('click', () => {
                     api(API + 'menu-banco.php', {
                         method: 'POST',
@@ -1025,9 +1057,11 @@ header('Content-Type: text/html; charset=utf-8');
             }
         });
 
-        document.getElementById('logo-file').addEventListener('change', async () => {
+        document.getElementById('logo-form').addEventListener('submit', async (event) => {
+            event.preventDefault();
             const input = document.getElementById('logo-file');
             if (!input.files || !input.files[0]) {
+                mostraBanner('errore', 'Scegli il file del logo da caricare.');
                 return;
             }
             const body = new FormData();
@@ -1045,6 +1079,14 @@ header('Content-Type: text/html; charset=utf-8');
                 mostraBanner('errore', error.message);
             }
         });
+
+        function applicaMenuBanco(attivo) {
+            document.getElementById('menu-banco-azioni').hidden = !attivo;
+            document.getElementById('menu-banco-chiuso').hidden = !!attivo;
+            document.querySelectorAll('[data-togli-menu]').forEach((bottone) => {
+                bottone.hidden = !attivo;
+            });
+        }
 
         document.getElementById('utente-annulla').addEventListener('click', resetUtente);
 

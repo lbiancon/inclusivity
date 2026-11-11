@@ -68,7 +68,7 @@ final class AuthService
                         a.permetti_doppio_frutta, a.permetti_doppio_dessert,
                         a.max_primo, a.max_secondo, a.max_contorno, a.max_frutta, a.max_dessert, a.logo,
                         a.limite_oggi, a.limite_domani, a.modalita, a.bevanda_obbligatoria,
-                        a.guida_linea, a.contatto_linea, a.caricamento_menu
+                        a.guida_linea, a.contatto_linea, a.caricamento_menu, a.menu_banco
                  FROM utenti u
                  INNER JOIN aziende a ON a.id = u.azienda_id
                  WHERE a.slug = :slug AND u.matricola = :matricola
@@ -142,6 +142,7 @@ final class AuthService
             'guida_linea' => $utente['guida_linea'] ?? '',
             'contatto_linea' => $utente['contatto_linea'] ?? '',
             'caricamento_menu' => $utente['caricamento_menu'] ?? 'sempre',
+            'menu_banco' => (int) ($utente['menu_banco'] ?? 1) === 1,
         ]);
 
         return [

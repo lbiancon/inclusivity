@@ -86,6 +86,9 @@ final class RegoleAzienda
         $caricamento = array_key_exists('caricamento_menu', $input)
             ? $this->caricamentoMenu($input['caricamento_menu'])
             : $attuale->caricamentoMenu;
+        $menuBanco = array_key_exists('menu_banco', $input)
+            ? ($this->flag($input['menu_banco']) ? 1 : 0)
+            : ($attuale->menuBanco ? 1 : 0);
 
         $stmt = $this->pdo->prepare(
             'UPDATE aziende
@@ -108,7 +111,8 @@ final class RegoleAzienda
                  bevanda_obbligatoria = :bevanda,
                  guida_linea = :guida,
                  contatto_linea = :contatto,
-                 caricamento_menu = :caricamento
+                 caricamento_menu = :caricamento,
+                 menu_banco = :banco
              WHERE id = :id'
         );
         $stmt->execute([
@@ -132,6 +136,7 @@ final class RegoleAzienda
             'guida' => $guida !== '' ? $guida : null,
             'contatto' => $contatto !== '' ? $contatto : null,
             'caricamento' => $caricamento,
+            'banco' => $menuBanco,
             'id' => $aziendaId,
         ]);
 

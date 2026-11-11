@@ -176,8 +176,8 @@ verifica($welfare->prezzoApplicato('8.20') === '0.00', 'welfare azzera il prezzo
 verifica($azienda->prezzoApplicato('8.20') === '8.20', 'dipendente paga il listino');
 
 $giovediSera = new DateTimeImmutable('2026-11-12 19:00:00', $fuso);
-$soloGiovedi = new AziendaConfig(20, 'Giovedi', 'giovedi', PagamentoType::Welfare, 5, false, false, '09:30:00', '18:00:00', 'intranet', true, false, 0, 0, 0, false, false, 0, 0, null, 5, '', '', 'giovedi');
-$sempreAperto = new AziendaConfig(21, 'Sempre', 'sempre', PagamentoType::Welfare, 5, false, false, '09:30:00', '18:00:00', 'intranet', true, false, 0, 0, 0, false, false, 0, 0, null, 5, '', '', 'sempre');
+$soloGiovedi = new AziendaConfig(20, 'Giovedi', 'giovedi', PagamentoType::Welfare, 5, false, false, '09:30:00', '18:00:00', 'intranet', true, false, 0, 0, 0, false, false, 0, 0, null, 5, '', '', 'giovedi', false);
+$sempreAperto = new AziendaConfig(21, 'Sempre', 'sempre', PagamentoType::Welfare, 5, false, false, '09:30:00', '18:00:00', 'intranet', true, false, 0, 0, 0, false, false, 0, 0, null, 5, '', '', 'sempre', true);
 $finestra = $validator->finestraPubblicazione($soloGiovedi, $giovediSera);
 verifica($finestra['dal']->format('Y-m-d') === '2026-11-16', 'caricamento dal lunedì successivo');
 verifica($finestra['al']->format('Y-m-d') === '2026-12-31', 'caricamento fino a fine mese successivo');
@@ -658,6 +658,14 @@ $lettereTogli = array_column($senzaPrimo['piatti'], 'lettera');
 sort($lettereTogli);
 verifica($lettereTogli === array_slice(MenuCraft\Support\LetteraPasto::ALFABETO, 0, count($lettereTogli)), 'dopo aver tolto un primo le lettere ripartono da A');
 verifica(!in_array('Q', $lettereTogli, true), 'non compare una Q fuori sequenza');
+$pdo->prepare('UPDATE aziende SET menu_banco = 0 WHERE id = :id')->execute(['id' => $auroraId]);
+attesaEccezione('MENU_BANCO_CHIUSO', fn () => $banco->crea($auroraId, $auroraCaterer, [
+    'data' => '2026-11-13',
+    'nome' => 'Kiwi',
+    'categoria' => 'frutta',
+    'prezzo' => '1,20',
+]), 'senza menu banco non si aggiungono piatti a mano');
+$pdo->prepare('UPDATE aziende SET menu_banco = 1 WHERE id = :id')->execute(['id' => $auroraId]);
 
 $elencoDopo = $anagrafica->elencoSocieta();
 $slugNuova = array_column($elencoDopo, 'slug');

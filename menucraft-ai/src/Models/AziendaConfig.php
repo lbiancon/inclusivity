@@ -42,6 +42,7 @@ readonly class AziendaConfig
         public string $guidaLinea = '',
         public string $contattoLinea = '',
         public string $caricamentoMenu = 'sempre',
+        public bool $menuBanco = true,
     ) {
         if ($this->id < 1) {
             throw new \InvalidArgumentException('Identificativo azienda non valido.');
@@ -63,6 +64,11 @@ readonly class AziendaConfig
     public function caricaSoloGiovedi(): bool
     {
         return $this->caricamentoMenu === 'giovedi';
+    }
+
+    public function permetteMenuBanco(): bool
+    {
+        return $this->menuBanco;
     }
 
     public function minimoScelte(): int
@@ -102,6 +108,7 @@ readonly class AziendaConfig
             guidaLinea: trim((string) ($riga['guida_linea'] ?? '')),
             contattoLinea: trim((string) ($riga['contatto_linea'] ?? '')),
             caricamentoMenu: self::caricamentoMenu((string) ($riga['caricamento_menu'] ?? 'sempre')),
+            menuBanco: (int) ($riga['menu_banco'] ?? 1) === 1,
         );
     }
 
@@ -112,7 +119,7 @@ readonly class AziendaConfig
                     permetti_doppio_contorno, permetti_doppio_secondo, permetti_doppio_frutta, permetti_doppio_dessert,
                     max_primo, max_secondo, max_contorno, max_frutta, max_dessert, logo,
                     limite_oggi, limite_domani, modalita, bevanda_obbligatoria, guida_linea, contatto_linea,
-                    caricamento_menu
+                    caricamento_menu, menu_banco
              FROM aziende
              WHERE id = :id'
         );
@@ -206,7 +213,8 @@ readonly class AziendaConfig
             'caricamento_menu' => $this->caricamentoMenu,
             'caricamento_menu_etichetta' => $this->caricaSoloGiovedi()
                 ? 'Solo giovedì dopo le 19:00'
-                : 'Quando serve, anche giorno per giorno',
+                : 'Quando serve',
+            'menu_banco' => $this->menuBanco,
             'pagamento_etichetta' => $this->tipoPagamento->copertoDaAzienda() ? 'A carico dell\'azienda' : 'Paga il dipendente',
         ];
     }
