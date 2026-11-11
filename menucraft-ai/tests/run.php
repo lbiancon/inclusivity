@@ -622,6 +622,40 @@ $conPera = $banco->crea($auroraId, $auroraCaterer, [
     'codice' => 'FR1',
 ]);
 verifica(count($conPera['piatti']) === count($menuGiorno['piatti']) + 1, 'piatto creato nel menu del giorno');
+$lettereDopo = array_column($conPera['piatti'], 'lettera');
+sort($lettereDopo);
+$attese = array_slice(MenuCraft\Support\LetteraPasto::ALFABETO, 0, count($lettereDopo));
+verifica($lettereDopo === $attese, 'le lettere restano consecutive dopo un aggiunta');
+$primoId = null;
+foreach ($conPera['piatti'] as $voce) {
+    if ($voce['categoria'] === 'primo') {
+        $primoId = (int) $voce['id'];
+        break;
+    }
+}
+verifica($primoId !== null, 'c\'è un primo da togliere');
+$senzaPrimo = $banco->togli($auroraId, $auroraCaterer, '2026-11-13', $primoId);
+verifica(!in_array($primoId, array_column($senzaPrimo['piatti'], 'id'), true), 'il primo è uscito dal menu del giorno');
+$lettereTogli = array_column($senzaPrimo['piatti'], 'lettera');
+sort($lettereTogli);
+verifica($lettereTogli === array_slice(MenuCraft\Support\LetteraPasto::ALFABETO, 0, count($lettereTogli)), 'dopo aver tolto un primo le lettere ripartono da A');
+verifica(!in_array('Q', $lettereTogli, true), 'non compare una Q fuori sequenza');
+
+$elencoDopo = $anagrafica->elencoSocieta();
+$slugNuova = array_column($elencoDopo, 'slug');
+verifica(in_array('qa-nuova-cucina', $slugNuova, true), 'la cucina appena creata resta nell\'elenco');
+$guidaSalvata = (new RegoleAzienda($pdo))->salva($auroraId, [
+    'max_scelte' => 5,
+    'min_scelte' => 5,
+    'limite_oggi' => '09:30',
+    'limite_domani' => '18:00',
+    'modalita' => 'intranet',
+    'bevanda_obbligatoria' => true,
+    'guida_linea' => 'Dopo le 9:30 chiama o scrivi su WhatsApp.',
+    'contatto_linea' => '+39 333 0000000',
+]);
+verifica($guidaSalvata->guidaLinea === 'Dopo le 9:30 chiama o scrivi su WhatsApp.' && $guidaSalvata->contattoLinea === '+39 333 0000000', 'messaggio e contatto salvati nelle regole');
+
 $anagrafica->aggiornaUtente($auroraId, $auroraCaterer, [
     'utente_id' => (int) $pagante['id'],
     'nome' => 'Ada Aggiornata',

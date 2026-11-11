@@ -39,6 +39,8 @@ readonly class AziendaConfig
         public int $maxDessert = 0,
         public ?string $logo = null,
         public int $minScelte = 0,
+        public string $guidaLinea = '',
+        public string $contattoLinea = '',
     ) {
         if ($this->id < 1) {
             throw new \InvalidArgumentException('Identificativo azienda non valido.');
@@ -88,6 +90,8 @@ readonly class AziendaConfig
             maxDessert: (int) ($riga['max_dessert'] ?? 0),
             logo: isset($riga['logo']) && is_string($riga['logo']) && $riga['logo'] !== '' ? $riga['logo'] : null,
             minScelte: (int) ($riga['min_scelte'] ?? 0),
+            guidaLinea: trim((string) ($riga['guida_linea'] ?? '')),
+            contattoLinea: trim((string) ($riga['contatto_linea'] ?? '')),
         );
     }
 
@@ -97,7 +101,7 @@ readonly class AziendaConfig
             'SELECT id, nome, slug, tipo_pagamento, max_scelte, min_scelte, permetti_doppio_primo,
                     permetti_doppio_contorno, permetti_doppio_secondo, permetti_doppio_frutta, permetti_doppio_dessert,
                     max_primo, max_secondo, max_contorno, max_frutta, max_dessert, logo,
-                    limite_oggi, limite_domani, modalita, bevanda_obbligatoria
+                    limite_oggi, limite_domani, modalita, bevanda_obbligatoria, guida_linea, contatto_linea
              FROM aziende
              WHERE id = :id'
         );
@@ -186,6 +190,8 @@ readonly class AziendaConfig
             'modalita' => $this->modalita,
             'modalita_etichetta' => $this->modalita === 'internet' ? 'Internet' : 'Intranet',
             'bevanda_obbligatoria' => $this->bevandaObbligatoria,
+            'guida_linea' => $this->guidaLinea,
+            'contatto_linea' => $this->contattoLinea,
             'pagamento_etichetta' => $this->tipoPagamento->copertoDaAzienda() ? 'A carico dell\'azienda' : 'Paga il dipendente',
         ];
     }

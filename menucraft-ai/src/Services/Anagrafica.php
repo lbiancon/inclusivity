@@ -23,10 +23,17 @@ final class Anagrafica
     public function elencoSocieta(): array
     {
         $stmt = $this->pdo->query(
-            "SELECT id, nome, slug, tipo_pagamento, modalita, bevanda_obbligatoria
-             FROM aziende
-             WHERE slug <> 'menucraft'
-             ORDER BY nome"
+            "SELECT a.id, a.nome, a.slug, a.tipo_pagamento, a.modalita, a.bevanda_obbligatoria,
+                    (
+                        SELECT u.matricola
+                        FROM utenti u
+                        WHERE u.azienda_id = a.id AND u.ruolo = 'caterer'
+                        ORDER BY u.id
+                        LIMIT 1
+                    ) AS caterer_matricola
+             FROM aziende a
+             WHERE a.slug <> 'menucraft'
+             ORDER BY a.nome"
         );
         $elenco = [];
         foreach ($stmt as $riga) {
@@ -37,6 +44,7 @@ final class Anagrafica
                 'tipo_pagamento' => (string) $riga['tipo_pagamento'],
                 'modalita' => (string) $riga['modalita'],
                 'bevanda_obbligatoria' => (int) $riga['bevanda_obbligatoria'] === 1,
+                'caterer_matricola' => $riga['caterer_matricola'] !== null ? (string) $riga['caterer_matricola'] : '',
             ];
         }
 
@@ -67,8 +75,9 @@ final class Anagrafica
             $insert = $this->pdo->prepare(
                 'INSERT INTO aziende
                     (nome, slug, tipo_pagamento, max_scelte, min_scelte, permetti_doppio_primo, permetti_doppio_contorno,
-                     limite_oggi, limite_domani, modalita, bevanda_obbligatoria, max_primo, max_secondo, max_contorno)
-                 VALUES (:nome, :slug, :pagamento, 5, 5, 0, 0, :oggi, :domani, :modalita, 1, 1, 1, 1)'
+                     limite_oggi, limite_domani, modalita, bevanda_obbligatoria, max_primo, max_secondo, max_contorno,
+                     guida_linea, contatto_linea)
+                 VALUES (:nome, :slug, :pagamento, 5, 5, 0, 0, :oggi, :domani, :modalita, 1, 1, 1, 1, :guida, :contatto)'
             );
             $insert->execute([
                 'nome' => $nome,
@@ -77,6 +86,8 @@ final class Anagrafica
                 'oggi' => '09:30:00',
                 'domani' => '18:00:00',
                 'modalita' => $modalita,
+                'guida' => 'Prenota il vassoio entro l\'orario di chiusura. Se la linea è chiusa, chiama o scrivi su WhatsApp.',
+                'contatto' => '',
             ]);
             $aziendaId = (int) $this->pdo->lastInsertId();
             $this->inserisciUtente($aziendaId, $matricola, $catererNome, $password, 'caterer', 'eredita', null);

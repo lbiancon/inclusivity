@@ -51,6 +51,7 @@ final class Installer
         $this->assicuraAllergie();
         $this->assicuraScelteELogo();
         $this->assicuraMinScelteEPagamenti();
+        $this->assicuraGuidaLinea();
         $this->semeFestivita();
         $conteggio = (int) $this->pdo->query('SELECT COUNT(*) FROM aziende')->fetchColumn();
         if ($conteggio === 0) {
@@ -95,6 +96,8 @@ final class Installer
                 limite_domani TIME NOT NULL,
                 modalita VARCHAR(20) NOT NULL DEFAULT \'intranet\',
                 bevanda_obbligatoria TINYINT(1) NOT NULL DEFAULT 1,
+                guida_linea TEXT NULL,
+                contatto_linea VARCHAR(120) NULL,
                 PRIMARY KEY (id),
                 UNIQUE KEY uq_aziende_slug (slug),
                 CONSTRAINT chk_tipo_pagamento CHECK (tipo_pagamento IN (\'welfare\', \'dipendente\')),
@@ -396,6 +399,22 @@ final class Installer
         if (!$this->haColonna('menu_voci', 'lettera')) {
             $this->pdo->exec('ALTER TABLE menu_voci ADD COLUMN lettera CHAR(1) NULL AFTER data_pasto');
         }
+    }
+
+    private function assicuraGuidaLinea(): void
+    {
+        if (!$this->haColonna('aziende', 'guida_linea')) {
+            $this->pdo->exec('ALTER TABLE aziende ADD COLUMN guida_linea TEXT NULL AFTER bevanda_obbligatoria');
+        }
+        if (!$this->haColonna('aziende', 'contatto_linea')) {
+            $this->pdo->exec('ALTER TABLE aziende ADD COLUMN contatto_linea VARCHAR(120) NULL AFTER guida_linea');
+        }
+        $this->pdo->exec(
+            "UPDATE aziende
+             SET guida_linea = COALESCE(NULLIF(guida_linea, ''), 'Prenota il vassoio entro l''orario di chiusura indicato. Se la linea è già chiusa, chiama o scrivi al numero indicato.'),
+                 contatto_linea = COALESCE(NULLIF(contatto_linea, ''), '')
+             WHERE guida_linea IS NULL"
+        );
     }
 
     private function assicuraMinScelteEPagamenti(): void

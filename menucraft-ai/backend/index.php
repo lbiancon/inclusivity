@@ -117,8 +117,9 @@ header('Content-Type: text/html; charset=utf-8');
                     </label>
                     <button type="submit" class="rounded-xl bg-moss px-4 py-3 text-sm font-semibold text-white sm:col-span-2">Crea la cucina</button>
                 </form>
-                <p class="mt-4 text-sm text-ink/60">Su ogni cucina puoi caricare il logo. Compare in linea e nel banco.</p>
-                <ul id="societa-elenco" class="mt-4 space-y-2 text-sm"></ul>
+                <p class="mt-4 text-sm text-ink/60">Le cucine create restano in questo elenco. Per entrare nel banco di una cucina fai Esci e accedi con il suo codice azienda e la matricola del catering. Su ogni riga puoi anche caricare il logo.</p>
+                <p id="societa-conteggio" class="mt-3 text-sm font-semibold text-ink/80"></p>
+                <ul id="societa-elenco" class="mt-2 space-y-2 text-sm"></ul>
             </section>
             <div id="banco" class="space-y-4">
             <form id="regole-form" data-pannello="regole" class="space-y-4">
@@ -192,6 +193,18 @@ header('Content-Type: text/html; charset=utf-8');
                         </table>
                     </div>
                     <p class="mt-3 text-sm text-ink/60">Con acqua obbligatoria, minimo e massimo valgono acqua inclusa: per il gestore senza pagamento al bancone di solito sono 5 e 5. L’acqua da sola non chiude il buono. Nella tabella, il numero è quante porzioni di quella portata entrano; la casella consente due volte lo stesso piatto.</p>
+                </section>
+                <section class="rounded-3xl border border-[#d5cbb8] bg-white p-5">
+                    <h2 class="font-serif text-3xl uppercase">Messaggi per chi prenota</h2>
+                    <p class="mt-2 text-sm text-ink/70">Queste indicazioni compaiono in linea. Scrivi orari speciali, un numero da chiamare o un WhatsApp se la linea è già chiusa, e altre regole utili.</p>
+                    <div class="mt-4 grid gap-3">
+                        <label class="text-sm font-semibold">Messaggio di guida
+                            <textarea id="regola-guida" name="guida_linea" rows="4" maxlength="800" class="mt-1 w-full rounded-xl border border-ink/15 bg-cream px-3 py-2 font-normal" placeholder="Esempio: dopo le 9:30 chiama o scrivi su WhatsApp per prenotare."></textarea>
+                        </label>
+                        <label class="text-sm font-semibold">Telefono o WhatsApp
+                            <input id="regola-contatto" name="contatto_linea" maxlength="120" class="mt-1 w-full rounded-xl border border-ink/15 bg-cream px-3 py-2" placeholder="+39 333 1234567">
+                        </label>
+                    </div>
                     <div class="mt-4 grid gap-3 sm:grid-cols-2 text-sm">
                         <label class="rounded-2xl border border-ink/10 bg-cream p-4">
                             <input id="paga-azienda" name="tipo_pagamento" type="radio" value="welfare" class="mr-2"> A carico dell’azienda
@@ -216,7 +229,7 @@ header('Content-Type: text/html; charset=utf-8');
             </section>
             <section data-pannello="menu" hidden class="rounded-3xl border border-[#d5cbb8] bg-white p-5">
                 <h2 class="font-serif text-3xl uppercase">Menu del giorno</h2>
-                <p class="mt-2 text-sm text-ink/70">Qui componi il menu che vede chi prenota. Ogni pasto tiene il codice già in uso e, accanto, la lettera A B C D E F G H I L M N.</p>
+                <p class="mt-2 text-sm text-ink/70">Qui componi il menu che vede chi prenota. Ogni pasto tiene il codice già in uso e, accanto, la lettera del giorno: togliendo o aggiungendo un piatto le lettere ripartono da A B C, senza saltare a Q.</p>
                 <label class="mt-4 block text-sm font-semibold">Giorno del menu
                     <input id="menu-giorno" type="date" class="mt-1 rounded-xl border border-ink/15 bg-cream px-3 py-2">
                 </label>
@@ -252,7 +265,11 @@ header('Content-Type: text/html; charset=utf-8');
                 </form>
                 <h3 class="mt-6 font-serif text-2xl uppercase">Oppure il file del giovedì</h3>
                 <p id="upload-window" class="mt-2 text-sm text-ink/70"></p>
-                <p class="mt-2 text-sm text-ink/60">Template Excel della settimana, oppure CSV con data, codice, nome, categoria, prezzo. Un .xls vecchio va salvato come .xlsx.</p>
+                <p class="mt-2 text-sm text-ink/60">Carica un CSV o Excel: il menu della settimana o del mese entra in automatico. Puoi scaricare i modelli pronti, compilarli e ricaricarli qui. Un .xls vecchio va salvato come .xlsx.</p>
+                <div class="mt-3 flex flex-wrap gap-2 text-sm">
+                    <a class="rounded-full border border-ink/15 px-3 py-2 font-semibold" href="../esempi/menu-settimanale.csv" download>Scarica menu settimanale</a>
+                    <a class="rounded-full border border-ink/15 px-3 py-2 font-semibold" href="../esempi/menu-mensile.csv" download>Scarica menu mensile</a>
+                </div>
                 <form id="upload-form" class="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center">
                     <input id="menu-file" name="menu" type="file" accept=".csv,.txt,.xlsx,.xls" class="block w-full text-sm">
                     <button type="submit" class="rounded-2xl bg-ink px-4 py-3 text-sm text-white">Carica menu</button>
@@ -374,6 +391,8 @@ header('Content-Type: text/html; charset=utf-8');
                 logo.hidden = true;
             }
             document.getElementById('regola-bevanda').checked = payload.azienda.bevanda_obbligatoria === true;
+            document.getElementById('regola-guida').value = payload.azienda.guida_linea || '';
+            document.getElementById('regola-contatto').value = payload.azienda.contatto_linea || '';
             document.getElementById(payload.azienda.tipo_pagamento === 'dipendente' ? 'paga-dipendente' : 'paga-azienda').checked = true;
             document.getElementById(payload.azienda.modalita === 'internet' ? 'modalita-internet' : 'modalita-intranet').checked = true;
             document.getElementById('modalita-testo').textContent = testoModalita(payload.azienda.modalita);
@@ -407,15 +426,20 @@ header('Content-Type: text/html; charset=utf-8');
             righe.forEach((riga) => lista.append(riga));
         }
 
-        async function caricaSocieta() {
-            const payload = await api(API + 'societa.php');
-            state.csrf = payload.csrf;
+        function disegnaSocieta(elenco) {
             const lista = document.getElementById('societa-elenco');
-            const righe = payload.societa.map((societa) => {
+            const conteggio = document.getElementById('societa-conteggio');
+            conteggio.textContent = elenco.length === 0
+                ? 'Nessuna cucina in elenco.'
+                : (elenco.length === 1 ? '1 cucina in elenco.' : elenco.length + ' cucine in elenco.');
+            const righe = elenco.map((societa) => {
                 const item = document.createElement('li');
                 item.className = 'flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-cream px-4 py-3';
                 const testo = document.createElement('span');
-                testo.textContent = societa.nome + ' · azienda ' + societa.slug + ' · ' + etichettaPagamento(societa.tipo_pagamento) + ' · ' + societa.modalita;
+                const catering = societa.caterer_matricola
+                    ? ' · catering ' + societa.caterer_matricola
+                    : '';
+                testo.textContent = societa.nome + ' · azienda ' + societa.slug + catering + ' · ' + etichettaPagamento(societa.tipo_pagamento) + ' · ' + societa.modalita;
                 const file = document.createElement('input');
                 file.type = 'file';
                 file.accept = 'image/png,image/jpeg,image/webp,image/gif';
@@ -439,6 +463,12 @@ header('Content-Type: text/html; charset=utf-8');
                 return item;
             });
             disegnaVoci(lista, 'Nessuna cucina ancora. La prima si crea da questo modulo.', righe);
+        }
+
+        async function caricaSocieta() {
+            const payload = await api(API + 'societa.php');
+            state.csrf = payload.csrf;
+            disegnaSocieta(payload.societa || []);
         }
 
         async function caricaUtenti() {
@@ -614,6 +644,8 @@ header('Content-Type: text/html; charset=utf-8');
                         max_frutta: Number(document.getElementById('regola-max-frutta').value),
                         max_dessert: Number(document.getElementById('regola-max-dessert').value),
                         bevanda_obbligatoria: document.getElementById('regola-bevanda').checked,
+                        guida_linea: document.getElementById('regola-guida').value,
+                        contatto_linea: document.getElementById('regola-contatto').value,
                         tipo_pagamento: document.getElementById('paga-dipendente').checked ? 'dipendente' : 'welfare',
                         modalita,
                     }),
@@ -696,8 +728,18 @@ header('Content-Type: text/html; charset=utf-8');
                 });
                 state.csrf = payload.csrf;
                 document.getElementById('societa-form').reset();
-                await caricaSocieta();
-                mostraBanner('ok', payload.messaggio);
+                if (Array.isArray(payload.elenco)) {
+                    disegnaSocieta(payload.elenco);
+                } else {
+                    await caricaSocieta();
+                }
+                const creata = payload.societa || {};
+                mostraBanner(
+                    'ok',
+                    (payload.messaggio || 'Cucina creata.') + (creata.slug && creata.caterer_matricola
+                        ? ' Per gestirla: Esci, poi entra con azienda ' + creata.slug + ' e matricola ' + creata.caterer_matricola + '.'
+                        : ''),
+                );
             } catch (error) {
                 mostraBanner('errore', error.message);
             }

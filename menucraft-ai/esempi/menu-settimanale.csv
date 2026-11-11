@@ -1,0 +1,51 @@
+data;codice;nome;categoria;prezzo
+2026-12-07;PR-MIN;"Minestrone di verdure";primo;3.50
+2026-12-07;PR-PAS;"Pasta al pomodoro";primo;3.50
+2026-12-07;SE-POL;"Petto di pollo";secondo;5.80
+2026-12-07;SE-MER;"Merluzzo al forno";secondo;8.20
+2026-12-07;CO-INS;"Insalata mista";contorno;1.80
+2026-12-07;CO-PAT;"Patate al forno";contorno;2.10
+2026-12-07;FR-MEL;Mela;frutta;1.20
+2026-12-07;YO-NAT;"Yogurt bianco";yogurt;1.50
+2026-12-07;DE-BUD;Budino;dessert;2.40
+2026-12-07;BE-FRI;"Acqua frizzante";bevanda;0.80
+2026-12-08;PR-PAS;"Pasta al pomodoro";primo;3.50
+2026-12-08;PR-RIS;"Riso allo zafferano";primo;4.20
+2026-12-08;SE-POL;"Petto di pollo";secondo;5.80
+2026-12-08;SE-MER;"Merluzzo al forno";secondo;8.20
+2026-12-08;CO-INS;"Insalata mista";contorno;1.80
+2026-12-08;CO-PAT;"Patate al forno";contorno;2.10
+2026-12-08;FR-MEL;Mela;frutta;1.20
+2026-12-08;YO-NAT;"Yogurt bianco";yogurt;1.50
+2026-12-08;DE-BUD;Budino;dessert;2.40
+2026-12-08;BE-NAT;"Acqua naturale";bevanda;0.80
+2026-12-09;PR-MIN;"Minestrone di verdure";primo;3.50
+2026-12-09;PR-PAS;"Pasta al pomodoro";primo;3.50
+2026-12-09;SE-POL;"Petto di pollo";secondo;5.80
+2026-12-09;SE-MER;"Merluzzo al forno";secondo;8.20
+2026-12-09;CO-INS;"Insalata mista";contorno;1.80
+2026-12-09;CO-PAT;"Patate al forno";contorno;2.10
+2026-12-09;FR-MEL;Mela;frutta;1.20
+2026-12-09;YO-NAT;"Yogurt bianco";yogurt;1.50
+2026-12-09;DE-BUD;Budino;dessert;2.40
+2026-12-09;BE-FRI;"Acqua frizzante";bevanda;0.80
+2026-12-10;PR-PAS;"Pasta al pomodoro";primo;3.50
+2026-12-10;PR-RIS;"Riso allo zafferano";primo;4.20
+2026-12-10;SE-POL;"Petto di pollo";secondo;5.80
+2026-12-10;SE-MER;"Merluzzo al forno";secondo;8.20
+2026-12-10;CO-INS;"Insalata mista";contorno;1.80
+2026-12-10;CO-PAT;"Patate al forno";contorno;2.10
+2026-12-10;FR-MEL;Mela;frutta;1.20
+2026-12-10;YO-NAT;"Yogurt bianco";yogurt;1.50
+2026-12-10;DE-BUD;Budino;dessert;2.40
+2026-12-10;BE-NAT;"Acqua naturale";bevanda;0.80
+2026-12-11;PR-MIN;"Minestrone di verdure";primo;3.50
+2026-12-11;PR-PAS;"Pasta al pomodoro";primo;3.50
+2026-12-11;SE-POL;"Petto di pollo";secondo;5.80
+2026-12-11;SE-MER;"Merluzzo al forno";secondo;8.20
+2026-12-11;CO-INS;"Insalata mista";contorno;1.80
+2026-12-11;CO-PAT;"Patate al forno";contorno;2.10
+2026-12-11;FR-MEL;Mela;frutta;1.20
+2026-12-11;YO-NAT;"Yogurt bianco";yogurt;1.50
+2026-12-11;DE-BUD;Budino;dessert;2.40
+2026-12-11;BE-FRI;"Acqua frizzante";bevanda;0.80

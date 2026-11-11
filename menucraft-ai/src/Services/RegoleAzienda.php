@@ -77,6 +77,12 @@ final class RegoleAzienda
         $maxDessert = array_key_exists('max_dessert', $input)
             ? $this->porzioni($input['max_dessert'], 'Il massimo dei dolci è tra 1 e 4.')
             : max(1, $attuale->maxPerCategoria(\MenuCraft\Enums\PortataType::Dessert));
+        $guida = array_key_exists('guida_linea', $input)
+            ? $this->guida((string) $input['guida_linea'])
+            : $attuale->guidaLinea;
+        $contatto = array_key_exists('contatto_linea', $input)
+            ? $this->contatto((string) $input['contatto_linea'])
+            : $attuale->contattoLinea;
 
         $stmt = $this->pdo->prepare(
             'UPDATE aziende
@@ -96,7 +102,9 @@ final class RegoleAzienda
                  limite_domani = :domani,
                  modalita = :modalita,
                  tipo_pagamento = :pagamento,
-                 bevanda_obbligatoria = :bevanda
+                 bevanda_obbligatoria = :bevanda,
+                 guida_linea = :guida,
+                 contatto_linea = :contatto
              WHERE id = :id'
         );
         $stmt->execute([
@@ -117,6 +125,8 @@ final class RegoleAzienda
             'modalita' => $modalita,
             'pagamento' => $pagamento,
             'bevanda' => $bevanda,
+            'guida' => $guida !== '' ? $guida : null,
+            'contatto' => $contatto !== '' ? $contatto : null,
             'id' => $aziendaId,
         ]);
 
@@ -156,6 +166,28 @@ final class RegoleAzienda
     private function flag(mixed $valore): bool
     {
         return $valore === true || $valore === 1 || $valore === '1' || $valore === 'true' || $valore === 'on';
+    }
+
+    private function guida(string $testo): string
+    {
+        $testo = preg_replace('/\s+/u', ' ', trim($testo)) ?? '';
+        $testo = trim(preg_replace('/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/u', '', $testo) ?? '');
+        if (mb_strlen($testo) > 800) {
+            throw new MenuRuleException('REGOLA_NON_VALIDA', 'Il messaggio di guida resta entro 800 caratteri.');
+        }
+
+        return $testo;
+    }
+
+    private function contatto(string $valore): string
+    {
+        $valore = preg_replace('/\s+/u', ' ', trim($valore)) ?? '';
+        $valore = trim(preg_replace('/[^\p{L}\p{N}\p{P}\p{Zs}+]/u', '', $valore) ?? '');
+        if (mb_strlen($valore) > 120) {
+            throw new MenuRuleException('REGOLA_NON_VALIDA', 'Il numero o WhatsApp resta entro 120 caratteri.');
+        }
+
+        return $valore;
     }
 
     private function orario(string $orario, string $messaggio): string

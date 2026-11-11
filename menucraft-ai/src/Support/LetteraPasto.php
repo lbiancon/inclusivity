@@ -19,8 +19,14 @@ final class LetteraPasto
 
     public function assegna(PDO $pdo, int $aziendaId, string $data): void
     {
+        $this->ricalcola($pdo, $aziendaId, $data);
+    }
+
+    /** Riassegna sempre A, B, C… in ordine di portata, così togliere un primo non lascia buchi né Q. */
+    public function ricalcola(PDO $pdo, int $aziendaId, string $data): void
+    {
         $stmt = $pdo->prepare(
-            'SELECT v.id, v.lettera, p.categoria, p.nome
+            'SELECT v.id, p.categoria, p.nome
              FROM menu_voci v
              INNER JOIN piatti p
                 ON p.id = v.piatto_id
@@ -49,32 +55,14 @@ final class LetteraPasto
             return ((int) $a['id']) <=> ((int) $b['id']);
         });
 
-        $usate = [];
-        foreach ($righe as $riga) {
-            $lettera = strtoupper((string) ($riga['lettera'] ?? ''));
-            if ($lettera !== '' && in_array($lettera, self::ALFABETO, true)) {
-                $usate[$lettera] = true;
-            }
-        }
-
         $update = $pdo->prepare(
-            'UPDATE menu_voci SET lettera = :lettera WHERE id = :id AND azienda_id = :azienda AND lettera IS NULL'
+            'UPDATE menu_voci SET lettera = :lettera WHERE id = :id AND azienda_id = :azienda'
         );
-        foreach ($righe as $riga) {
-            if ($riga['lettera'] !== null && $riga['lettera'] !== '') {
-                continue;
-            }
-            $lettera = null;
-            foreach (self::ALFABETO as $candidata) {
-                if (!isset($usate[$candidata])) {
-                    $lettera = $candidata;
-                    break;
-                }
-            }
+        foreach ($righe as $indice => $riga) {
+            $lettera = self::ALFABETO[$indice] ?? null;
             if ($lettera === null) {
-                continue;
+                break;
             }
-            $usate[$lettera] = true;
             $update->execute([
                 'lettera' => $lettera,
                 'id' => (int) $riga['id'],

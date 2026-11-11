@@ -181,10 +181,17 @@ final class MenuBanco
         $this->ruolo($aziendaId, $attoreId);
         $giorno = $this->data($data);
         $this->dataAperta($giorno);
+        if ($piattoId < 1) {
+            throw new MenuRuleException('PIATTO_NON_VALIDO', 'Indica il piatto da togliere dal menu del giorno.');
+        }
         $stmt = $this->pdo->prepare(
             'DELETE FROM menu_voci WHERE azienda_id = :azienda AND data_pasto = :data AND piatto_id = :piatto'
         );
         $stmt->execute(['azienda' => $aziendaId, 'data' => $giorno, 'piatto' => $piattoId]);
+        if ($stmt->rowCount() < 1) {
+            throw new MenuRuleException('PIATTO_NON_VALIDO', 'Questo piatto non è nel menu del giorno scelto.');
+        }
+        (new LetteraPasto())->ricalcola($this->pdo, $aziendaId, $giorno);
 
         return $this->giorno($aziendaId, $giorno);
     }

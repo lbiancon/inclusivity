@@ -62,21 +62,7 @@ header('Content-Type: text/html; charset=utf-8');
             <section class="counter rounded-[2rem] px-8 py-10 shadow-2xl">
                 <p class="text-xs uppercase tracking-[0.28em] text-[#d7eadf]">Linea mensa</p>
                 <h1 class="mt-4 max-w-xl font-serif text-5xl uppercase leading-none">Prenota il vassoio prima che chiuda la linea.</h1>
-                <p class="mt-5 max-w-lg text-lg text-[#f6f3ea]/80">Ogni azienda ha il suo menu e le sue regole. Il dipendente compone il buono, la cucina riceve il riepilogo del giorno.</p>
-                <dl class="mt-8 grid gap-4 sm:grid-cols-3">
-                    <div class="rounded-2xl bg-white/5 p-4">
-                        <dt class="text-xs uppercase tracking-wider text-[#e7b59a]">Oggi</dt>
-                        <dd class="mt-1 text-2xl font-serif">09:30</dd>
-                    </div>
-                    <div class="rounded-2xl bg-white/5 p-4">
-                        <dt class="text-xs uppercase tracking-wider text-[#e7b59a]">Domani</dt>
-                        <dd class="mt-1 text-2xl font-serif">18:00</dd>
-                    </div>
-                    <div class="rounded-2xl bg-white/5 p-4">
-                        <dt class="text-xs uppercase tracking-wider text-[#e7b59a]">Fuso</dt>
-                        <dd class="mt-1 text-2xl font-serif">Roma</dd>
-                    </div>
-                </dl>
+                <p class="mt-5 max-w-lg text-lg text-[#f6f3ea]/80">Ogni azienda ha il suo menu, i suoi orari e le sue indicazioni. Dopo l’accesso trovi sul buono le regole scritte dal catering, con eventuale telefono o WhatsApp.</p>
             </section>
             <section class="rounded-[2rem] bg-white p-8 shadow-xl shadow-ink/5">
                 <h2 class="font-serif text-4xl uppercase">Badge mensa</h2>
@@ -134,6 +120,11 @@ header('Content-Type: text/html; charset=utf-8');
         <main class="mx-auto grid max-w-6xl gap-6 px-4 py-6 lg:grid-cols-[minmax(0,1fr)_320px]">
             <section class="space-y-5">
                 <p id="modalita-nota" class="text-sm text-ink/70"></p>
+                <aside id="guida-linea" hidden class="rounded-3xl border border-[#d5cbb8] bg-white p-5">
+                    <p class="text-xs uppercase tracking-[0.18em] text-ink/50">Indicazioni del catering</p>
+                    <p id="guida-testo" class="mt-2 text-sm text-ink/80"></p>
+                    <p id="guida-contatto" hidden class="mt-3 text-sm font-semibold"></p>
+                </aside>
                 <div class="flex gap-2">
                     <button id="vista-menu" type="button" class="rounded-full bg-moss px-4 py-2 text-sm font-semibold text-white">Menu</button>
                     <button id="vista-storico" type="button" class="rounded-full border border-ink/15 bg-white px-4 py-2 text-sm font-semibold">Le tue prenotazioni</button>
@@ -311,6 +302,28 @@ header('Content-Type: text/html; charset=utf-8');
             nota.textContent = payload.azienda.modalita === 'internet'
                 ? 'Questa azienda è in internet: il pasto di oggi si prenota solo dalla rete aziendale.'
                 : 'Questa azienda è in intranet: oggi si prenota fino all’orario di chiusura della linea.';
+            aggiornaGuida(payload.azienda);
+        }
+
+        function aggiornaGuida(azienda) {
+            const box = document.getElementById('guida-linea');
+            const testo = document.getElementById('guida-testo');
+            const contatto = document.getElementById('guida-contatto');
+            const guida = (azienda?.guida_linea || '').trim();
+            const numero = (azienda?.contatto_linea || '').trim();
+            if (!guida && !numero) {
+                box.hidden = true;
+                return;
+            }
+            box.hidden = false;
+            testo.textContent = guida || 'Se la linea è chiusa, usa il contatto del catering.';
+            if (numero) {
+                contatto.hidden = false;
+                contatto.textContent = 'Telefono o WhatsApp: ' + numero;
+            } else {
+                contatto.hidden = true;
+                contatto.textContent = '';
+            }
         }
 
         async function entra(payload) {
@@ -461,6 +474,7 @@ header('Content-Type: text/html; charset=utf-8');
             nota.textContent = (payload.azienda.modalita === 'internet'
                 ? 'Questa azienda è in internet: il pasto di oggi si prenota solo dalla rete aziendale.'
                 : 'Questa azienda è in intranet: oggi si prenota fino all’orario di chiusura della linea.') + acqua;
+            aggiornaGuida(payload.azienda || state.azienda);
             mostraBanner(null, null);
             disegna();
         }
