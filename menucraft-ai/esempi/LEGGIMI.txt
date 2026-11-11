@@ -1,0 +1,16 @@
+Modelli menu MenuCraft
+======================
+
+menu-settimanale.csv
+  Una settimana tipo (lunedì–venerdì). Colonne: data;codice;nome;categoria;prezzo
+  Categorie ammesse: primo, secondo, contorno, frutta, yogurt, dessert, bevanda
+
+menu-mensile.csv
+  Un mese di giorni lavorativi con lo stesso formato.
+
+Come usarli
+  1. Apri il file e cambia le date se serve.
+  2. Nel backend, sezione Menu, carica il CSV con «Carica menu».
+  3. Il sistema pubblica i piatti sui giorni indicati; le lettere ripartono da A B C.
+
+Puoi anche usare un Excel del giovedì a griglia, oppure salvare questi CSV come .xlsx.
