@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MenuCraft\Services;
 
 use DateTimeImmutable;
+use MenuCraft\Support\LetteraPasto;
 use PDO;
 
 if (!defined('MENUCRAFT_APP')) {
@@ -190,6 +191,10 @@ final class MenuPublisher
                     'piatto' => $idPerCodice[$riga->codice],
                     'data' => $riga->data->format('Y-m-d'),
                 ]);
+            }
+            $lettere = new LetteraPasto();
+            foreach ($dateChiavi as $giorno) {
+                $lettere->assegna($this->pdo, $aziendaId, $giorno);
             }
 
             $this->pdo->commit();

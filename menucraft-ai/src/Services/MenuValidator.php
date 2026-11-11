@@ -89,6 +89,8 @@ final class MenuValidator
         $this->limitePortata($azienda, PortataType::Secondo, $conteggi[PortataType::Secondo->value], 'LIMITE_SECONDO', 'secondo', 'secondi');
         $this->limitePortata($azienda, PortataType::Primo, $conteggi[PortataType::Primo->value], 'LIMITE_PRIMO', 'primo', 'primi');
         $this->limitePortata($azienda, PortataType::Contorno, $conteggi[PortataType::Contorno->value], 'LIMITE_CONTORNO', 'contorno', 'contorni');
+        $this->limitePortata($azienda, PortataType::Frutta, $conteggi[PortataType::Frutta->value], 'LIMITE_FRUTTA', 'frutta', 'frutti');
+        $this->limitePortata($azienda, PortataType::Dessert, $conteggi[PortataType::Dessert->value], 'LIMITE_DOLCE', 'dolce', 'dolci');
 
         if ($azienda->bevandaObbligatoria && $bevande !== 1) {
             throw new MenuRuleException(

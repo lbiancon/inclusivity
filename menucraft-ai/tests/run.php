@@ -19,6 +19,8 @@ use MenuCraft\Services\PrenotazioniAzienda;
 use MenuCraft\Services\KitchenSummary;
 use MenuCraft\Services\RegoleAzienda;
 use MenuCraft\Services\ItalianHolidayCalendar;
+use MenuCraft\Services\LogoAzienda;
+use MenuCraft\Services\MenuBanco;
 use MenuCraft\Services\MenuPublisher;
 use MenuCraft\Services\MenuRuleException;
 use MenuCraft\Services\MenuValidator;
@@ -580,6 +582,57 @@ $segnalate = array_values(array_filter(
 verifica(count($segnalate) === 1, 'la cucina vede l\'allergia sulla prenotazione');
 $ruoloPiattaforma = (string) $pdo->query("SELECT u.ruolo FROM utenti u INNER JOIN aziende a ON a.id = u.azienda_id WHERE a.slug = 'menucraft' AND u.matricola = 'ADMIN'")->fetchColumn();
 verifica($ruoloPiattaforma === 'piattaforma', 'operatore del servizio');
+
+$stretta = new AziendaConfig(11, 'Stretta', 'stretta', PagamentoType::Welfare, 4, false, false, '09:30:00', '18:00:00', 'intranet', true);
+attesaEccezione('LIMITE_FRUTTA', fn () => $validator->validaComposizione($stretta, [PortataType::Frutta, PortataType::Frutta, PortataType::Bevanda]), 'una sola frutta');
+attesaEccezione('LIMITE_DOLCE', fn () => $validator->validaComposizione($stretta, [PortataType::Dessert, PortataType::Dessert, PortataType::Bevanda]), 'un solo dolce');
+$aperta = new AziendaConfig(12, 'Aperta', 'aperta', PagamentoType::Welfare, 4, false, false, '09:30:00', '18:00:00', 'intranet', true, false, 0, 0, 0, true, true, 2, 2);
+$validator->validaComposizione($aperta, [PortataType::Frutta, PortataType::Frutta, PortataType::Dessert, PortataType::Dessert, PortataType::Bevanda]);
+$validator->validaQuantita($aperta, [
+    ['id' => 1, 'nome' => 'Mela', 'categoria' => PortataType::Frutta],
+    ['id' => 1, 'nome' => 'Mela', 'categoria' => PortataType::Frutta],
+    ['id' => 2, 'nome' => 'Budino', 'categoria' => PortataType::Dessert],
+    ['id' => 2, 'nome' => 'Budino', 'categoria' => PortataType::Dessert],
+]);
+
+$banco = new MenuBanco($pdo, $validator);
+$menuGiorno = $banco->giorno($auroraId, '2026-11-13');
+$lettere = array_column($menuGiorno['piatti'], 'lettera');
+$codiciMenu = array_column($menuGiorno['piatti'], 'codice');
+verifica(in_array('A', $lettere, true) && in_array('PR1', $codiciMenu, true) && !in_array('J', $lettere, true), 'lettera del pasto accanto al codice');
+$conPera = $banco->crea($auroraId, $auroraCaterer, [
+    'data' => '2026-11-13',
+    'nome' => 'Pera',
+    'categoria' => 'frutta',
+    'prezzo' => '1,00',
+    'codice' => 'FR1',
+]);
+verifica(count($conPera['piatti']) === count($menuGiorno['piatti']) + 1, 'piatto creato nel menu del giorno');
+$anagrafica->aggiornaUtente($auroraId, $auroraCaterer, [
+    'utente_id' => (int) $pagante['id'],
+    'nome' => 'Ada Aggiornata',
+    'pagamento' => 'pagante',
+    'allergie' => 'Noci',
+]);
+$aggiornata = array_values(array_filter(
+    $anagrafica->elencoUtenti($auroraId),
+    static fn (array $utente): bool => $utente['matricola'] === 'ADA',
+));
+verifica($aggiornata[0]['nome'] === 'Ada Aggiornata' && $aggiornata[0]['allergie'] === 'Noci', 'utente modificato');
+$anagrafica->eliminaUtente($auroraId, $auroraCaterer, (int) $pagante['id']);
+verifica(array_filter(
+    $anagrafica->elencoUtenti($auroraId),
+    static fn (array $utente): bool => $utente['matricola'] === 'ADA',
+) === [], 'utente eliminato');
+attesaEccezione('RUOLO', fn () => $anagrafica->eliminaUtente($auroraId, $auroraCaterer, $auroraCaterer), 'il catering non elimina se stesso');
+
+$png = base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==');
+$logoFile = tempnam(sys_get_temp_dir(), 'logo');
+file_put_contents($logoFile, $png);
+$percorsoLogo = (new LogoAzienda($pdo))->salva($auroraId, $logoFile);
+verifica(is_file(dirname(__DIR__) . '/' . $percorsoLogo), 'logo azienda conservato');
+@unlink(dirname(__DIR__) . '/' . $percorsoLogo);
+@unlink($logoFile);
 
 $pulizia->execute(['slug' => 'qa-%']);
 $pdo->prepare('DELETE FROM login_tentativi WHERE azienda_slug LIKE :slug')->execute(['slug' => 'qa-%']);

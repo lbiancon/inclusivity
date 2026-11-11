@@ -8,6 +8,7 @@ use DateTimeImmutable;
 use MenuCraft\Enums\PortataType;
 use MenuCraft\Models\AziendaConfig;
 use MenuCraft\Support\CodicePiatto;
+use MenuCraft\Support\LetteraPasto;
 use MenuCraft\Support\Money;
 use PDO;
 
@@ -76,9 +77,13 @@ final class BookingBoard
                 'max_primo' => $azienda->maxPerCategoria(PortataType::Primo),
                 'max_secondo' => $azienda->maxPerCategoria(PortataType::Secondo),
                 'max_contorno' => $azienda->maxPerCategoria(PortataType::Contorno),
+                'max_frutta' => $azienda->maxPerCategoria(PortataType::Frutta),
+                'max_dessert' => $azienda->maxPerCategoria(PortataType::Dessert),
                 'doppio_primo' => $azienda->permettiDoppioPrimo,
                 'doppio_secondo' => $azienda->permettiDoppioSecondo,
                 'doppio_contorno' => $azienda->permettiDoppioContorno,
+                'doppio_frutta' => $azienda->permettiDoppioFrutta,
+                'doppio_dessert' => $azienda->permettiDoppioDessert,
                 'bevanda_obbligatoria' => $azienda->bevandaObbligatoria,
                 'max_altre' => $azienda->maxScelte,
                 'pagamento_effettivo' => $pagamento,
@@ -261,8 +266,9 @@ final class BookingBoard
     /** @return list<array<string, mixed>> */
     private function piatti(AziendaConfig $azienda, DateTimeImmutable $data, DateTimeImmutable $now): array
     {
+        (new LetteraPasto())->assegna($this->pdo, $azienda->id, $data->format('Y-m-d'));
         $stmt = $this->pdo->prepare(
-            'SELECT p.id, p.codice, p.nome, p.categoria, p.prezzo
+            'SELECT p.id, p.codice, p.nome, p.categoria, p.prezzo, v.lettera
              FROM menu_voci v
              INNER JOIN piatti p
                 ON p.id = v.piatto_id
@@ -287,6 +293,7 @@ final class BookingBoard
             $gruppi[$categoria->value][] = [
                 'id' => (int) $riga['id'],
                 'codice' => CodicePiatto::etichetta((string) $riga['codice']),
+                'lettera' => $riga['lettera'] !== null ? (string) $riga['lettera'] : '',
                 'nome' => (string) $riga['nome'],
                 'categoria' => $categoria->value,
                 'prezzo' => $azienda->prezzoApplicato((string) $riga['prezzo']),

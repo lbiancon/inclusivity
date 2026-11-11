@@ -65,8 +65,9 @@ final class AuthService
                 'SELECT u.id, u.azienda_id, u.matricola, u.nome, u.password_hash, u.ruolo,
                         a.nome AS azienda_nome, a.slug, a.tipo_pagamento, a.max_scelte,
                         a.permetti_doppio_primo, a.permetti_doppio_contorno, a.permetti_doppio_secondo,
-                        a.max_primo, a.max_secondo, a.max_contorno, a.limite_oggi, a.limite_domani,
-                        a.modalita, a.bevanda_obbligatoria
+                        a.permetti_doppio_frutta, a.permetti_doppio_dessert,
+                        a.max_primo, a.max_secondo, a.max_contorno, a.max_frutta, a.max_dessert, a.logo,
+                        a.limite_oggi, a.limite_domani, a.modalita, a.bevanda_obbligatoria
                  FROM utenti u
                  INNER JOIN aziende a ON a.id = u.azienda_id
                  WHERE a.slug = :slug AND u.matricola = :matricola
@@ -127,6 +128,11 @@ final class AuthService
             'max_primo' => $utente['max_primo'] ?? 0,
             'max_secondo' => $utente['max_secondo'] ?? 0,
             'max_contorno' => $utente['max_contorno'] ?? 0,
+            'permetti_doppio_frutta' => $utente['permetti_doppio_frutta'] ?? 0,
+            'permetti_doppio_dessert' => $utente['permetti_doppio_dessert'] ?? 0,
+            'max_frutta' => $utente['max_frutta'] ?? 0,
+            'max_dessert' => $utente['max_dessert'] ?? 0,
+            'logo' => $utente['logo'] ?? null,
             'limite_oggi' => $utente['limite_oggi'],
             'limite_domani' => $utente['limite_domani'],
             'modalita' => $utente['modalita'],

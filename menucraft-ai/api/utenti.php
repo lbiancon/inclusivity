@@ -31,6 +31,26 @@ JsonResponse::guard(static function (): void {
     }
 
     $auth->richiediCsrf();
+    $azione = (string) ($body['azione'] ?? 'crea');
+    if ($azione === 'elimina') {
+        $anagrafica->eliminaUtente($aziendaId, $utente['id'], (int) ($body['utente_id'] ?? 0));
+        JsonResponse::send(200, [
+            'ok' => true,
+            'csrf' => $utente['csrf'],
+            'messaggio' => 'Utente eliminato.',
+            'utenti' => $anagrafica->elencoUtenti($aziendaId),
+        ]);
+    }
+    if ($azione === 'aggiorna') {
+        $aggiornato = $anagrafica->aggiornaUtente($aziendaId, $utente['id'], $body);
+        JsonResponse::send(200, [
+            'ok' => true,
+            'csrf' => $utente['csrf'],
+            'messaggio' => $aggiornato['messaggio'],
+            'utente' => $aggiornato,
+            'utenti' => $anagrafica->elencoUtenti($aziendaId),
+        ]);
+    }
     $creato = $anagrafica->creaUtente($aziendaId, $body);
     JsonResponse::send(201, [
         'ok' => true,

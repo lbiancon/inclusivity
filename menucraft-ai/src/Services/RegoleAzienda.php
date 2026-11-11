@@ -47,6 +47,12 @@ final class RegoleAzienda
         $doppioContorno = array_key_exists('permetti_doppio_contorno', $input)
             ? ($this->flag($input['permetti_doppio_contorno']) ? 1 : 0)
             : ($attuale->permettiDoppioContorno ? 1 : 0);
+        $doppioFrutta = array_key_exists('permetti_doppio_frutta', $input)
+            ? ($this->flag($input['permetti_doppio_frutta']) ? 1 : 0)
+            : ($attuale->permettiDoppioFrutta ? 1 : 0);
+        $doppioDessert = array_key_exists('permetti_doppio_dessert', $input)
+            ? ($this->flag($input['permetti_doppio_dessert']) ? 1 : 0)
+            : ($attuale->permettiDoppioDessert ? 1 : 0);
         $maxPrimo = array_key_exists('max_primo', $input)
             ? $this->porzioni($input['max_primo'], 'Il massimo dei primi è tra 1 e 4.')
             : max(1, $attuale->maxPerCategoria(\MenuCraft\Enums\PortataType::Primo));
@@ -56,6 +62,12 @@ final class RegoleAzienda
         $maxContorno = array_key_exists('max_contorno', $input)
             ? $this->porzioni($input['max_contorno'], 'Il massimo dei contorni è tra 1 e 4.')
             : max(1, $attuale->maxPerCategoria(\MenuCraft\Enums\PortataType::Contorno));
+        $maxFrutta = array_key_exists('max_frutta', $input)
+            ? $this->porzioni($input['max_frutta'], 'Il massimo della frutta è tra 1 e 4.')
+            : max(1, $attuale->maxPerCategoria(\MenuCraft\Enums\PortataType::Frutta));
+        $maxDessert = array_key_exists('max_dessert', $input)
+            ? $this->porzioni($input['max_dessert'], 'Il massimo dei dolci è tra 1 e 4.')
+            : max(1, $attuale->maxPerCategoria(\MenuCraft\Enums\PortataType::Dessert));
 
         $stmt = $this->pdo->prepare(
             'UPDATE aziende
@@ -63,9 +75,13 @@ final class RegoleAzienda
                  permetti_doppio_primo = :primo,
                  permetti_doppio_secondo = :secondo,
                  permetti_doppio_contorno = :contorno,
+                 permetti_doppio_frutta = :frutta,
+                 permetti_doppio_dessert = :dessert,
                  max_primo = :max_primo,
                  max_secondo = :max_secondo,
                  max_contorno = :max_contorno,
+                 max_frutta = :max_frutta,
+                 max_dessert = :max_dessert,
                  limite_oggi = :oggi,
                  limite_domani = :domani,
                  modalita = :modalita,
@@ -78,9 +94,13 @@ final class RegoleAzienda
             'primo' => $doppioPrimo,
             'secondo' => $doppioSecondo,
             'contorno' => $doppioContorno,
+            'frutta' => $doppioFrutta,
+            'dessert' => $doppioDessert,
             'max_primo' => $maxPrimo,
             'max_secondo' => $maxSecondo,
             'max_contorno' => $maxContorno,
+            'max_frutta' => $maxFrutta,
+            'max_dessert' => $maxDessert,
             'oggi' => $oggi,
             'domani' => $domani,
             'modalita' => $modalita,

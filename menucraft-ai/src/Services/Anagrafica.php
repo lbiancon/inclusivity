@@ -183,6 +183,107 @@ final class Anagrafica
         ];
     }
 
+    /** @param array<string, mixed> $input
+     * @return array<string, mixed>
+     */
+    public function aggiornaUtente(int $aziendaId, int $attoreId, array $input): array
+    {
+        $id = (int) ($input['utente_id'] ?? 0);
+        $persona = $this->persona($aziendaId, $id);
+        if ($persona['ruolo'] === 'caterer' && $attoreId !== $id && (string) ($input['pagamento'] ?? $persona['pagamento']) !== $persona['pagamento']) {
+            throw new MenuRuleException('RUOLO', 'Il pagamento del catering non si cambia da qui.');
+        }
+        $nome = $this->nome((string) ($input['nome'] ?? $persona['nome']), 'Indica il nome di chi prenota.');
+        $pagamento = $persona['ruolo'] === 'dipendente'
+            ? $this->pagamentoUtente($input['pagamento'] ?? $persona['pagamento'])
+            : $persona['pagamento'];
+        $password = trim((string) ($input['password'] ?? ''));
+        if ($password !== '') {
+            $password = $this->password($password);
+        }
+
+        $stmt = $this->pdo->prepare(
+            'UPDATE utenti SET nome = :nome, pagamento = :pagamento WHERE id = :id AND azienda_id = :azienda'
+        );
+        $stmt->execute([
+            'nome' => $nome,
+            'pagamento' => $pagamento,
+            'id' => $id,
+            'azienda' => $aziendaId,
+        ]);
+        if ($password !== '') {
+            $hash = $this->pdo->prepare(
+                'UPDATE utenti SET password_hash = :hash WHERE id = :id AND azienda_id = :azienda'
+            );
+            $hash->execute([
+                'hash' => password_hash($password, PASSWORD_BCRYPT, ['cost' => AuthService::COSTO_BCRYPT]),
+                'id' => $id,
+                'azienda' => $aziendaId,
+            ]);
+        }
+        $allergie = $this->scriviAllergie($aziendaId, $id, (string) ($input['allergie'] ?? ''));
+        if (array_key_exists('saldo', $input) && trim((string) $input['saldo']) !== '' && $persona['ruolo'] === 'dipendente') {
+            $saldo = $this->saldo($input['saldo']);
+            $wallet = $this->pdo->prepare(
+                'INSERT INTO portafogli (azienda_id, utente_id, saldo_centesimi) VALUES (:azienda, :utente, :saldo)
+                 ON DUPLICATE KEY UPDATE saldo_centesimi = :saldo_nuovo'
+            );
+            $wallet->execute([
+                'azienda' => $aziendaId,
+                'utente' => $id,
+                'saldo' => $saldo,
+                'saldo_nuovo' => $saldo,
+            ]);
+        }
+
+        return [
+            'id' => $id,
+            'nome' => $nome,
+            'pagamento' => $pagamento,
+            'allergie' => $allergie,
+            'messaggio' => sprintf('Utente %s aggiornato.', $nome),
+        ];
+    }
+
+    public function eliminaUtente(int $aziendaId, int $attoreId, int $utenteId): void
+    {
+        if ($attoreId === $utenteId) {
+            throw new MenuRuleException('RUOLO', 'Non puoi eliminare il tuo accesso.');
+        }
+        $persona = $this->persona($aziendaId, $utenteId);
+        if ($persona['ruolo'] === 'caterer') {
+            $conta = $this->pdo->prepare(
+                'SELECT COUNT(*) FROM utenti WHERE azienda_id = :azienda AND ruolo = :ruolo'
+            );
+            $conta->execute(['azienda' => $aziendaId, 'ruolo' => 'caterer']);
+            if ((int) $conta->fetchColumn() < 2) {
+                throw new MenuRuleException('RUOLO', 'Serve almeno un catering per questa azienda.');
+            }
+        }
+        $stmt = $this->pdo->prepare('DELETE FROM utenti WHERE id = :id AND azienda_id = :azienda');
+        $stmt->execute(['id' => $utenteId, 'azienda' => $aziendaId]);
+    }
+
+    /** @return array{id: int, nome: string, ruolo: string, pagamento: string} */
+    private function persona(int $aziendaId, int $utenteId): array
+    {
+        $stmt = $this->pdo->prepare(
+            'SELECT id, nome, ruolo, pagamento FROM utenti WHERE id = :id AND azienda_id = :azienda'
+        );
+        $stmt->execute(['id' => $utenteId, 'azienda' => $aziendaId]);
+        $riga = $stmt->fetch();
+        if ($riga === false) {
+            throw new MenuRuleException('UTENTE_SCONOSCIUTO', 'Utente non trovato in questa azienda.', 404);
+        }
+
+        return [
+            'id' => (int) $riga['id'],
+            'nome' => (string) $riga['nome'],
+            'ruolo' => (string) $riga['ruolo'],
+            'pagamento' => (string) $riga['pagamento'],
+        ];
+    }
+
     public function segnalaAllergie(int $aziendaId, int $utenteId, string $testo): string
     {
         $this->azienda($aziendaId);

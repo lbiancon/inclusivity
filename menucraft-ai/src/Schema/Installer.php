@@ -49,6 +49,7 @@ final class Installer
         $this->assicuraServizio();
         $this->assicuraPorzioni();
         $this->assicuraAllergie();
+        $this->assicuraScelteELogo();
         $this->semeFestivita();
         $conteggio = (int) $this->pdo->query('SELECT COUNT(*) FROM aziende')->fetchColumn();
         if ($conteggio === 0) {
@@ -83,6 +84,11 @@ final class Installer
                 max_primo TINYINT UNSIGNED NOT NULL DEFAULT 1,
                 max_secondo TINYINT UNSIGNED NOT NULL DEFAULT 1,
                 max_contorno TINYINT UNSIGNED NOT NULL DEFAULT 1,
+                permetti_doppio_frutta TINYINT(1) NOT NULL DEFAULT 0,
+                permetti_doppio_dessert TINYINT(1) NOT NULL DEFAULT 0,
+                max_frutta TINYINT UNSIGNED NOT NULL DEFAULT 1,
+                max_dessert TINYINT UNSIGNED NOT NULL DEFAULT 1,
+                logo VARCHAR(160) NULL,
                 limite_oggi TIME NOT NULL,
                 limite_domani TIME NOT NULL,
                 modalita VARCHAR(20) NOT NULL DEFAULT \'intranet\',
@@ -179,6 +185,7 @@ final class Installer
                 pubblicazione_id BIGINT UNSIGNED NOT NULL,
                 piatto_id BIGINT UNSIGNED NOT NULL,
                 data_pasto DATE NOT NULL,
+                lettera CHAR(1) NULL,
                 PRIMARY KEY (id),
                 UNIQUE KEY uq_voce (azienda_id, data_pasto, piatto_id),
                 KEY idx_voce_data (azienda_id, data_pasto),
@@ -338,7 +345,7 @@ final class Installer
 
     private function haColonna(string $tabella, string $colonna): bool
     {
-        if (!in_array($tabella, ['aziende', 'utenti', 'ordini'], true) || preg_match('/^[a-z_]+$/', $colonna) !== 1) {
+        if (!in_array($tabella, ['aziende', 'utenti', 'ordini', 'menu_voci'], true) || preg_match('/^[a-z_]+$/', $colonna) !== 1) {
             throw new \RuntimeException('Colonna non prevista.');
         }
 
@@ -370,6 +377,23 @@ final class Installer
             'UPDATE aziende SET max_scelte = max_scelte - 1
              WHERE bevanda_obbligatoria = 1 AND max_scelte = 5'
         );
+    }
+
+    private function assicuraScelteELogo(): void
+    {
+        if (!$this->haColonna('aziende', 'max_frutta')) {
+            $this->pdo->exec(
+                'ALTER TABLE aziende
+                 ADD COLUMN permetti_doppio_frutta TINYINT(1) NOT NULL DEFAULT 0 AFTER max_contorno,
+                 ADD COLUMN permetti_doppio_dessert TINYINT(1) NOT NULL DEFAULT 0 AFTER permetti_doppio_frutta,
+                 ADD COLUMN max_frutta TINYINT UNSIGNED NOT NULL DEFAULT 1 AFTER permetti_doppio_dessert,
+                 ADD COLUMN max_dessert TINYINT UNSIGNED NOT NULL DEFAULT 1 AFTER max_frutta,
+                 ADD COLUMN logo VARCHAR(160) NULL AFTER max_dessert'
+            );
+        }
+        if (!$this->haColonna('menu_voci', 'lettera')) {
+            $this->pdo->exec('ALTER TABLE menu_voci ADD COLUMN lettera CHAR(1) NULL AFTER data_pasto');
+        }
     }
 
     private function assicuraAllergie(): void

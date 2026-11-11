@@ -33,6 +33,11 @@ readonly class AziendaConfig
         public int $maxPrimo = 0,
         public int $maxSecondo = 0,
         public int $maxContorno = 0,
+        public bool $permettiDoppioFrutta = false,
+        public bool $permettiDoppioDessert = false,
+        public int $maxFrutta = 0,
+        public int $maxDessert = 0,
+        public ?string $logo = null,
     ) {
         if ($this->id < 1) {
             throw new \InvalidArgumentException('Identificativo azienda non valido.');
@@ -64,6 +69,11 @@ readonly class AziendaConfig
             maxPrimo: (int) ($riga['max_primo'] ?? 0),
             maxSecondo: (int) ($riga['max_secondo'] ?? 0),
             maxContorno: (int) ($riga['max_contorno'] ?? 0),
+            permettiDoppioFrutta: (int) ($riga['permetti_doppio_frutta'] ?? 0) === 1,
+            permettiDoppioDessert: (int) ($riga['permetti_doppio_dessert'] ?? 0) === 1,
+            maxFrutta: (int) ($riga['max_frutta'] ?? 0),
+            maxDessert: (int) ($riga['max_dessert'] ?? 0),
+            logo: isset($riga['logo']) && is_string($riga['logo']) && $riga['logo'] !== '' ? $riga['logo'] : null,
         );
     }
 
@@ -71,7 +81,8 @@ readonly class AziendaConfig
     {
         $stmt = $pdo->prepare(
             'SELECT id, nome, slug, tipo_pagamento, max_scelte, permetti_doppio_primo,
-                    permetti_doppio_contorno, permetti_doppio_secondo, max_primo, max_secondo, max_contorno,
+                    permetti_doppio_contorno, permetti_doppio_secondo, permetti_doppio_frutta, permetti_doppio_dessert,
+                    max_primo, max_secondo, max_contorno, max_frutta, max_dessert, logo,
                     limite_oggi, limite_domani, modalita, bevanda_obbligatoria
              FROM aziende
              WHERE id = :id'
@@ -91,12 +102,16 @@ readonly class AziendaConfig
             PortataType::Secondo => $this->permettiDoppioSecondo ? 2 : 1,
             PortataType::Primo => $this->permettiDoppioPrimo ? 2 : 1,
             PortataType::Contorno => $this->permettiDoppioContorno ? 2 : 1,
+            PortataType::Frutta => $this->permettiDoppioFrutta ? 2 : 1,
+            PortataType::Dessert => $this->permettiDoppioDessert ? 2 : 1,
             default => $this->maxScelte,
         };
         $salvato = match ($categoria) {
             PortataType::Primo => $this->maxPrimo,
             PortataType::Secondo => $this->maxSecondo,
             PortataType::Contorno => $this->maxContorno,
+            PortataType::Frutta => $this->maxFrutta,
+            PortataType::Dessert => $this->maxDessert,
             default => 0,
         };
         if ($salvato < 1) {
@@ -115,6 +130,8 @@ readonly class AziendaConfig
             PortataType::Primo => $this->permettiDoppioPrimo,
             PortataType::Secondo => $this->permettiDoppioSecondo,
             PortataType::Contorno => $this->permettiDoppioContorno,
+            PortataType::Frutta => $this->permettiDoppioFrutta,
+            PortataType::Dessert => $this->permettiDoppioDessert,
             default => false,
         };
     }
@@ -141,9 +158,14 @@ readonly class AziendaConfig
             'permetti_doppio_primo' => $this->permettiDoppioPrimo,
             'permetti_doppio_secondo' => $this->permettiDoppioSecondo,
             'permetti_doppio_contorno' => $this->permettiDoppioContorno,
+            'permetti_doppio_frutta' => $this->permettiDoppioFrutta,
+            'permetti_doppio_dessert' => $this->permettiDoppioDessert,
             'max_primo' => $this->maxPerCategoria(PortataType::Primo),
             'max_secondo' => $this->maxPerCategoria(PortataType::Secondo),
             'max_contorno' => $this->maxPerCategoria(PortataType::Contorno),
+            'max_frutta' => $this->maxPerCategoria(PortataType::Frutta),
+            'max_dessert' => $this->maxPerCategoria(PortataType::Dessert),
+            'logo' => $this->logo,
             'limite_oggi' => substr($this->limiteOggi, 0, 5),
             'limite_domani' => substr($this->limiteDomani, 0, 5),
             'modalita' => $this->modalita,

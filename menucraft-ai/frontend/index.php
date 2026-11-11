@@ -106,9 +106,12 @@ header('Content-Type: text/html; charset=utf-8');
     <div id="app-view" hidden>
         <header class="counter sticky top-0 z-20">
             <div class="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-4">
-                <div>
-                    <p class="text-xs uppercase tracking-[0.22em] text-[#d7eadf]">MenuCraft · linea</p>
-                    <h1 id="azienda-nome" class="font-serif text-3xl uppercase"></h1>
+                <div class="flex items-center gap-3">
+                    <img id="azienda-logo" alt="" hidden class="h-12 w-12 rounded-2xl bg-white object-contain p-1 ring-2 ring-white">
+                    <div>
+                        <p class="text-xs uppercase tracking-[0.22em] text-[#d7eadf]">MenuCraft · linea</p>
+                        <h1 id="azienda-nome" class="font-serif text-3xl uppercase"></h1>
+                    </div>
                 </div>
                 <div class="flex items-center gap-3">
                     <div class="text-right">
@@ -123,9 +126,15 @@ header('Content-Type: text/html; charset=utf-8');
         <main class="mx-auto grid max-w-6xl gap-6 px-4 py-6 lg:grid-cols-[minmax(0,1fr)_320px]">
             <section class="space-y-5">
                 <p id="modalita-nota" class="text-sm text-ink/70"></p>
-                <div id="weeks" class="space-y-4"></div>
-                <div id="menu" class="space-y-4"></div>
-                <section class="rounded-3xl border border-[#d5cbb8] bg-white p-5">
+                <div class="flex gap-2">
+                    <button id="vista-menu" type="button" class="rounded-full bg-moss px-4 py-2 text-sm font-semibold text-white">Menu</button>
+                    <button id="vista-storico" type="button" class="rounded-full border border-ink/15 bg-white px-4 py-2 text-sm font-semibold">Le tue prenotazioni</button>
+                </div>
+                <div id="pannello-menu" class="space-y-4">
+                    <div id="weeks" class="space-y-4"></div>
+                    <div id="menu" class="space-y-4"></div>
+                </div>
+                <section id="pannello-storico" hidden class="rounded-3xl border border-[#d5cbb8] bg-white p-5">
                     <h2 class="font-serif text-3xl uppercase">Le tue prenotazioni</h2>
                     <ul id="storico" class="mt-4 space-y-3 text-sm"></ul>
                 </section>
@@ -278,6 +287,14 @@ header('Content-Type: text/html; charset=utf-8');
             state.utente = payload.utente;
             state.azienda = payload.azienda;
             document.getElementById('azienda-nome').textContent = payload.azienda.nome;
+            const logo = document.getElementById('azienda-logo');
+            if (payload.azienda.logo) {
+                logo.src = '../' + payload.azienda.logo;
+                logo.alt = payload.azienda.nome;
+                logo.hidden = false;
+            } else {
+                logo.hidden = true;
+            }
             document.getElementById('utente-nome').textContent = payload.utente.nome;
             const pagamento = payload.azienda.tipo_pagamento === 'welfare' ? 'Welfare · 0,00 €' : 'Quota dipendente';
             document.getElementById('utente-meta').textContent = payload.utente.matricola + ' · ' + pagamento;
@@ -409,6 +426,12 @@ header('Content-Type: text/html; charset=utf-8');
             if (categoria === 'contorno') {
                 return state.regole.doppio_contorno === true;
             }
+            if (categoria === 'frutta') {
+                return state.regole.doppio_frutta === true;
+            }
+            if (categoria === 'dessert') {
+                return state.regole.doppio_dessert === true;
+            }
             return false;
         }
 
@@ -423,7 +446,7 @@ header('Content-Type: text/html; charset=utf-8');
                     : 'Puoi scegliere al massimo ' + regole.max_scelte + ' piatti per buono pasto.';
             }
             const perPiatto = {};
-            const conteggi = { primo: 0, secondo: 0, contorno: 0 };
+            const conteggi = { primo: 0, secondo: 0, contorno: 0, frutta: 0, dessert: 0 };
             ids.forEach((id) => {
                 const piatto = state.catalogo.get(id);
                 perPiatto[id] = (perPiatto[id] || 0) + 1;
@@ -431,7 +454,7 @@ header('Content-Type: text/html; charset=utf-8');
                     conteggi[piatto.categoria] += 1;
                 }
             });
-            const nomi = { primo: 'primi', secondo: 'secondi', contorno: 'contorni' };
+            const nomi = { primo: 'primi', secondo: 'secondi', contorno: 'contorni', frutta: 'frutti', dessert: 'dolci' };
             for (const id of Object.keys(perPiatto)) {
                 const piatto = state.catalogo.get(Number(id));
                 if (perPiatto[id] > 2) {
@@ -441,7 +464,7 @@ header('Content-Type: text/html; charset=utf-8');
                     return 'Per questa portata non si può raddoppiare ' + piatto.nome + '.';
                 }
             }
-            for (const categoria of ['secondo', 'primo', 'contorno']) {
+            for (const categoria of ['secondo', 'primo', 'contorno', 'frutta', 'dessert']) {
                 const massimo = regole['max_' + categoria];
                 if (conteggi[categoria] > massimo) {
                     return massimo === 1
@@ -462,15 +485,28 @@ header('Content-Type: text/html; charset=utf-8');
             const attivi = selezione();
             const gia = attivi.filter((voce) => voce === id).length;
             const categoria = state.catalogo.get(id)?.categoria;
-            const aggiungi = gia === 0 || (gia === 1 && doppioConsentito(categoria));
-            const prossimi = aggiungi ? attivi.concat(id) : attivi.filter((voce) => voce !== id);
-            if (aggiungi) {
+            if (gia === 1 && doppioConsentito(categoria)) {
+                const doppio = attivi.concat(id);
+                if (!limiteMessaggio(doppio)) {
+                    applicaSelezione(doppio);
+                    return;
+                }
+            }
+            if (gia === 0) {
+                const prossimi = attivi.concat(id);
                 const messaggio = limiteMessaggio(prossimi);
                 if (messaggio) {
                     mostraBanner('errore', messaggio, 'REGOLA');
                     return;
                 }
+                applicaSelezione(prossimi);
+                return;
             }
+            const prossimi = attivi.filter((voce) => voce !== id);
+            applicaSelezione(prossimi);
+        }
+
+        function applicaSelezione(prossimi) {
             if (state.modo === 'ospite') {
                 state.ospiteSelezionati = prossimi;
             } else {
@@ -573,10 +609,11 @@ header('Content-Type: text/html; charset=utf-8');
                 const limite = document.createElement('p');
                 limite.className = 'text-xs uppercase tracking-wider text-ink/50';
                 const doppio = doppioConsentito(portata.categoria);
+                const conMassimo = ['primo', 'secondo', 'contorno', 'frutta', 'dessert'].includes(portata.categoria);
                 limite.textContent = portata.categoria === 'bevanda' && state.regole.bevanda_obbligatoria
                     ? 'A parte, una sola'
-                    : (portata.categoria === 'primo' || portata.categoria === 'secondo' || portata.categoria === 'contorno')
-                        ? 'In menu ' + portata.piatti.length + ' · massimo ' + portata.massimo + (doppio ? ' · anche doppio dello stesso' : '')
+                    : conMassimo
+                        ? 'In menu ' + portata.piatti.length + ' · massimo ' + portata.massimo + (doppio ? ' · anche lo stesso due volte' : '')
                         : 'Nel tetto delle ' + state.regole.max_scelte + ' pietanze';
                 intestazione.append(titolo, limite);
                 const griglia = document.createElement('div');
@@ -592,7 +629,7 @@ header('Content-Type: text/html; charset=utf-8');
                     bottone.className = 'dish w-full overflow-hidden rounded-2xl border border-ink/10 disabled:cursor-default ' + (scelto ? 'is-on' : '');
                     const codice = document.createElement('span');
                     codice.className = 'code text-sm';
-                    codice.textContent = piatto.codice;
+                    codice.textContent = piatto.lettera ? piatto.lettera : piatto.codice;
                     const testo = document.createElement('span');
                     testo.className = 'min-w-0 flex-1 py-2 pr-3';
                     const nome = document.createElement('span');
@@ -600,8 +637,11 @@ header('Content-Type: text/html; charset=utf-8');
                     nome.textContent = piatto.nome + (quantita > 1 ? ' ×' + quantita : '');
                     const meta = document.createElement('span');
                     meta.className = 'block text-sm text-ink/60';
-                    const invito = quantita === 1 && doppioConsentito(piatto.categoria) ? ' · clicca per il doppio' : '';
-                    meta.textContent = euro(cents(prezzoDi(piatto))) + invito;
+                    const tecnico = piatto.lettera && piatto.lettera !== piatto.codice ? piatto.codice + ' · ' : '';
+                    const invito = quantita === 0
+                        ? ''
+                        : (quantita === 1 && doppioConsentito(piatto.categoria) ? ' · clicca per il doppio, di nuovo per togliere' : ' · clicca per togliere');
+                    meta.textContent = tecnico + euro(cents(prezzoDi(piatto))) + invito;
                     testo.append(nome, meta);
                     bottone.append(codice, testo);
                     griglia.append(bottone);
@@ -803,6 +843,16 @@ header('Content-Type: text/html; charset=utf-8');
         document.getElementById('ospite-nome').addEventListener('input', () => disegna());
         document.getElementById('carico-azienda').addEventListener('change', () => disegna());
         document.getElementById('carico-mio').addEventListener('change', () => disegna());
+
+        function mostraVista(nome) {
+            const menu = nome === 'menu';
+            document.getElementById('pannello-menu').hidden = !menu;
+            document.getElementById('pannello-storico').hidden = menu;
+            document.getElementById('vista-menu').className = 'rounded-full px-4 py-2 text-sm font-semibold ' + (menu ? 'bg-moss text-white' : 'border border-ink/15 bg-white');
+            document.getElementById('vista-storico').className = 'rounded-full px-4 py-2 text-sm font-semibold ' + (menu ? 'border border-ink/15 bg-white' : 'bg-moss text-white');
+        }
+        document.getElementById('vista-menu').addEventListener('click', () => mostraVista('menu'));
+        document.getElementById('vista-storico').addEventListener('click', () => mostraVista('storico'));
 
         document.getElementById('salva-allergie').addEventListener('click', async () => {
             try {

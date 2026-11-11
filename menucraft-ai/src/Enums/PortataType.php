@@ -25,7 +25,7 @@ enum PortataType: string
             self::Primo => 'Primo',
             self::Secondo => 'Secondo',
             self::Contorno => 'Contorno',
-            self::Dessert => 'Dessert',
+            self::Dessert => 'Dolce',
             self::Yogurt => 'Yogurt',
             self::Frutta => 'Frutta',
             self::Bevanda => 'Bevanda',

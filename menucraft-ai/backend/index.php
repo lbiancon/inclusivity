@@ -58,16 +58,25 @@ header('Content-Type: text/html; charset=utf-8');
 
     <div id="app-view" hidden>
         <header class="counter sticky top-0 z-20">
-            <div class="mx-auto flex max-w-3xl items-center justify-between gap-4 px-4 py-4">
-                <div>
-                    <p class="text-xs uppercase tracking-[0.22em] text-[#d7eadf]">Backend</p>
-                    <h1 id="azienda-nome" class="font-serif text-3xl uppercase"></h1>
+            <div class="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-4">
+                <div class="flex items-center gap-3">
+                    <img id="azienda-logo" alt="" hidden class="h-12 w-12 rounded-2xl bg-white object-contain p-1 ring-2 ring-white">
+                    <div>
+                        <p class="text-xs uppercase tracking-[0.22em] text-[#d7eadf]">Backend</p>
+                        <h1 id="azienda-nome" class="font-serif text-3xl uppercase"></h1>
+                    </div>
                 </div>
                 <button id="logout" type="button" class="rounded-full border border-white/30 px-4 py-2 text-sm text-white">Esci</button>
             </div>
         </header>
-        <main class="mx-auto max-w-3xl space-y-4 px-4 py-6">
+        <main class="mx-auto max-w-6xl space-y-4 px-4 py-6">
             <div id="banner" hidden role="alert" class="rounded-3xl border p-4"></div>
+            <nav id="sezioni" hidden class="flex flex-wrap gap-2">
+                <button type="button" class="sezione rounded-full bg-moss px-4 py-2 text-sm font-semibold text-white" data-sezione="regole">Regole</button>
+                <button type="button" class="sezione rounded-full border border-ink/15 bg-white px-4 py-2 text-sm font-semibold" data-sezione="menu">Menu</button>
+                <button type="button" class="sezione rounded-full border border-ink/15 bg-white px-4 py-2 text-sm font-semibold" data-sezione="utenti">Utenti</button>
+                <button type="button" class="sezione rounded-full border border-ink/15 bg-white px-4 py-2 text-sm font-semibold" data-sezione="cucina">Cucina</button>
+            </nav>
             <section id="servizio" hidden class="rounded-3xl border border-[#d5cbb8] bg-white p-5">
                 <h2 class="font-serif text-3xl uppercase">Nuova società / cucina</h2>
                 <p class="mt-2 text-sm text-ink/70">Nasce l’azienda, con l’acqua obbligatoria e il primo catering. Poi quel catering crea le persone che prenotano.</p>
@@ -101,10 +110,11 @@ header('Content-Type: text/html; charset=utf-8');
                     </label>
                     <button type="submit" class="rounded-xl bg-moss px-4 py-3 text-sm font-semibold text-white sm:col-span-2">Crea la cucina</button>
                 </form>
+                <p class="mt-4 text-sm text-ink/60">Su ogni cucina puoi caricare il logo. Compare in linea e nel banco.</p>
                 <ul id="societa-elenco" class="mt-4 space-y-2 text-sm"></ul>
             </section>
             <div id="banco" class="space-y-4">
-            <form id="regole-form" class="space-y-4">
+            <form id="regole-form" data-pannello="regole" class="space-y-4">
                 <section class="rounded-3xl border border-[#d5cbb8] bg-white p-5">
                     <h2 class="font-serif text-3xl uppercase">Dove gira questa azienda</h2>
                     <p id="modalita-testo" class="mt-2 text-sm text-ink/70"></p>
@@ -131,25 +141,47 @@ header('Content-Type: text/html; charset=utf-8');
                         <label class="text-sm font-semibold">Blocco del giorno prima
                             <input id="regola-domani" name="limite_domani" type="time" required class="mt-1 w-full rounded-xl border border-ink/15 bg-cream px-3 py-2">
                         </label>
-                        <div class="flex flex-col justify-end gap-2 text-sm">
-                            <label class="flex items-center gap-2"><input id="regola-primo" type="checkbox"> Doppio dello stesso primo</label>
-                            <label class="flex items-center gap-2"><input id="regola-secondo" type="checkbox"> Doppio dello stesso secondo</label>
-                            <label class="flex items-center gap-2"><input id="regola-contorno" type="checkbox"> Doppio dello stesso contorno</label>
-                            <label class="flex items-center gap-2"><input id="regola-bevanda" type="checkbox"> Acqua obbligatoria, a parte</label>
-                        </div>
+                        <label class="flex items-center gap-2 text-sm"><input id="regola-bevanda" type="checkbox"> Acqua obbligatoria, a parte</label>
                     </div>
-                    <div class="mt-4 grid gap-3 sm:grid-cols-3">
-                        <label class="text-sm font-semibold">Massimo primi
-                            <input id="regola-max-primo" type="number" min="1" max="4" required class="mt-1 w-full rounded-xl border border-ink/15 bg-cream px-3 py-2">
-                        </label>
-                        <label class="text-sm font-semibold">Massimo secondi
-                            <input id="regola-max-secondo" type="number" min="1" max="4" required class="mt-1 w-full rounded-xl border border-ink/15 bg-cream px-3 py-2">
-                        </label>
-                        <label class="text-sm font-semibold">Massimo contorni
-                            <input id="regola-max-contorno" type="number" min="1" max="4" required class="mt-1 w-full rounded-xl border border-ink/15 bg-cream px-3 py-2">
-                        </label>
+                    <div class="mt-4 overflow-x-auto">
+                        <table class="w-full text-left text-sm">
+                            <thead>
+                                <tr class="text-xs uppercase tracking-wider text-ink/50">
+                                    <th class="py-2 pr-3">Portata</th>
+                                    <th class="py-2 pr-3">Massimo, il doppio è 2</th>
+                                    <th class="py-2">Anche lo stesso piatto</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td class="py-2 pr-3 font-semibold">Primo</td>
+                                    <td class="py-2 pr-3"><input id="regola-max-primo" type="number" min="1" max="4" required class="w-20 rounded-xl border border-ink/15 bg-cream px-3 py-2"></td>
+                                    <td class="py-2"><input id="regola-primo" type="checkbox" aria-label="Stesso primo due volte"></td>
+                                </tr>
+                                <tr>
+                                    <td class="py-2 pr-3 font-semibold">Secondo</td>
+                                    <td class="py-2 pr-3"><input id="regola-max-secondo" type="number" min="1" max="4" required class="w-20 rounded-xl border border-ink/15 bg-cream px-3 py-2"></td>
+                                    <td class="py-2"><input id="regola-secondo" type="checkbox" aria-label="Stesso secondo due volte"></td>
+                                </tr>
+                                <tr>
+                                    <td class="py-2 pr-3 font-semibold">Contorno</td>
+                                    <td class="py-2 pr-3"><input id="regola-max-contorno" type="number" min="1" max="4" required class="w-20 rounded-xl border border-ink/15 bg-cream px-3 py-2"></td>
+                                    <td class="py-2"><input id="regola-contorno" type="checkbox" aria-label="Stesso contorno due volte"></td>
+                                </tr>
+                                <tr>
+                                    <td class="py-2 pr-3 font-semibold">Frutta</td>
+                                    <td class="py-2 pr-3"><input id="regola-max-frutta" type="number" min="1" max="4" required class="w-20 rounded-xl border border-ink/15 bg-cream px-3 py-2"></td>
+                                    <td class="py-2"><input id="regola-frutta" type="checkbox" aria-label="Stessa frutta due volte"></td>
+                                </tr>
+                                <tr>
+                                    <td class="py-2 pr-3 font-semibold">Dolce</td>
+                                    <td class="py-2 pr-3"><input id="regola-max-dessert" type="number" min="1" max="4" required class="w-20 rounded-xl border border-ink/15 bg-cream px-3 py-2"></td>
+                                    <td class="py-2"><input id="regola-dessert" type="checkbox" aria-label="Stesso dolce due volte"></td>
+                                </tr>
+                            </tbody>
+                        </table>
                     </div>
-                    <p class="mt-3 text-sm text-ink/60">Con il doppio si può prendere due volte lo stesso piatto. Se i contorni sono 3, si possono prendere due di uno e uno di un terzo. Il totale resta le pietanze, l’acqua non le consuma.</p>
+                    <p class="mt-3 text-sm text-ink/60">Il numero è quante porzioni di quella portata entrano nel vassoio. La casella consente due volte lo stesso piatto. Un clic su un piatto già scelto, se non c’è posto per un’altra porzione, lo toglie.</p>
                     <div class="mt-4 grid gap-3 sm:grid-cols-2 text-sm">
                         <label class="rounded-2xl border border-ink/10 bg-cream p-4">
                             <input id="paga-azienda" name="tipo_pagamento" type="radio" value="welfare" class="mr-2"> A carico dell’azienda
@@ -158,10 +190,13 @@ header('Content-Type: text/html; charset=utf-8');
                             <input id="paga-dipendente" name="tipo_pagamento" type="radio" value="dipendente" class="mr-2"> Paga il dipendente
                         </label>
                     </div>
+                    <label class="mt-4 block text-sm font-semibold">Logo dell’azienda
+                        <input id="logo-file" type="file" accept="image/png,image/jpeg,image/webp,image/gif" class="mt-1 block w-full text-sm">
+                    </label>
                     <button type="submit" class="mt-4 w-full rounded-xl bg-moss px-4 py-3 text-sm font-semibold text-white">Salva sul backend</button>
                 </section>
             </form>
-            <section class="rounded-3xl border border-[#d5cbb8] bg-white p-5">
+            <section data-pannello="cucina" hidden class="rounded-3xl border border-[#d5cbb8] bg-white p-5">
                 <h2 class="font-serif text-3xl uppercase">File per la cucina</h2>
                 <p id="cucina-testo" class="mt-2 text-sm text-ink/70"></p>
                 <label class="mt-4 block text-sm font-semibold">Giorno
@@ -169,8 +204,43 @@ header('Content-Type: text/html; charset=utf-8');
                 </label>
                 <button id="scarica-riepilogo" type="button" class="mt-4 rounded-xl bg-terracotta px-4 py-3 text-sm font-semibold text-white">Scarica il file</button>
             </section>
-            <section class="rounded-3xl border border-[#d5cbb8] bg-white p-5">
-                <h2 class="font-serif text-3xl uppercase">Menu del giovedì</h2>
+            <section data-pannello="menu" hidden class="rounded-3xl border border-[#d5cbb8] bg-white p-5">
+                <h2 class="font-serif text-3xl uppercase">Menu del giorno</h2>
+                <p class="mt-2 text-sm text-ink/70">Qui componi il menu che vede chi prenota. Ogni pasto tiene il codice già in uso e, accanto, la lettera A B C D E F G H I L M N.</p>
+                <label class="mt-4 block text-sm font-semibold">Giorno del menu
+                    <input id="menu-giorno" type="date" class="mt-1 rounded-xl border border-ink/15 bg-cream px-3 py-2">
+                </label>
+                <ul id="menu-elenco" class="mt-4 space-y-2 text-sm"></ul>
+                <form id="menu-esistente" class="mt-4 grid gap-3 sm:grid-cols-[1fr_auto]">
+                    <label class="text-sm font-semibold">Dal catalogo
+                        <select id="menu-catalogo" class="mt-1 w-full rounded-xl border border-ink/15 bg-cream px-3 py-2"></select>
+                    </label>
+                    <button type="submit" class="self-end rounded-xl bg-moss px-4 py-3 text-sm font-semibold text-white">Aggiungi al giorno</button>
+                </form>
+                <form id="menu-nuovo" class="mt-4 grid gap-3 sm:grid-cols-2">
+                    <label class="text-sm font-semibold">Nome nuovo piatto
+                        <input id="piatto-nome" maxlength="120" class="mt-1 w-full rounded-xl border border-ink/15 bg-cream px-3 py-2">
+                    </label>
+                    <label class="text-sm font-semibold">Codice, se ne hai già uno
+                        <input id="piatto-codice" maxlength="32" class="mt-1 w-full rounded-xl border border-ink/15 bg-cream px-3 py-2" placeholder="PR-POM">
+                    </label>
+                    <label class="text-sm font-semibold">Portata
+                        <select id="piatto-categoria" class="mt-1 w-full rounded-xl border border-ink/15 bg-cream px-3 py-2">
+                            <option value="primo">Primo</option>
+                            <option value="secondo">Secondo</option>
+                            <option value="contorno">Contorno</option>
+                            <option value="dessert">Dolce</option>
+                            <option value="yogurt">Yogurt</option>
+                            <option value="frutta">Frutta</option>
+                            <option value="bevanda">Bevanda</option>
+                        </select>
+                    </label>
+                    <label class="text-sm font-semibold">Prezzo
+                        <input id="piatto-prezzo" inputmode="decimal" class="mt-1 w-full rounded-xl border border-ink/15 bg-cream px-3 py-2" placeholder="3,50">
+                    </label>
+                    <button type="submit" class="rounded-xl border border-ink px-4 py-3 text-sm font-semibold sm:col-span-2">Crea e metti nel giorno</button>
+                </form>
+                <h3 class="mt-6 font-serif text-2xl uppercase">Oppure il file del giovedì</h3>
                 <p id="upload-window" class="mt-2 text-sm text-ink/70"></p>
                 <p class="mt-2 text-sm text-ink/60">Template Excel della settimana, oppure CSV con data, codice, nome, categoria, prezzo. Un .xls vecchio va salvato come .xlsx.</p>
                 <form id="upload-form" class="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center">
@@ -178,7 +248,7 @@ header('Content-Type: text/html; charset=utf-8');
                     <button type="submit" class="rounded-2xl bg-ink px-4 py-3 text-sm text-white">Carica menu</button>
                 </form>
             </section>
-            <section class="rounded-3xl border border-[#d5cbb8] bg-white p-5">
+            <section data-pannello="utenti" hidden class="rounded-3xl border border-[#d5cbb8] bg-white p-5">
                 <h2 class="font-serif text-3xl uppercase">Chi può prenotare</h2>
                 <p class="mt-2 text-sm text-ink/70">Ogni persona entra dal frontend con l’azienda, la matricola e la password. Pagante usa il wallet. A carico azienda resta a 0,00 €. Eredita segue la regola della società.</p>
                 <form id="utente-form" class="mt-4 grid gap-3 sm:grid-cols-2">
@@ -189,7 +259,7 @@ header('Content-Type: text/html; charset=utf-8');
                         <input id="utente-matricola" required maxlength="32" class="mt-1 w-full rounded-xl border border-ink/15 bg-cream px-3 py-2">
                     </label>
                     <label class="text-sm font-semibold">Password
-                        <input id="utente-password" required minlength="10" maxlength="72" type="password" class="mt-1 w-full rounded-xl border border-ink/15 bg-cream px-3 py-2">
+                        <input id="utente-password" minlength="10" maxlength="72" type="password" class="mt-1 w-full rounded-xl border border-ink/15 bg-cream px-3 py-2" placeholder="Obbligatoria solo in creazione">
                     </label>
                     <label class="text-sm font-semibold">Pagamento
                         <select id="utente-pagamento" class="mt-1 w-full rounded-xl border border-ink/15 bg-cream px-3 py-2">
@@ -204,11 +274,13 @@ header('Content-Type: text/html; charset=utf-8');
                     <label class="text-sm font-semibold sm:col-span-2">Intolleranze o allergie
                         <input id="utente-allergie" maxlength="240" class="mt-1 w-full rounded-xl border border-ink/15 bg-cream px-3 py-2" placeholder="Lattosio, glutine">
                     </label>
-                    <button type="submit" class="self-end rounded-xl bg-moss px-4 py-3 text-sm font-semibold text-white">Crea utente</button>
+                    <input id="utente-id" type="hidden" value="">
+                    <button id="utente-salva" type="submit" class="self-end rounded-xl bg-moss px-4 py-3 text-sm font-semibold text-white">Crea utente</button>
+                    <button id="utente-annulla" type="button" hidden class="self-end rounded-xl border border-ink/15 px-4 py-3 text-sm">Annulla modifica</button>
                 </form>
                 <ul id="utenti-elenco" class="mt-4 space-y-2 text-sm"></ul>
             </section>
-            <section class="rounded-3xl border border-[#d5cbb8] bg-white p-5">
+            <section data-pannello="cucina" hidden class="rounded-3xl border border-[#d5cbb8] bg-white p-5">
                 <h2 class="font-serif text-3xl uppercase">Prenotazioni del giorno</h2>
                 <p class="mt-2 text-sm text-ink/70">Tutti i buoni di questa azienda, ospiti compresi. È da qui che la cucina vede gli ordini, prima di scaricare il file.</p>
                 <ul id="prenotazioni-elenco" class="mt-4 space-y-2 text-sm"></ul>
@@ -275,6 +347,18 @@ header('Content-Type: text/html; charset=utf-8');
             document.getElementById('regola-max-primo').value = payload.azienda.max_primo;
             document.getElementById('regola-max-secondo').value = payload.azienda.max_secondo;
             document.getElementById('regola-max-contorno').value = payload.azienda.max_contorno;
+            document.getElementById('regola-max-frutta').value = payload.azienda.max_frutta;
+            document.getElementById('regola-max-dessert').value = payload.azienda.max_dessert;
+            document.getElementById('regola-frutta').checked = payload.azienda.permetti_doppio_frutta === true;
+            document.getElementById('regola-dessert').checked = payload.azienda.permetti_doppio_dessert === true;
+            const logo = document.getElementById('azienda-logo');
+            if (payload.azienda.logo) {
+                logo.src = '../' + payload.azienda.logo + '?v=' + Date.now();
+                logo.alt = payload.azienda.nome;
+                logo.hidden = false;
+            } else {
+                logo.hidden = true;
+            }
             document.getElementById('regola-bevanda').checked = payload.azienda.bevanda_obbligatoria === true;
             document.getElementById(payload.azienda.tipo_pagamento === 'dipendente' ? 'paga-dipendente' : 'paga-azienda').checked = true;
             document.getElementById(payload.azienda.modalita === 'internet' ? 'modalita-internet' : 'modalita-intranet').checked = true;
@@ -312,8 +396,29 @@ header('Content-Type: text/html; charset=utf-8');
             const lista = document.getElementById('societa-elenco');
             const righe = payload.societa.map((societa) => {
                 const item = document.createElement('li');
-                item.className = 'rounded-2xl bg-cream px-4 py-3';
-                item.textContent = societa.nome + ' · azienda ' + societa.slug + ' · ' + etichettaPagamento(societa.tipo_pagamento) + ' · ' + societa.modalita;
+                item.className = 'flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-cream px-4 py-3';
+                const testo = document.createElement('span');
+                testo.textContent = societa.nome + ' · azienda ' + societa.slug + ' · ' + etichettaPagamento(societa.tipo_pagamento) + ' · ' + societa.modalita;
+                const file = document.createElement('input');
+                file.type = 'file';
+                file.accept = 'image/png,image/jpeg,image/webp,image/gif';
+                file.className = 'text-xs';
+                file.addEventListener('change', () => {
+                    if (!file.files || !file.files[0]) {
+                        return;
+                    }
+                    const body = new FormData();
+                    body.append('logo', file.files[0]);
+                    body.append('slug', societa.slug);
+                    api(API + 'logo.php', { method: 'POST', body })
+                        .then((risposta) => {
+                            state.csrf = risposta.csrf || state.csrf;
+                            file.value = '';
+                            mostraBanner('ok', 'Logo di ' + societa.nome + ' aggiornato.');
+                        })
+                        .catch((error) => mostraBanner('errore', error.message));
+                });
+                item.append(testo, file);
                 return item;
             });
             disegnaVoci(lista, 'Nessuna cucina ancora. La prima si crea da questo modulo.', righe);
@@ -325,9 +430,24 @@ header('Content-Type: text/html; charset=utf-8');
             const lista = document.getElementById('utenti-elenco');
             const righe = payload.utenti.map((utente) => {
                 const item = document.createElement('li');
-                item.className = 'rounded-2xl bg-cream px-4 py-3';
+                item.className = 'flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-cream px-4 py-3';
+                const testo = document.createElement('span');
                 const allergia = utente.allergie ? ' · allergie: ' + utente.allergie : '';
-                item.textContent = utente.matricola + ' · ' + utente.nome + ' · ' + utente.ruolo + ' · ' + etichettaPagamento(utente.pagamento) + allergia;
+                testo.textContent = utente.matricola + ' · ' + utente.nome + ' · ' + utente.ruolo + ' · ' + etichettaPagamento(utente.pagamento) + allergia;
+                const azioni = document.createElement('span');
+                azioni.className = 'flex gap-2';
+                const modifica = document.createElement('button');
+                modifica.type = 'button';
+                modifica.className = 'rounded-full border border-ink/15 px-3 py-1';
+                modifica.textContent = 'Modifica';
+                modifica.addEventListener('click', () => compilaUtente(utente));
+                const elimina = document.createElement('button');
+                elimina.type = 'button';
+                elimina.className = 'rounded-full border border-red-200 px-3 py-1 text-red-800';
+                elimina.textContent = 'Elimina';
+                elimina.addEventListener('click', () => eliminaUtente(utente));
+                azioni.append(modifica, elimina);
+                item.append(testo, azioni);
                 return item;
             });
             disegnaVoci(lista, 'Nessun utente in questa azienda.', righe);
@@ -367,6 +487,7 @@ header('Content-Type: text/html; charset=utf-8');
             const piattaforma = payload.utente.ruolo === 'piattaforma';
             document.getElementById('servizio').hidden = !piattaforma;
             document.getElementById('banco').hidden = piattaforma;
+            document.getElementById('sezioni').hidden = piattaforma;
             document.getElementById('login-view').hidden = true;
             document.getElementById('app-view').hidden = false;
             if (piattaforma) {
@@ -378,9 +499,13 @@ header('Content-Type: text/html; charset=utf-8');
             document.getElementById('upload-window').textContent = menu.caricamento.messaggio;
             const domani = new Date();
             domani.setDate(domani.getDate() + 1);
-            document.getElementById('giorno-cucina').value = domani.toISOString().slice(0, 10);
+            const iso = domani.toISOString().slice(0, 10);
+            document.getElementById('giorno-cucina').value = iso;
+            document.getElementById('menu-giorno').value = iso;
+            mostraSezione('regole');
             await caricaUtenti();
             await caricaPrenotazioni();
+            await caricaMenu();
         }
 
         document.getElementById('login-form').addEventListener('submit', async (event) => {
@@ -424,9 +549,13 @@ header('Content-Type: text/html; charset=utf-8');
                         permetti_doppio_primo: document.getElementById('regola-primo').checked,
                         permetti_doppio_secondo: document.getElementById('regola-secondo').checked,
                         permetti_doppio_contorno: document.getElementById('regola-contorno').checked,
+                        permetti_doppio_frutta: document.getElementById('regola-frutta').checked,
+                        permetti_doppio_dessert: document.getElementById('regola-dessert').checked,
                         max_primo: Number(document.getElementById('regola-max-primo').value),
                         max_secondo: Number(document.getElementById('regola-max-secondo').value),
                         max_contorno: Number(document.getElementById('regola-max-contorno').value),
+                        max_frutta: Number(document.getElementById('regola-max-frutta').value),
+                        max_dessert: Number(document.getElementById('regola-max-dessert').value),
                         bevanda_obbligatoria: document.getElementById('regola-bevanda').checked,
                         tipo_pagamento: document.getElementById('paga-dipendente').checked ? 'dipendente' : 'welfare',
                         modalita,
@@ -481,6 +610,7 @@ header('Content-Type: text/html; charset=utf-8');
             try {
                 const payload = await api(API + 'upload-excel.php', { method: 'POST', body });
                 input.value = '';
+                await caricaMenu();
                 mostraBanner('ok', payload.pubblicazione.messaggio);
             } catch (error) {
                 mostraBanner('errore', error.message);
@@ -516,23 +646,203 @@ header('Content-Type: text/html; charset=utf-8');
             }
         });
 
+        function mostraSezione(nome) {
+            document.querySelectorAll('[data-pannello]').forEach((pannello) => {
+                pannello.hidden = pannello.dataset.pannello !== nome;
+            });
+            document.querySelectorAll('.sezione').forEach((bottone) => {
+                const attivo = bottone.dataset.sezione === nome;
+                bottone.className = 'sezione rounded-full px-4 py-2 text-sm font-semibold ' + (attivo ? 'bg-moss text-white' : 'border border-ink/15 bg-white');
+            });
+        }
+
+        function compilaUtente(utente) {
+            document.getElementById('utente-id').value = String(utente.id);
+            document.getElementById('utente-nome').value = utente.nome;
+            document.getElementById('utente-matricola').value = utente.matricola;
+            document.getElementById('utente-matricola').readOnly = true;
+            document.getElementById('utente-password').value = '';
+            document.getElementById('utente-pagamento').value = utente.pagamento === 'dipendente' ? 'pagante' : utente.pagamento;
+            document.getElementById('utente-allergie').value = utente.allergie || '';
+            document.getElementById('utente-salva').textContent = 'Salva modifiche';
+            document.getElementById('utente-annulla').hidden = false;
+            mostraSezione('utenti');
+        }
+
+        function resetUtente() {
+            document.getElementById('utente-form').reset();
+            document.getElementById('utente-id').value = '';
+            document.getElementById('utente-matricola').readOnly = false;
+            document.getElementById('utente-salva').textContent = 'Crea utente';
+            document.getElementById('utente-annulla').hidden = true;
+        }
+
+        async function eliminaUtente(utente) {
+            if (!window.confirm('Eliminare ' + utente.nome + '? Le sue prenotazioni escono dal banco.')) {
+                return;
+            }
+            try {
+                const payload = await api(API + 'utenti.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ azione: 'elimina', utente_id: utente.id }),
+                });
+                state.csrf = payload.csrf;
+                await caricaUtenti();
+                mostraBanner('ok', payload.messaggio);
+            } catch (error) {
+                mostraBanner('errore', error.message);
+            }
+        }
+
+        async function caricaMenu() {
+            const data = document.getElementById('menu-giorno').value;
+            if (!data) {
+                return;
+            }
+            const payload = await api(API + 'menu-banco.php?data=' + encodeURIComponent(data));
+            state.csrf = payload.csrf;
+            const lista = document.getElementById('menu-elenco');
+            const righe = payload.menu.piatti.map((piatto) => {
+                const item = document.createElement('li');
+                item.className = 'flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-cream px-4 py-3';
+                const testo = document.createElement('span');
+                const lettera = piatto.lettera ? piatto.lettera + ' · ' : '';
+                testo.textContent = lettera + piatto.codice + ' · ' + piatto.nome + ' · ' + piatto.categoria + ' · ' + String(piatto.prezzo).replace('.', ',') + ' €';
+                const togli = document.createElement('button');
+                togli.type = 'button';
+                togli.className = 'rounded-full border border-ink/15 px-3 py-1';
+                togli.textContent = 'Togli';
+                togli.addEventListener('click', () => {
+                    api(API + 'menu-banco.php', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ azione: 'togli', data, piatto_id: piatto.id }),
+                    }).then(async (risposta) => {
+                        state.csrf = risposta.csrf || state.csrf;
+                        await caricaMenu();
+                        mostraBanner('ok', risposta.messaggio);
+                    }).catch((error) => mostraBanner('errore', error.message));
+                });
+                item.append(testo, togli);
+                return item;
+            });
+            disegnaVoci(lista, 'Nessun piatto in questo giorno. Aggiungine uno dal catalogo o creane uno nuovo.', righe);
+            const select = document.getElementById('menu-catalogo');
+            select.replaceChildren();
+            payload.menu.catalogo.forEach((piatto) => {
+                const option = document.createElement('option');
+                option.value = String(piatto.id);
+                option.textContent = piatto.codice + ' · ' + piatto.nome + ' · ' + piatto.categoria;
+                select.append(option);
+            });
+        }
+
+        document.querySelectorAll('.sezione').forEach((bottone) => {
+            bottone.addEventListener('click', () => mostraSezione(bottone.dataset.sezione));
+        });
+
+        document.getElementById('menu-giorno').addEventListener('change', () => {
+            caricaMenu().catch((error) => mostraBanner('errore', error.message));
+        });
+
+        document.getElementById('menu-esistente').addEventListener('submit', async (event) => {
+            event.preventDefault();
+            const piatto = document.getElementById('menu-catalogo').value;
+            if (!piatto) {
+                mostraBanner('errore', 'Il catalogo non ha altri piatti da aggiungere.');
+                return;
+            }
+            try {
+                const payload = await api(API + 'menu-banco.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        azione: 'aggiungi',
+                        data: document.getElementById('menu-giorno').value,
+                        piatto_id: Number(piatto),
+                    }),
+                });
+                state.csrf = payload.csrf;
+                await caricaMenu();
+                mostraBanner('ok', payload.messaggio);
+            } catch (error) {
+                mostraBanner('errore', error.message);
+            }
+        });
+
+        document.getElementById('menu-nuovo').addEventListener('submit', async (event) => {
+            event.preventDefault();
+            try {
+                const payload = await api(API + 'menu-banco.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        azione: 'crea',
+                        data: document.getElementById('menu-giorno').value,
+                        nome: document.getElementById('piatto-nome').value,
+                        codice: document.getElementById('piatto-codice').value,
+                        categoria: document.getElementById('piatto-categoria').value,
+                        prezzo: document.getElementById('piatto-prezzo').value,
+                    }),
+                });
+                state.csrf = payload.csrf;
+                document.getElementById('menu-nuovo').reset();
+                await caricaMenu();
+                mostraBanner('ok', payload.messaggio);
+            } catch (error) {
+                mostraBanner('errore', error.message);
+            }
+        });
+
+        document.getElementById('logo-file').addEventListener('change', async () => {
+            const input = document.getElementById('logo-file');
+            if (!input.files || !input.files[0]) {
+                return;
+            }
+            const body = new FormData();
+            body.append('logo', input.files[0]);
+            try {
+                const payload = await api(API + 'logo.php', { method: 'POST', body });
+                state.csrf = payload.csrf || state.csrf;
+                input.value = '';
+                if (state.azienda) {
+                    state.azienda.logo = payload.logo;
+                    applica({ csrf: state.csrf, azienda: state.azienda });
+                }
+                mostraBanner('ok', payload.messaggio);
+            } catch (error) {
+                mostraBanner('errore', error.message);
+            }
+        });
+
+        document.getElementById('utente-annulla').addEventListener('click', resetUtente);
+
         document.getElementById('utente-form').addEventListener('submit', async (event) => {
             event.preventDefault();
+            const id = document.getElementById('utente-id').value;
+            const password = document.getElementById('utente-password').value;
+            if (!id && password.length < 10) {
+                mostraBanner('errore', 'La password deve avere tra 10 e 72 caratteri.');
+                return;
+            }
             try {
                 const payload = await api(API + 'utenti.php', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
+                        azione: id ? 'aggiorna' : 'crea',
+                        utente_id: id ? Number(id) : undefined,
                         nome: document.getElementById('utente-nome').value,
                         matricola: document.getElementById('utente-matricola').value,
-                        password: document.getElementById('utente-password').value,
+                        password,
                         pagamento: document.getElementById('utente-pagamento').value,
                         saldo: document.getElementById('utente-saldo').value,
                         allergie: document.getElementById('utente-allergie').value,
                     }),
                 });
                 state.csrf = payload.csrf;
-                document.getElementById('utente-form').reset();
+                resetUtente();
                 await caricaUtenti();
                 mostraBanner('ok', payload.messaggio);
             } catch (error) {
