@@ -54,6 +54,31 @@ header('Content-Type: text/html; charset=utf-8');
             letter-spacing: 0.04em;
         }
         .dish.is-on { background: rgba(255, 255, 255, 0.72); box-shadow: inset 0 0 0 2px #1d2420; }
+        .logo-azienda {
+            width: 3rem !important;
+            height: 3rem !important;
+            max-width: 3rem !important;
+            max-height: 3rem !important;
+            object-fit: contain;
+            object-position: center;
+            flex-shrink: 0;
+            background: #fff;
+            border-radius: 1rem;
+            padding: 0.25rem;
+            box-shadow: 0 0 0 2px #fff;
+        }
+        .accesso-salvato { position: relative; }
+        .accesso-salvato .togli-accesso {
+            position: absolute;
+            top: 0.35rem;
+            right: 0.35rem;
+            border: 0;
+            background: transparent;
+            color: rgba(29, 36, 32, 0.45);
+            font-size: 0.75rem;
+            line-height: 1;
+            padding: 0.2rem;
+        }
     </style>
 </head>
 <body class="min-h-screen bg-cream text-ink font-sans antialiased">
@@ -81,17 +106,9 @@ header('Content-Type: text/html; charset=utf-8');
                 </form>
                 <div id="login-error" hidden class="mt-4 rounded-2xl border border-red-200 bg-red-50 p-4 text-red-900" role="alert"></div>
                 <div class="mt-6">
-                    <p class="text-xs uppercase tracking-[0.18em] text-ink/50">Accessi dimostrativi · password MenuCraft!2026</p>
-                    <div class="mt-3 grid gap-2 sm:grid-cols-2">
-                        <button type="button" class="demo rounded-2xl border border-ink/10 px-3 py-3 text-left hover:border-terracotta" data-slug="aurora-welfare" data-matricola="A100">
-                            <span class="block text-sm font-medium">Aurora Welfare</span>
-                            <span class="block text-xs text-ink/60">Giulia Bianchi · prezzi a 0,00 €</span>
-                        </button>
-                        <button type="button" class="demo rounded-2xl border border-ink/10 px-3 py-3 text-left hover:border-terracotta" data-slug="officine-rossi" data-matricola="R200">
-                            <span class="block text-sm font-medium">Officine Rossi</span>
-                            <span class="block text-xs text-ink/60">Luca Ferrara · wallet e conto live</span>
-                        </button>
-                    </div>
+                    <p class="text-xs uppercase tracking-[0.18em] text-ink/50">Aziende salvate su questo dispositivo</p>
+                    <div id="accessi-salvati" class="mt-3 grid gap-2 sm:grid-cols-2"></div>
+                    <p id="accessi-vuoti" class="mt-3 text-sm text-ink/60">Dopo il primo accesso puoi salvare azienda e matricola qui, come scorciatoia.</p>
                 </div>
             </section>
         </div>
@@ -101,7 +118,7 @@ header('Content-Type: text/html; charset=utf-8');
         <header class="counter sticky top-0 z-20">
             <div class="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-4">
                 <div class="flex items-center gap-3">
-                    <img id="azienda-logo" alt="" hidden class="h-12 w-12 rounded-2xl bg-white object-contain p-1 ring-2 ring-white">
+                    <img id="azienda-logo" alt="" hidden class="logo-azienda">
                     <div>
                         <p class="text-xs uppercase tracking-[0.22em] text-[#d7eadf]">MenuCraft · linea</p>
                         <h1 id="azienda-nome" class="font-serif text-3xl uppercase"></h1>
@@ -172,6 +189,7 @@ header('Content-Type: text/html; charset=utf-8');
     <noscript class="mx-auto block max-w-xl p-8 text-center">MenuCraft AI ha bisogno di JavaScript per inviare la prenotazione al validatore.</noscript>
     <script>
         const API = '../api/';
+        const STORAGE_ACCESSI = 'menucraft.accessi.frontend';
         const state = {
             csrf: null,
             utente: null,
@@ -326,7 +344,83 @@ header('Content-Type: text/html; charset=utf-8');
             }
         }
 
-        async function entra(payload) {
+        function leggiAccessi() {
+            try {
+                const grezzo = localStorage.getItem(STORAGE_ACCESSI);
+                const lista = grezzo ? JSON.parse(grezzo) : [];
+                return Array.isArray(lista) ? lista.filter((voce) => voce && voce.slug && voce.matricola && voce.password) : [];
+            } catch (error) {
+                return [];
+            }
+        }
+
+        function scriviAccessi(lista) {
+            localStorage.setItem(STORAGE_ACCESSI, JSON.stringify(lista.slice(0, 12)));
+        }
+
+        function disegnaAccessi() {
+            const lista = document.getElementById('accessi-salvati');
+            const vuoti = document.getElementById('accessi-vuoti');
+            const accessi = leggiAccessi();
+            lista.replaceChildren();
+            vuoti.hidden = accessi.length > 0;
+            accessi.forEach((accesso, indice) => {
+                const bottone = document.createElement('button');
+                bottone.type = 'button';
+                bottone.className = 'accesso-salvato rounded-2xl border border-ink/10 px-3 py-3 text-left hover:border-terracotta';
+                const titolo = document.createElement('span');
+                titolo.className = 'block pr-5 text-sm font-medium';
+                titolo.textContent = accesso.nome || accesso.slug;
+                const meta = document.createElement('span');
+                meta.className = 'block text-xs text-ink/60';
+                meta.textContent = accesso.matricola + ' · ' + accesso.slug;
+                const togli = document.createElement('button');
+                togli.type = 'button';
+                togli.className = 'togli-accesso';
+                togli.setAttribute('aria-label', 'Rimuovi accesso salvato');
+                togli.textContent = '×';
+                togli.addEventListener('click', (event) => {
+                    event.stopPropagation();
+                    const aggiornati = leggiAccessi().filter((_, i) => i !== indice);
+                    scriviAccessi(aggiornati);
+                    disegnaAccessi();
+                });
+                bottone.append(titolo, meta, togli);
+                bottone.addEventListener('click', () => {
+                    document.getElementById('slug').value = accesso.slug;
+                    document.getElementById('matricola').value = accesso.matricola;
+                    document.getElementById('password').value = accesso.password;
+                    loginError.hidden = true;
+                });
+                lista.append(bottone);
+            });
+        }
+
+        function proponiSalvataggio(payload, password) {
+            const slug = payload.azienda.slug;
+            const matricola = payload.utente.matricola;
+            const gia = leggiAccessi().some((voce) => voce.slug === slug && voce.matricola === matricola);
+            if (gia) {
+                return;
+            }
+            const ok = window.confirm(
+                'Vuoi salvare ' + payload.azienda.nome + ' (' + matricola + ') tra gli accessi di questo dispositivo?',
+            );
+            if (!ok) {
+                return;
+            }
+            const lista = leggiAccessi().filter((voce) => !(voce.slug === slug && voce.matricola === matricola));
+            lista.unshift({
+                slug,
+                matricola,
+                password,
+                nome: payload.azienda.nome,
+            });
+            scriviAccessi(lista);
+            disegnaAccessi();
+        }
+
+        async function entra(payload, password) {
             if (payload.utente.ruolo !== 'dipendente') {
                 await api(API + 'logout.php', { method: 'POST' });
                 mostraLoginErrore({
@@ -335,6 +429,7 @@ header('Content-Type: text/html; charset=utf-8');
                 });
                 return;
             }
+            proponiSalvataggio(payload, password || '');
             applicaSessione(payload);
             loginView.hidden = true;
             appView.hidden = false;
@@ -899,6 +994,7 @@ header('Content-Type: text/html; charset=utf-8');
         document.getElementById('login-form').addEventListener('submit', async (event) => {
             event.preventDefault();
             loginError.hidden = true;
+            const password = document.getElementById('password').value;
             try {
                 const payload = await api(API + 'login.php', {
                     method: 'POST',
@@ -906,23 +1002,16 @@ header('Content-Type: text/html; charset=utf-8');
                     body: JSON.stringify({
                         slug: document.getElementById('slug').value,
                         matricola: document.getElementById('matricola').value,
-                        password: document.getElementById('password').value,
+                        password,
                     }),
                 });
-                await entra(payload);
+                await entra(payload, password);
             } catch (error) {
                 mostraLoginErrore({ messaggio: error.message, codice: error.codice });
             }
         });
 
-        document.querySelectorAll('.demo').forEach((bottone) => {
-            bottone.addEventListener('click', () => {
-                document.getElementById('slug').value = bottone.dataset.slug;
-                document.getElementById('matricola').value = bottone.dataset.matricola;
-                document.getElementById('password').value = 'MenuCraft!2026';
-                loginError.hidden = true;
-            });
-        });
+        disegnaAccessi();
 
         document.getElementById('weeks').addEventListener('click', async (event) => {
             const bottone = event.target.closest('[data-giorno]');

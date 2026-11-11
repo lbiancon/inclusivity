@@ -25,6 +25,31 @@ header('Content-Type: text/html; charset=utf-8');
         body { font-family: "Source Sans 3", ui-sans-serif, sans-serif; background: #efe6d2; color: #1d2420; }
         h1, h2, .font-serif { font-family: "Barlow Condensed", Impact, sans-serif; }
         .counter { background: #1d4a38; color: #f6f3ea; }
+        .logo-azienda {
+            width: 3rem !important;
+            height: 3rem !important;
+            max-width: 3rem !important;
+            max-height: 3rem !important;
+            object-fit: contain;
+            object-position: center;
+            flex-shrink: 0;
+            background: #fff;
+            border-radius: 1rem;
+            padding: 0.25rem;
+            box-shadow: 0 0 0 2px #fff;
+        }
+        .accesso-salvato { position: relative; }
+        .accesso-salvato .togli-accesso {
+            position: absolute;
+            top: 0.35rem;
+            right: 0.35rem;
+            border: 0;
+            background: transparent;
+            color: rgba(29, 36, 32, 0.45);
+            font-size: 0.75rem;
+            line-height: 1;
+            padding: 0.2rem;
+        }
     </style>
 </head>
 <body class="min-h-screen bg-cream text-ink">
@@ -46,19 +71,15 @@ header('Content-Type: text/html; charset=utf-8');
                 <button type="submit" class="w-full rounded-2xl bg-moss px-4 py-3 font-semibold text-white">Entra nel banco</button>
             </form>
             <div id="login-error" hidden class="mt-4 rounded-2xl border border-red-200 bg-red-50 p-4 text-red-900" role="alert"></div>
-            <div class="mt-6 grid gap-2 sm:grid-cols-2">
-                <button type="button" class="demo rounded-2xl border border-ink/10 px-3 py-3 text-left" data-slug="aurora-welfare" data-matricola="CAT-A">
-                    <span class="block text-sm font-medium">Caterer Aurora</span>
-                    <span class="block text-xs text-ink/60">Intranet · welfare</span>
-                </button>
-                <button type="button" class="demo rounded-2xl border border-ink/10 px-3 py-3 text-left" data-slug="officine-rossi" data-matricola="CAT-R">
-                    <span class="block text-sm font-medium">Caterer Rossi</span>
-                    <span class="block text-xs text-ink/60">Internet · wallet</span>
-                </button>
-                <button type="button" class="demo rounded-2xl border border-ink/10 px-3 py-3 text-left" data-slug="menucraft" data-matricola="ADMIN">
+            <div class="mt-6 space-y-3">
+                <p class="text-xs uppercase tracking-[0.18em] text-ink/50">Servizio</p>
+                <button type="button" id="accesso-servizio" class="w-full rounded-2xl border border-ink/10 px-3 py-3 text-left" data-slug="menucraft" data-matricola="ADMIN" data-password="MenuCraft!2026">
                     <span class="block text-sm font-medium">Servizio MenuCraft</span>
-                    <span class="block text-xs text-ink/60">Apre una cucina nuova</span>
+                    <span class="block text-xs text-ink/60">Apre e gestisce le cucine · password MenuCraft!2026</span>
                 </button>
+                <p class="text-xs uppercase tracking-[0.18em] text-ink/50">Banchi salvati su questo dispositivo</p>
+                <div id="accessi-salvati" class="grid gap-2 sm:grid-cols-2"></div>
+                <p id="accessi-vuoti" class="text-sm text-ink/60">Dopo l’accesso di un catering puoi salvare qui azienda e matricola.</p>
             </div>
         </section>
     </div>
@@ -67,7 +88,7 @@ header('Content-Type: text/html; charset=utf-8');
         <header class="counter sticky top-0 z-20">
             <div class="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-4">
                 <div class="flex items-center gap-3">
-                    <img id="azienda-logo" alt="" hidden class="h-12 w-12 rounded-2xl bg-white object-contain p-1 ring-2 ring-white">
+                    <img id="azienda-logo" alt="" hidden class="logo-azienda">
                     <div>
                         <p class="text-xs uppercase tracking-[0.22em] text-[#d7eadf]">Backend</p>
                         <h1 id="azienda-nome" class="font-serif text-3xl uppercase"></h1>
@@ -214,6 +235,7 @@ header('Content-Type: text/html; charset=utf-8');
                         </label>
                     </div>
                     <label class="mt-4 block text-sm font-semibold">Logo dell’azienda
+                        <span class="mt-1 block text-xs font-normal text-ink/60">Viene ridimensionato in un quadrato uguale per tutte le aziende, così resta allineato all’intestazione.</span>
                         <input id="logo-file" type="file" accept="image/png,image/jpeg,image/webp,image/gif" class="mt-1 block w-full text-sm">
                     </label>
                     <button type="submit" class="mt-4 w-full rounded-xl bg-moss px-4 py-3 text-sm font-semibold text-white">Salva sul backend</button>
@@ -561,13 +583,95 @@ header('Content-Type: text/html; charset=utf-8');
             disegnaVoci(lista, 'Nessuna prenotazione in questo giorno.', righe);
         }
 
-        async function entra(payload) {
+        const STORAGE_ACCESSI = 'menucraft.accessi.backend';
+
+        function leggiAccessi() {
+            try {
+                const grezzo = localStorage.getItem(STORAGE_ACCESSI);
+                const lista = grezzo ? JSON.parse(grezzo) : [];
+                return Array.isArray(lista) ? lista.filter((voce) => voce && voce.slug && voce.matricola && voce.password) : [];
+            } catch (error) {
+                return [];
+            }
+        }
+
+        function scriviAccessi(lista) {
+            localStorage.setItem(STORAGE_ACCESSI, JSON.stringify(lista.slice(0, 12)));
+        }
+
+        function disegnaAccessi() {
+            const lista = document.getElementById('accessi-salvati');
+            const vuoti = document.getElementById('accessi-vuoti');
+            const accessi = leggiAccessi().filter((voce) => !(voce.slug === 'menucraft' && voce.matricola === 'ADMIN'));
+            lista.replaceChildren();
+            vuoti.hidden = accessi.length > 0;
+            accessi.forEach((accesso, indice) => {
+                const bottone = document.createElement('button');
+                bottone.type = 'button';
+                bottone.className = 'accesso-salvato rounded-2xl border border-ink/10 px-3 py-3 text-left';
+                const titolo = document.createElement('span');
+                titolo.className = 'block pr-5 text-sm font-medium';
+                titolo.textContent = accesso.nome || accesso.slug;
+                const meta = document.createElement('span');
+                meta.className = 'block text-xs text-ink/60';
+                meta.textContent = accesso.matricola + ' · ' + accesso.slug;
+                const togli = document.createElement('button');
+                togli.type = 'button';
+                togli.className = 'togli-accesso';
+                togli.setAttribute('aria-label', 'Rimuovi accesso salvato');
+                togli.textContent = '×';
+                togli.addEventListener('click', (event) => {
+                    event.stopPropagation();
+                    const aggiornati = leggiAccessi().filter((voce) => !(voce.slug === accesso.slug && voce.matricola === accesso.matricola));
+                    scriviAccessi(aggiornati);
+                    disegnaAccessi();
+                });
+                bottone.append(titolo, meta, togli);
+                bottone.addEventListener('click', () => {
+                    document.getElementById('slug').value = accesso.slug;
+                    document.getElementById('matricola').value = accesso.matricola;
+                    document.getElementById('password').value = accesso.password;
+                    document.getElementById('login-error').hidden = true;
+                });
+                lista.append(bottone);
+            });
+        }
+
+        function proponiSalvataggio(payload, password) {
+            if (payload.utente.ruolo === 'piattaforma') {
+                return;
+            }
+            const slug = payload.azienda.slug;
+            const matricola = payload.utente.matricola;
+            const gia = leggiAccessi().some((voce) => voce.slug === slug && voce.matricola === matricola);
+            if (gia) {
+                return;
+            }
+            const ok = window.confirm(
+                'Vuoi salvare ' + payload.azienda.nome + ' (' + matricola + ') tra i banchi di questo dispositivo?',
+            );
+            if (!ok) {
+                return;
+            }
+            const lista = leggiAccessi().filter((voce) => !(voce.slug === slug && voce.matricola === matricola));
+            lista.unshift({
+                slug,
+                matricola,
+                password,
+                nome: payload.azienda.nome,
+            });
+            scriviAccessi(lista);
+            disegnaAccessi();
+        }
+
+        async function entra(payload, password) {
             mostraBanner('ok', '');
             if (payload.utente.ruolo !== 'caterer' && payload.utente.ruolo !== 'piattaforma') {
                 await api(API + 'logout.php', { method: 'POST' });
                 mostraLoginErrore({ messaggio: 'Questo ingresso è il backend. I dipendenti usano la sezione frontend.' });
                 return;
             }
+            proponiSalvataggio(payload, password || '');
             state.ruolo = payload.utente.ruolo;
             applica(payload);
             const piattaforma = payload.utente.ruolo === 'piattaforma';
@@ -597,6 +701,7 @@ header('Content-Type: text/html; charset=utf-8');
         document.getElementById('login-form').addEventListener('submit', async (event) => {
             event.preventDefault();
             document.getElementById('login-error').hidden = true;
+            const password = document.getElementById('password').value;
             try {
                 const payload = await api(API + 'login.php', {
                     method: 'POST',
@@ -604,22 +709,24 @@ header('Content-Type: text/html; charset=utf-8');
                     body: JSON.stringify({
                         slug: document.getElementById('slug').value,
                         matricola: document.getElementById('matricola').value,
-                        password: document.getElementById('password').value,
+                        password,
                     }),
                 });
-                await entra(payload);
+                await entra(payload, password);
             } catch (error) {
                 mostraLoginErrore(error);
             }
         });
 
-        document.querySelectorAll('.demo').forEach((bottone) => {
-            bottone.addEventListener('click', () => {
-                document.getElementById('slug').value = bottone.dataset.slug;
-                document.getElementById('matricola').value = bottone.dataset.matricola;
-                document.getElementById('password').value = 'MenuCraft!2026';
-            });
+        document.getElementById('accesso-servizio').addEventListener('click', () => {
+            const bottone = document.getElementById('accesso-servizio');
+            document.getElementById('slug').value = bottone.dataset.slug;
+            document.getElementById('matricola').value = bottone.dataset.matricola;
+            document.getElementById('password').value = bottone.dataset.password;
+            document.getElementById('login-error').hidden = true;
         });
+
+        disegnaAccessi();
 
         document.getElementById('regole-form').addEventListener('submit', async (event) => {
             event.preventDefault();

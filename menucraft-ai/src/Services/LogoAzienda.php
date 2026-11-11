@@ -13,6 +13,8 @@ if (!defined('MENUCRAFT_APP')) {
 
 final class LogoAzienda
 {
+    private const LATO = 192;
+
     public function __construct(private readonly PDO $pdo)
     {
     }
@@ -36,14 +38,7 @@ final class LogoAzienda
             throw new MenuRuleException('LOGO_NON_VALIDO', 'Il file non è un\'immagine.');
         }
         $tipo = $info[2] ?? 0;
-        $estensione = match ($tipo) {
-            IMAGETYPE_PNG => 'png',
-            IMAGETYPE_JPEG => 'jpg',
-            IMAGETYPE_WEBP => 'webp',
-            IMAGETYPE_GIF => 'gif',
-            default => null,
-        };
-        if ($estensione === null) {
+        if (!in_array($tipo, [IMAGETYPE_PNG, IMAGETYPE_JPEG, IMAGETYPE_WEBP, IMAGETYPE_GIF], true)) {
             throw new MenuRuleException('LOGO_NON_VALIDO', 'Il logo è png, jpg, webp o gif.');
         }
         if (($info[0] ?? 0) > 4000 || ($info[1] ?? 0) > 4000) {
@@ -54,23 +49,83 @@ final class LogoAzienda
         if (!is_dir($cartella) && !mkdir($cartella, 0775, true) && !is_dir($cartella)) {
             throw new MenuRuleException('LOGO_NON_VALIDO', 'Non riesco a conservare il logo.', 500);
         }
-        $relativo = 'assets/loghi/' . $aziendaId . '.' . $estensione;
+        $estensione = match ($tipo) {
+            IMAGETYPE_PNG => 'png',
+            IMAGETYPE_JPEG => 'jpg',
+            IMAGETYPE_WEBP => 'webp',
+            IMAGETYPE_GIF => 'gif',
+            default => 'bin',
+        };
+        $usaGd = extension_loaded('gd') && function_exists('imagecreatetruecolor');
+        $relativo = 'assets/loghi/' . $aziendaId . ($usaGd ? '.png' : '.' . $estensione);
         $destinazione = dirname(__DIR__, 2) . '/' . $relativo;
         foreach (glob($cartella . '/' . $aziendaId . '.*') ?: [] as $vecchio) {
             if (is_file($vecchio)) {
                 unlink($vecchio);
             }
         }
-        $copiato = is_uploaded_file($temporaneo)
-            ? move_uploaded_file($temporaneo, $destinazione)
-            : copy($temporaneo, $destinazione);
-        if ($copiato !== true) {
-            throw new MenuRuleException('LOGO_NON_VALIDO', 'Non riesco a conservare il logo.', 500);
+        if ($usaGd) {
+            $this->normalizza($temporaneo, $tipo, $destinazione);
+        } else {
+            $this->copia($temporaneo, $destinazione);
         }
 
         $stmt = $this->pdo->prepare('UPDATE aziende SET logo = :logo WHERE id = :id');
         $stmt->execute(['logo' => $relativo, 'id' => $aziendaId]);
 
         return $relativo;
+    }
+
+    private function copia(string $origine, string $destinazione): void
+    {
+        $copiato = is_uploaded_file($origine)
+            ? move_uploaded_file($origine, $destinazione)
+            : copy($origine, $destinazione);
+        if ($copiato !== true) {
+            throw new MenuRuleException('LOGO_NON_VALIDO', 'Non riesco a conservare il logo.', 500);
+        }
+    }
+
+    private function normalizza(string $origine, int $tipo, string $destinazione): void
+    {
+        $sorgente = false;
+        if ($tipo === IMAGETYPE_PNG && function_exists('imagecreatefrompng')) {
+            $sorgente = @imagecreatefrompng($origine);
+        } elseif ($tipo === IMAGETYPE_JPEG && function_exists('imagecreatefromjpeg')) {
+            $sorgente = @imagecreatefromjpeg($origine);
+        } elseif ($tipo === IMAGETYPE_WEBP && function_exists('imagecreatefromwebp')) {
+            $sorgente = @imagecreatefromwebp($origine);
+        } elseif ($tipo === IMAGETYPE_GIF && function_exists('imagecreatefromgif')) {
+            $sorgente = @imagecreatefromgif($origine);
+        }
+        if ($sorgente === false) {
+            $this->copia($origine, $destinazione);
+
+            return;
+        }
+
+        $larghezza = imagesx($sorgente);
+        $altezza = imagesy($sorgente);
+        $tela = imagecreatetruecolor(self::LATO, self::LATO);
+        if ($tela === false) {
+            imagedestroy($sorgente);
+            throw new MenuRuleException('LOGO_NON_VALIDO', 'Non riesco a ridimensionare il logo.', 500);
+        }
+        imagealphablending($tela, false);
+        imagesavealpha($tela, true);
+        $trasparente = imagecolorallocatealpha($tela, 255, 255, 255, 127);
+        imagefilledrectangle($tela, 0, 0, self::LATO, self::LATO, $trasparente);
+        $scala = min(self::LATO / max(1, $larghezza), self::LATO / max(1, $altezza));
+        $nuovaL = max(1, (int) round($larghezza * $scala));
+        $nuovaH = max(1, (int) round($altezza * $scala));
+        $x = (int) floor((self::LATO - $nuovaL) / 2);
+        $y = (int) floor((self::LATO - $nuovaH) / 2);
+        imagecopyresampled($tela, $sorgente, $x, $y, 0, 0, $nuovaL, $nuovaH, $larghezza, $altezza);
+        imagedestroy($sorgente);
+        $ok = imagepng($tela, $destinazione, 6);
+        imagedestroy($tela);
+        if ($ok !== true) {
+            throw new MenuRuleException('LOGO_NON_VALIDO', 'Non riesco a conservare il logo.', 500);
+        }
     }
 }
