@@ -207,17 +207,30 @@ final class MenuPublisher
             throw $e;
         }
 
+        $elencoGiorni = array_map(
+            static fn (string $giorno): string => (new DateTimeImmutable($giorno))->format('d/m/Y'),
+            $dateChiavi,
+        );
+        $messaggio = sprintf(
+            'Menu pronto per %d giorni (%s): le scelte di ogni giorno sono già nel tab Menu, le puoi ritoccare una per una.',
+            count($dateChiavi),
+            implode(', ', $elencoGiorni),
+        );
+        if ($azienda->caricaSoloGiovedi()) {
+            $messaggio .= sprintf(
+                ' I dipendenti prenotano da %s.',
+                $finestra['visibile_dal']->format('d/m/Y H:i'),
+            );
+        }
+
         return [
             'giorni' => count($dateChiavi),
+            'date' => $dateChiavi,
             'piatti' => count($righe),
             'valido_dal' => $dateChiavi[0],
             'valido_al' => $dateChiavi[array_key_last($dateChiavi)],
             'visibile_dal' => $finestra['visibile_dal']->format('Y-m-d H:i'),
-            'messaggio' => sprintf(
-                'Menu pubblicato per %d giorni. I dipendenti potranno prenotare da venerdì alle 07:00 (%s).',
-                count($dateChiavi),
-                $finestra['visibile_dal']->format('d/m/Y H:i'),
-            ),
+            'messaggio' => $messaggio,
         ];
     }
 }

@@ -265,13 +265,14 @@ final class MenuBanco
         $insert = $this->pdo->prepare(
             'INSERT INTO menu_pubblicazioni
                 (azienda_id, pubblicato_il, visibile_dal, valido_dal, valido_al, caricato_da)
-             VALUES (:azienda, :pubblicato, :visibile, :giorno, :giorno, :attore)'
+             VALUES (:azienda, :pubblicato, :visibile, :dal, :al, :attore)'
         );
         $insert->execute([
             'azienda' => $aziendaId,
             'pubblicato' => $adesso,
             'visibile' => $adesso,
-            'giorno' => $giorno,
+            'dal' => $giorno,
+            'al' => $giorno,
             'attore' => $attoreId,
         ]);
 

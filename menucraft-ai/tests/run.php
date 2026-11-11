@@ -667,6 +667,16 @@ attesaEccezione('MENU_BANCO_CHIUSO', fn () => $banco->crea($auroraId, $auroraCat
 ]), 'senza menu banco non si aggiungono piatti a mano');
 $pdo->prepare('UPDATE aziende SET menu_banco = 1 WHERE id = :id')->execute(['id' => $auroraId]);
 
+$giornoVuoto = '2026-11-27';
+$suGiornoNuovo = $banco->crea($auroraId, $auroraCaterer, [
+    'data' => $giornoVuoto,
+    'nome' => 'Lasagne della casa',
+    'categoria' => 'primo',
+    'prezzo' => '4,50',
+    'codice' => 'PR-LAS',
+]);
+verifica(count($suGiornoNuovo['piatti']) === 1 && $suGiornoNuovo['piatti'][0]['lettera'] === 'A', 'su un giorno vuoto si crea la prima voce del menu');
+
 $elencoDopo = $anagrafica->elencoSocieta();
 $slugNuova = array_column($elencoDopo, 'slug');
 verifica(in_array('qa-nuova-cucina', $slugNuova, true), 'la cucina appena creata resta nell\'elenco');

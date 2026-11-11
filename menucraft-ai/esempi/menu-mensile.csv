@@ -1,247 +1,201 @@
 data;codice;nome;categoria;prezzo
+2026-11-16;PR-MIN;"Minestrone di verdure";primo;3.50
+2026-11-16;PR-PAS;"Pasta al pomodoro";primo;3.50
+2026-11-16;SE-POL;"Petto di pollo";secondo;5.80
+2026-11-16;SE-MER;"Merluzzo al forno";secondo;8.20
+2026-11-16;CO-INS;"Insalata mista";contorno;1.80
+2026-11-16;CO-PAT;"Patate al forno";contorno;2.10
+2026-11-16;FR-MEL;"Mela";frutta;1.20
+2026-11-16;YO-NAT;"Yogurt bianco";yogurt;1.50
+2026-11-16;DE-BUD;"Budino";dessert;2.40
+2026-11-16;BE-NAT;"Acqua naturale";bevanda;0.80
+2026-11-17;PR-MIN;"Minestrone di verdure";primo;3.50
+2026-11-17;PR-PAS;"Pasta al pomodoro";primo;3.50
+2026-11-17;SE-POL;"Petto di pollo";secondo;5.80
+2026-11-17;SE-MER;"Merluzzo al forno";secondo;8.20
+2026-11-17;CO-INS;"Insalata mista";contorno;1.80
+2026-11-17;CO-PAT;"Patate al forno";contorno;2.10
+2026-11-17;FR-MEL;"Mela";frutta;1.20
+2026-11-17;YO-NAT;"Yogurt bianco";yogurt;1.50
+2026-11-17;DE-BUD;"Budino";dessert;2.40
+2026-11-17;BE-NAT;"Acqua naturale";bevanda;0.80
+2026-11-18;PR-MIN;"Minestrone di verdure";primo;3.50
+2026-11-18;PR-PAS;"Pasta al pomodoro";primo;3.50
+2026-11-18;SE-POL;"Petto di pollo";secondo;5.80
+2026-11-18;SE-MER;"Merluzzo al forno";secondo;8.20
+2026-11-18;CO-INS;"Insalata mista";contorno;1.80
+2026-11-18;CO-PAT;"Patate al forno";contorno;2.10
+2026-11-18;FR-MEL;"Mela";frutta;1.20
+2026-11-18;YO-NAT;"Yogurt bianco";yogurt;1.50
+2026-11-18;DE-BUD;"Budino";dessert;2.40
+2026-11-18;BE-NAT;"Acqua naturale";bevanda;0.80
+2026-11-19;PR-MIN;"Minestrone di verdure";primo;3.50
+2026-11-19;PR-PAS;"Pasta al pomodoro";primo;3.50
+2026-11-19;SE-POL;"Petto di pollo";secondo;5.80
+2026-11-19;SE-MER;"Merluzzo al forno";secondo;8.20
+2026-11-19;CO-INS;"Insalata mista";contorno;1.80
+2026-11-19;CO-PAT;"Patate al forno";contorno;2.10
+2026-11-19;FR-MEL;"Mela";frutta;1.20
+2026-11-19;YO-NAT;"Yogurt bianco";yogurt;1.50
+2026-11-19;DE-BUD;"Budino";dessert;2.40
+2026-11-19;BE-NAT;"Acqua naturale";bevanda;0.80
+2026-11-20;PR-MIN;"Minestrone di verdure";primo;3.50
+2026-11-20;PR-PAS;"Pasta al pomodoro";primo;3.50
+2026-11-20;SE-POL;"Petto di pollo";secondo;5.80
+2026-11-20;SE-MER;"Merluzzo al forno";secondo;8.20
+2026-11-20;CO-INS;"Insalata mista";contorno;1.80
+2026-11-20;CO-PAT;"Patate al forno";contorno;2.10
+2026-11-20;FR-MEL;"Mela";frutta;1.20
+2026-11-20;YO-NAT;"Yogurt bianco";yogurt;1.50
+2026-11-20;DE-BUD;"Budino";dessert;2.40
+2026-11-20;BE-NAT;"Acqua naturale";bevanda;0.80
+2026-11-23;PR-MIN;"Minestrone di verdure";primo;3.50
+2026-11-23;PR-PAS;"Pasta al pomodoro";primo;3.50
+2026-11-23;SE-POL;"Petto di pollo";secondo;5.80
+2026-11-23;SE-MER;"Merluzzo al forno";secondo;8.20
+2026-11-23;CO-INS;"Insalata mista";contorno;1.80
+2026-11-23;CO-PAT;"Patate al forno";contorno;2.10
+2026-11-23;FR-MEL;"Mela";frutta;1.20
+2026-11-23;YO-NAT;"Yogurt bianco";yogurt;1.50
+2026-11-23;DE-BUD;"Budino";dessert;2.40
+2026-11-23;BE-NAT;"Acqua naturale";bevanda;0.80
+2026-11-24;PR-MIN;"Minestrone di verdure";primo;3.50
+2026-11-24;PR-PAS;"Pasta al pomodoro";primo;3.50
+2026-11-24;SE-POL;"Petto di pollo";secondo;5.80
+2026-11-24;SE-MER;"Merluzzo al forno";secondo;8.20
+2026-11-24;CO-INS;"Insalata mista";contorno;1.80
+2026-11-24;CO-PAT;"Patate al forno";contorno;2.10
+2026-11-24;FR-MEL;"Mela";frutta;1.20
+2026-11-24;YO-NAT;"Yogurt bianco";yogurt;1.50
+2026-11-24;DE-BUD;"Budino";dessert;2.40
+2026-11-24;BE-NAT;"Acqua naturale";bevanda;0.80
+2026-11-25;PR-MIN;"Minestrone di verdure";primo;3.50
+2026-11-25;PR-PAS;"Pasta al pomodoro";primo;3.50
+2026-11-25;SE-POL;"Petto di pollo";secondo;5.80
+2026-11-25;SE-MER;"Merluzzo al forno";secondo;8.20
+2026-11-25;CO-INS;"Insalata mista";contorno;1.80
+2026-11-25;CO-PAT;"Patate al forno";contorno;2.10
+2026-11-25;FR-MEL;"Mela";frutta;1.20
+2026-11-25;YO-NAT;"Yogurt bianco";yogurt;1.50
+2026-11-25;DE-BUD;"Budino";dessert;2.40
+2026-11-25;BE-NAT;"Acqua naturale";bevanda;0.80
+2026-11-26;PR-MIN;"Minestrone di verdure";primo;3.50
+2026-11-26;PR-PAS;"Pasta al pomodoro";primo;3.50
+2026-11-26;SE-POL;"Petto di pollo";secondo;5.80
+2026-11-26;SE-MER;"Merluzzo al forno";secondo;8.20
+2026-11-26;CO-INS;"Insalata mista";contorno;1.80
+2026-11-26;CO-PAT;"Patate al forno";contorno;2.10
+2026-11-26;FR-MEL;"Mela";frutta;1.20
+2026-11-26;YO-NAT;"Yogurt bianco";yogurt;1.50
+2026-11-26;DE-BUD;"Budino";dessert;2.40
+2026-11-26;BE-NAT;"Acqua naturale";bevanda;0.80
+2026-11-27;PR-MIN;"Minestrone di verdure";primo;3.50
+2026-11-27;PR-PAS;"Pasta al pomodoro";primo;3.50
+2026-11-27;SE-POL;"Petto di pollo";secondo;5.80
+2026-11-27;SE-MER;"Merluzzo al forno";secondo;8.20
+2026-11-27;CO-INS;"Insalata mista";contorno;1.80
+2026-11-27;CO-PAT;"Patate al forno";contorno;2.10
+2026-11-27;FR-MEL;"Mela";frutta;1.20
+2026-11-27;YO-NAT;"Yogurt bianco";yogurt;1.50
+2026-11-27;DE-BUD;"Budino";dessert;2.40
+2026-11-27;BE-NAT;"Acqua naturale";bevanda;0.80
+2026-11-30;PR-MIN;"Minestrone di verdure";primo;3.50
+2026-11-30;PR-PAS;"Pasta al pomodoro";primo;3.50
+2026-11-30;SE-POL;"Petto di pollo";secondo;5.80
+2026-11-30;SE-MER;"Merluzzo al forno";secondo;8.20
+2026-11-30;CO-INS;"Insalata mista";contorno;1.80
+2026-11-30;CO-PAT;"Patate al forno";contorno;2.10
+2026-11-30;FR-MEL;"Mela";frutta;1.20
+2026-11-30;YO-NAT;"Yogurt bianco";yogurt;1.50
+2026-11-30;DE-BUD;"Budino";dessert;2.40
+2026-11-30;BE-NAT;"Acqua naturale";bevanda;0.80
+2026-12-01;PR-MIN;"Minestrone di verdure";primo;3.50
 2026-12-01;PR-PAS;"Pasta al pomodoro";primo;3.50
-2026-12-01;PR-RIS;"Riso allo zafferano";primo;4.20
 2026-12-01;SE-POL;"Petto di pollo";secondo;5.80
 2026-12-01;SE-MER;"Merluzzo al forno";secondo;8.20
 2026-12-01;CO-INS;"Insalata mista";contorno;1.80
 2026-12-01;CO-PAT;"Patate al forno";contorno;2.10
-2026-12-01;FR-MEL;Mela;frutta;1.20
+2026-12-01;FR-MEL;"Mela";frutta;1.20
 2026-12-01;YO-NAT;"Yogurt bianco";yogurt;1.50
+2026-12-01;DE-BUD;"Budino";dessert;2.40
 2026-12-01;BE-NAT;"Acqua naturale";bevanda;0.80
-2026-12-01;BE-FRI;"Acqua frizzante";bevanda;0.80
 2026-12-02;PR-MIN;"Minestrone di verdure";primo;3.50
 2026-12-02;PR-PAS;"Pasta al pomodoro";primo;3.50
-2026-12-02;PR-RIS;"Riso allo zafferano";primo;4.20
 2026-12-02;SE-POL;"Petto di pollo";secondo;5.80
 2026-12-02;SE-MER;"Merluzzo al forno";secondo;8.20
 2026-12-02;CO-INS;"Insalata mista";contorno;1.80
 2026-12-02;CO-PAT;"Patate al forno";contorno;2.10
-2026-12-02;FR-MEL;Mela;frutta;1.20
-2026-12-02;DE-BUD;Budino;dessert;2.40
+2026-12-02;FR-MEL;"Mela";frutta;1.20
+2026-12-02;YO-NAT;"Yogurt bianco";yogurt;1.50
+2026-12-02;DE-BUD;"Budino";dessert;2.40
 2026-12-02;BE-NAT;"Acqua naturale";bevanda;0.80
-2026-12-02;BE-FRI;"Acqua frizzante";bevanda;0.80
 2026-12-03;PR-MIN;"Minestrone di verdure";primo;3.50
 2026-12-03;PR-PAS;"Pasta al pomodoro";primo;3.50
-2026-12-03;PR-RIS;"Riso allo zafferano";primo;4.20
 2026-12-03;SE-POL;"Petto di pollo";secondo;5.80
 2026-12-03;SE-MER;"Merluzzo al forno";secondo;8.20
 2026-12-03;CO-INS;"Insalata mista";contorno;1.80
 2026-12-03;CO-PAT;"Patate al forno";contorno;2.10
+2026-12-03;FR-MEL;"Mela";frutta;1.20
 2026-12-03;YO-NAT;"Yogurt bianco";yogurt;1.50
-2026-12-03;DE-BUD;Budino;dessert;2.40
+2026-12-03;DE-BUD;"Budino";dessert;2.40
 2026-12-03;BE-NAT;"Acqua naturale";bevanda;0.80
-2026-12-03;BE-FRI;"Acqua frizzante";bevanda;0.80
 2026-12-04;PR-MIN;"Minestrone di verdure";primo;3.50
 2026-12-04;PR-PAS;"Pasta al pomodoro";primo;3.50
-2026-12-04;PR-RIS;"Riso allo zafferano";primo;4.20
 2026-12-04;SE-POL;"Petto di pollo";secondo;5.80
 2026-12-04;SE-MER;"Merluzzo al forno";secondo;8.20
 2026-12-04;CO-INS;"Insalata mista";contorno;1.80
-2026-12-04;FR-MEL;Mela;frutta;1.20
+2026-12-04;CO-PAT;"Patate al forno";contorno;2.10
+2026-12-04;FR-MEL;"Mela";frutta;1.20
 2026-12-04;YO-NAT;"Yogurt bianco";yogurt;1.50
-2026-12-04;DE-BUD;Budino;dessert;2.40
+2026-12-04;DE-BUD;"Budino";dessert;2.40
 2026-12-04;BE-NAT;"Acqua naturale";bevanda;0.80
-2026-12-04;BE-FRI;"Acqua frizzante";bevanda;0.80
 2026-12-07;PR-MIN;"Minestrone di verdure";primo;3.50
 2026-12-07;PR-PAS;"Pasta al pomodoro";primo;3.50
-2026-12-07;PR-RIS;"Riso allo zafferano";primo;4.20
+2026-12-07;SE-POL;"Petto di pollo";secondo;5.80
 2026-12-07;SE-MER;"Merluzzo al forno";secondo;8.20
 2026-12-07;CO-INS;"Insalata mista";contorno;1.80
 2026-12-07;CO-PAT;"Patate al forno";contorno;2.10
-2026-12-07;FR-MEL;Mela;frutta;1.20
+2026-12-07;FR-MEL;"Mela";frutta;1.20
 2026-12-07;YO-NAT;"Yogurt bianco";yogurt;1.50
-2026-12-07;DE-BUD;Budino;dessert;2.40
+2026-12-07;DE-BUD;"Budino";dessert;2.40
 2026-12-07;BE-NAT;"Acqua naturale";bevanda;0.80
-2026-12-07;BE-FRI;"Acqua frizzante";bevanda;0.80
 2026-12-08;PR-MIN;"Minestrone di verdure";primo;3.50
 2026-12-08;PR-PAS;"Pasta al pomodoro";primo;3.50
 2026-12-08;SE-POL;"Petto di pollo";secondo;5.80
 2026-12-08;SE-MER;"Merluzzo al forno";secondo;8.20
 2026-12-08;CO-INS;"Insalata mista";contorno;1.80
 2026-12-08;CO-PAT;"Patate al forno";contorno;2.10
-2026-12-08;FR-MEL;Mela;frutta;1.20
+2026-12-08;FR-MEL;"Mela";frutta;1.20
 2026-12-08;YO-NAT;"Yogurt bianco";yogurt;1.50
-2026-12-08;DE-BUD;Budino;dessert;2.40
+2026-12-08;DE-BUD;"Budino";dessert;2.40
 2026-12-08;BE-NAT;"Acqua naturale";bevanda;0.80
 2026-12-09;PR-MIN;"Minestrone di verdure";primo;3.50
-2026-12-09;PR-RIS;"Riso allo zafferano";primo;4.20
+2026-12-09;PR-PAS;"Pasta al pomodoro";primo;3.50
 2026-12-09;SE-POL;"Petto di pollo";secondo;5.80
 2026-12-09;SE-MER;"Merluzzo al forno";secondo;8.20
 2026-12-09;CO-INS;"Insalata mista";contorno;1.80
 2026-12-09;CO-PAT;"Patate al forno";contorno;2.10
-2026-12-09;FR-MEL;Mela;frutta;1.20
+2026-12-09;FR-MEL;"Mela";frutta;1.20
 2026-12-09;YO-NAT;"Yogurt bianco";yogurt;1.50
-2026-12-09;DE-BUD;Budino;dessert;2.40
-2026-12-09;BE-FRI;"Acqua frizzante";bevanda;0.80
+2026-12-09;DE-BUD;"Budino";dessert;2.40
+2026-12-09;BE-NAT;"Acqua naturale";bevanda;0.80
+2026-12-10;PR-MIN;"Minestrone di verdure";primo;3.50
 2026-12-10;PR-PAS;"Pasta al pomodoro";primo;3.50
-2026-12-10;PR-RIS;"Riso allo zafferano";primo;4.20
 2026-12-10;SE-POL;"Petto di pollo";secondo;5.80
 2026-12-10;SE-MER;"Merluzzo al forno";secondo;8.20
 2026-12-10;CO-INS;"Insalata mista";contorno;1.80
 2026-12-10;CO-PAT;"Patate al forno";contorno;2.10
-2026-12-10;FR-MEL;Mela;frutta;1.20
+2026-12-10;FR-MEL;"Mela";frutta;1.20
 2026-12-10;YO-NAT;"Yogurt bianco";yogurt;1.50
+2026-12-10;DE-BUD;"Budino";dessert;2.40
 2026-12-10;BE-NAT;"Acqua naturale";bevanda;0.80
-2026-12-10;BE-FRI;"Acqua frizzante";bevanda;0.80
 2026-12-11;PR-MIN;"Minestrone di verdure";primo;3.50
 2026-12-11;PR-PAS;"Pasta al pomodoro";primo;3.50
-2026-12-11;PR-RIS;"Riso allo zafferano";primo;4.20
 2026-12-11;SE-POL;"Petto di pollo";secondo;5.80
 2026-12-11;SE-MER;"Merluzzo al forno";secondo;8.20
 2026-12-11;CO-INS;"Insalata mista";contorno;1.80
 2026-12-11;CO-PAT;"Patate al forno";contorno;2.10
-2026-12-11;FR-MEL;Mela;frutta;1.20
-2026-12-11;DE-BUD;Budino;dessert;2.40
+2026-12-11;FR-MEL;"Mela";frutta;1.20
+2026-12-11;YO-NAT;"Yogurt bianco";yogurt;1.50
+2026-12-11;DE-BUD;"Budino";dessert;2.40
 2026-12-11;BE-NAT;"Acqua naturale";bevanda;0.80
-2026-12-11;BE-FRI;"Acqua frizzante";bevanda;0.80
-2026-12-14;PR-MIN;"Minestrone di verdure";primo;3.50
-2026-12-14;PR-PAS;"Pasta al pomodoro";primo;3.50
-2026-12-14;PR-RIS;"Riso allo zafferano";primo;4.20
-2026-12-14;SE-POL;"Petto di pollo";secondo;5.80
-2026-12-14;SE-MER;"Merluzzo al forno";secondo;8.20
-2026-12-14;CO-PAT;"Patate al forno";contorno;2.10
-2026-12-14;FR-MEL;Mela;frutta;1.20
-2026-12-14;YO-NAT;"Yogurt bianco";yogurt;1.50
-2026-12-14;DE-BUD;Budino;dessert;2.40
-2026-12-14;BE-NAT;"Acqua naturale";bevanda;0.80
-2026-12-14;BE-FRI;"Acqua frizzante";bevanda;0.80
-2026-12-15;PR-MIN;"Minestrone di verdure";primo;3.50
-2026-12-15;PR-PAS;"Pasta al pomodoro";primo;3.50
-2026-12-15;PR-RIS;"Riso allo zafferano";primo;4.20
-2026-12-15;SE-POL;"Petto di pollo";secondo;5.80
-2026-12-15;CO-INS;"Insalata mista";contorno;1.80
-2026-12-15;CO-PAT;"Patate al forno";contorno;2.10
-2026-12-15;FR-MEL;Mela;frutta;1.20
-2026-12-15;YO-NAT;"Yogurt bianco";yogurt;1.50
-2026-12-15;DE-BUD;Budino;dessert;2.40
-2026-12-15;BE-NAT;"Acqua naturale";bevanda;0.80
-2026-12-15;BE-FRI;"Acqua frizzante";bevanda;0.80
-2026-12-16;PR-MIN;"Minestrone di verdure";primo;3.50
-2026-12-16;PR-PAS;"Pasta al pomodoro";primo;3.50
-2026-12-16;PR-RIS;"Riso allo zafferano";primo;4.20
-2026-12-16;SE-MER;"Merluzzo al forno";secondo;8.20
-2026-12-16;CO-INS;"Insalata mista";contorno;1.80
-2026-12-16;CO-PAT;"Patate al forno";contorno;2.10
-2026-12-16;FR-MEL;Mela;frutta;1.20
-2026-12-16;YO-NAT;"Yogurt bianco";yogurt;1.50
-2026-12-16;DE-BUD;Budino;dessert;2.40
-2026-12-16;BE-NAT;"Acqua naturale";bevanda;0.80
-2026-12-16;BE-FRI;"Acqua frizzante";bevanda;0.80
-2026-12-17;PR-MIN;"Minestrone di verdure";primo;3.50
-2026-12-17;PR-PAS;"Pasta al pomodoro";primo;3.50
-2026-12-17;SE-POL;"Petto di pollo";secondo;5.80
-2026-12-17;SE-MER;"Merluzzo al forno";secondo;8.20
-2026-12-17;CO-INS;"Insalata mista";contorno;1.80
-2026-12-17;CO-PAT;"Patate al forno";contorno;2.10
-2026-12-17;FR-MEL;Mela;frutta;1.20
-2026-12-17;YO-NAT;"Yogurt bianco";yogurt;1.50
-2026-12-17;DE-BUD;Budino;dessert;2.40
-2026-12-17;BE-NAT;"Acqua naturale";bevanda;0.80
-2026-12-18;PR-MIN;"Minestrone di verdure";primo;3.50
-2026-12-18;PR-RIS;"Riso allo zafferano";primo;4.20
-2026-12-18;SE-POL;"Petto di pollo";secondo;5.80
-2026-12-18;SE-MER;"Merluzzo al forno";secondo;8.20
-2026-12-18;CO-INS;"Insalata mista";contorno;1.80
-2026-12-18;CO-PAT;"Patate al forno";contorno;2.10
-2026-12-18;FR-MEL;Mela;frutta;1.20
-2026-12-18;YO-NAT;"Yogurt bianco";yogurt;1.50
-2026-12-18;DE-BUD;Budino;dessert;2.40
-2026-12-18;BE-FRI;"Acqua frizzante";bevanda;0.80
-2026-12-21;PR-MIN;"Minestrone di verdure";primo;3.50
-2026-12-21;PR-PAS;"Pasta al pomodoro";primo;3.50
-2026-12-21;PR-RIS;"Riso allo zafferano";primo;4.20
-2026-12-21;SE-POL;"Petto di pollo";secondo;5.80
-2026-12-21;SE-MER;"Merluzzo al forno";secondo;8.20
-2026-12-21;CO-INS;"Insalata mista";contorno;1.80
-2026-12-21;CO-PAT;"Patate al forno";contorno;2.10
-2026-12-21;YO-NAT;"Yogurt bianco";yogurt;1.50
-2026-12-21;DE-BUD;Budino;dessert;2.40
-2026-12-21;BE-NAT;"Acqua naturale";bevanda;0.80
-2026-12-21;BE-FRI;"Acqua frizzante";bevanda;0.80
-2026-12-22;PR-MIN;"Minestrone di verdure";primo;3.50
-2026-12-22;PR-PAS;"Pasta al pomodoro";primo;3.50
-2026-12-22;PR-RIS;"Riso allo zafferano";primo;4.20
-2026-12-22;SE-POL;"Petto di pollo";secondo;5.80
-2026-12-22;SE-MER;"Merluzzo al forno";secondo;8.20
-2026-12-22;CO-INS;"Insalata mista";contorno;1.80
-2026-12-22;FR-MEL;Mela;frutta;1.20
-2026-12-22;YO-NAT;"Yogurt bianco";yogurt;1.50
-2026-12-22;DE-BUD;Budino;dessert;2.40
-2026-12-22;BE-NAT;"Acqua naturale";bevanda;0.80
-2026-12-22;BE-FRI;"Acqua frizzante";bevanda;0.80
-2026-12-23;PR-MIN;"Minestrone di verdure";primo;3.50
-2026-12-23;PR-PAS;"Pasta al pomodoro";primo;3.50
-2026-12-23;PR-RIS;"Riso allo zafferano";primo;4.20
-2026-12-23;SE-POL;"Petto di pollo";secondo;5.80
-2026-12-23;SE-MER;"Merluzzo al forno";secondo;8.20
-2026-12-23;CO-PAT;"Patate al forno";contorno;2.10
-2026-12-23;FR-MEL;Mela;frutta;1.20
-2026-12-23;YO-NAT;"Yogurt bianco";yogurt;1.50
-2026-12-23;DE-BUD;Budino;dessert;2.40
-2026-12-23;BE-NAT;"Acqua naturale";bevanda;0.80
-2026-12-23;BE-FRI;"Acqua frizzante";bevanda;0.80
-2026-12-24;PR-MIN;"Minestrone di verdure";primo;3.50
-2026-12-24;PR-PAS;"Pasta al pomodoro";primo;3.50
-2026-12-24;PR-RIS;"Riso allo zafferano";primo;4.20
-2026-12-24;SE-POL;"Petto di pollo";secondo;5.80
-2026-12-24;CO-INS;"Insalata mista";contorno;1.80
-2026-12-24;CO-PAT;"Patate al forno";contorno;2.10
-2026-12-24;FR-MEL;Mela;frutta;1.20
-2026-12-24;YO-NAT;"Yogurt bianco";yogurt;1.50
-2026-12-24;DE-BUD;Budino;dessert;2.40
-2026-12-24;BE-NAT;"Acqua naturale";bevanda;0.80
-2026-12-24;BE-FRI;"Acqua frizzante";bevanda;0.80
-2026-12-25;PR-MIN;"Minestrone di verdure";primo;3.50
-2026-12-25;PR-PAS;"Pasta al pomodoro";primo;3.50
-2026-12-25;PR-RIS;"Riso allo zafferano";primo;4.20
-2026-12-25;SE-MER;"Merluzzo al forno";secondo;8.20
-2026-12-25;CO-INS;"Insalata mista";contorno;1.80
-2026-12-25;CO-PAT;"Patate al forno";contorno;2.10
-2026-12-25;FR-MEL;Mela;frutta;1.20
-2026-12-25;YO-NAT;"Yogurt bianco";yogurt;1.50
-2026-12-25;DE-BUD;Budino;dessert;2.40
-2026-12-25;BE-NAT;"Acqua naturale";bevanda;0.80
-2026-12-25;BE-FRI;"Acqua frizzante";bevanda;0.80
-2026-12-28;PR-PAS;"Pasta al pomodoro";primo;3.50
-2026-12-28;PR-RIS;"Riso allo zafferano";primo;4.20
-2026-12-28;SE-POL;"Petto di pollo";secondo;5.80
-2026-12-28;SE-MER;"Merluzzo al forno";secondo;8.20
-2026-12-28;CO-INS;"Insalata mista";contorno;1.80
-2026-12-28;CO-PAT;"Patate al forno";contorno;2.10
-2026-12-28;FR-MEL;Mela;frutta;1.20
-2026-12-28;YO-NAT;"Yogurt bianco";yogurt;1.50
-2026-12-28;BE-NAT;"Acqua naturale";bevanda;0.80
-2026-12-28;BE-FRI;"Acqua frizzante";bevanda;0.80
-2026-12-29;PR-MIN;"Minestrone di verdure";primo;3.50
-2026-12-29;PR-PAS;"Pasta al pomodoro";primo;3.50
-2026-12-29;PR-RIS;"Riso allo zafferano";primo;4.20
-2026-12-29;SE-POL;"Petto di pollo";secondo;5.80
-2026-12-29;SE-MER;"Merluzzo al forno";secondo;8.20
-2026-12-29;CO-INS;"Insalata mista";contorno;1.80
-2026-12-29;CO-PAT;"Patate al forno";contorno;2.10
-2026-12-29;FR-MEL;Mela;frutta;1.20
-2026-12-29;DE-BUD;Budino;dessert;2.40
-2026-12-29;BE-NAT;"Acqua naturale";bevanda;0.80
-2026-12-29;BE-FRI;"Acqua frizzante";bevanda;0.80
-2026-12-30;PR-MIN;"Minestrone di verdure";primo;3.50
-2026-12-30;PR-PAS;"Pasta al pomodoro";primo;3.50
-2026-12-30;PR-RIS;"Riso allo zafferano";primo;4.20
-2026-12-30;SE-POL;"Petto di pollo";secondo;5.80
-2026-12-30;SE-MER;"Merluzzo al forno";secondo;8.20
-2026-12-30;CO-INS;"Insalata mista";contorno;1.80
-2026-12-30;CO-PAT;"Patate al forno";contorno;2.10
-2026-12-30;YO-NAT;"Yogurt bianco";yogurt;1.50
-2026-12-30;DE-BUD;Budino;dessert;2.40
-2026-12-30;BE-NAT;"Acqua naturale";bevanda;0.80
-2026-12-30;BE-FRI;"Acqua frizzante";bevanda;0.80
-2026-12-31;PR-MIN;"Minestrone di verdure";primo;3.50
-2026-12-31;PR-PAS;"Pasta al pomodoro";primo;3.50
-2026-12-31;PR-RIS;"Riso allo zafferano";primo;4.20
-2026-12-31;SE-POL;"Petto di pollo";secondo;5.80
-2026-12-31;SE-MER;"Merluzzo al forno";secondo;8.20
-2026-12-31;CO-INS;"Insalata mista";contorno;1.80
-2026-12-31;FR-MEL;Mela;frutta;1.20
-2026-12-31;YO-NAT;"Yogurt bianco";yogurt;1.50
-2026-12-31;DE-BUD;Budino;dessert;2.40
-2026-12-31;BE-NAT;"Acqua naturale";bevanda;0.80
-2026-12-31;BE-FRI;"Acqua frizzante";bevanda;0.80

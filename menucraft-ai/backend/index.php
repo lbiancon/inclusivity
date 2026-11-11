@@ -328,7 +328,7 @@ header('Content-Type: text/html; charset=utf-8');
                 <div class="rounded-3xl border border-[#d5cbb8] bg-white p-5">
                     <h2 class="font-serif text-3xl uppercase">Carica file settimanale o mensile</h2>
                     <div id="upload-window" class="mt-3 rounded-2xl border border-[#d5cbb8] bg-cream px-4 py-3 text-sm font-medium text-ink"></div>
-                    <p class="mt-2 text-sm text-ink/60">Scegli il CSV o Excel, poi premi Carica menu. I modelli pronti si scaricano qui sotto. Un .xls vecchio va salvato come .xlsx. La finestra di caricamento dipende dalla regola scelta in Regole.</p>
+                    <p class="mt-2 text-sm text-ink/60">Scegli il CSV o Excel, poi premi Carica menu: per ogni data del file il tab Menu si riempie subito con tutte le scelte del giorno, non solo il catalogo. Poi puoi ritoccare un giorno alla volta. I modelli pronti sono qui sotto. Un .xls vecchio va salvato come .xlsx.</p>
                     <div class="mt-3 flex flex-wrap gap-2 text-sm">
                         <a class="rounded-full border border-ink/15 px-3 py-2 font-semibold" href="../esempi/menu-settimanale.csv" download>Scarica menu settimanale</a>
                         <a class="rounded-full border border-ink/15 px-3 py-2 font-semibold" href="../esempi/menu-mensile.csv" download>Scarica menu mensile</a>
@@ -854,7 +854,12 @@ header('Content-Type: text/html; charset=utf-8');
             body.append('menu', input.files[0]);
             try {
                 const payload = await api(API + 'upload-excel.php', { method: 'POST', body });
+                state.csrf = payload.csrf || state.csrf;
                 input.value = '';
+                const primoGiorno = payload.pubblicazione?.valido_dal || payload.pubblicazione?.date?.[0];
+                if (primoGiorno) {
+                    document.getElementById('menu-giorno').value = primoGiorno;
+                }
                 await caricaMenu();
                 mostraBanner('ok', payload.pubblicazione.messaggio);
             } catch (error) {
