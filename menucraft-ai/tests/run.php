@@ -15,6 +15,7 @@ use MenuCraft\Enums\PortataType;
 use MenuCraft\Models\AziendaConfig;
 use MenuCraft\Services\Anagrafica;
 use MenuCraft\Services\AuthService;
+use MenuCraft\Services\CalendarioChiusure;
 use MenuCraft\Services\PrenotazioniAzienda;
 use MenuCraft\Services\KitchenSummary;
 use MenuCraft\Services\RegoleAzienda;
@@ -418,12 +419,33 @@ verifica(
 );
 verifica($annullo['annullato'] === true, 'annullo prenotazione');
 
-$pdo->prepare('INSERT INTO calendario_chiusure (azienda_id, data_chiusura, descrizione) VALUES (?, ?, ?)')
-    ->execute([$auroraId, '2026-11-16', 'Festa patronale QA']);
+$calendario = new CalendarioChiusure($pdo);
+$patronale = $calendario->aggiungi($auroraId, [
+    'data' => '2026-11-16',
+    'descrizione' => 'Festa patronale QA',
+]);
+verifica($patronale['data'] === '2026-11-16', 'chiusura del servizio salvata');
 $motivo = $validator->motivoCalendario($auroraId, new DateTimeImmutable('2026-11-16', $fuso));
 verifica(is_string($motivo) && str_contains($motivo, 'Festa patronale QA'), 'chiusura di tenant');
 $motivoRossi = $validator->motivoCalendario($rossiId, new DateTimeImmutable('2026-11-16', $fuso));
 verifica($motivoRossi === null, 'la chiusura non trapela sull\'altro tenant');
+$elencoChiusure = $calendario->elenco($auroraId);
+verifica(count(array_filter($elencoChiusure['proprie'], static fn (array $voce): bool => $voce['data'] === '2026-11-16')) === 1, 'elenco chiusure proprie');
+verifica($elencoChiusure['nazionali'] !== [], 'feste nazionali in sola lettura');
+$calendario->togli($auroraId, (int) $patronale['id']);
+verifica($validator->motivoCalendario($auroraId, new DateTimeImmutable('2026-11-16', $fuso)) === null, 'chiusura del servizio tolta');
+attesaEccezione('CHIUSURA_NON_NECESSARIA', fn () => $calendario->aggiungi($auroraId, [
+    'data' => '2026-11-14',
+    'descrizione' => 'Sabato inutile',
+]), 'sabato non si segna come chiusura');
+$nazionaleId = (int) ($elencoChiusure['nazionali'][0]['id'] ?? 0);
+if ($nazionaleId > 0) {
+    attesaEccezione('CHIUSURA_NON_TROVATA', fn () => $calendario->togli($auroraId, $nazionaleId), 'le feste nazionali non si cancellano dal banco');
+}
+$calendario->aggiungi($auroraId, [
+    'data' => '2026-11-16',
+    'descrizione' => 'Festa patronale QA',
+]);
 
 $auth = new AuthService($pdo);
 $login = $auth->login('qa-rossi', 'DIP', 'MenuCraft!2026');

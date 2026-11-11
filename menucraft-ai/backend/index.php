@@ -267,6 +267,23 @@ header('Content-Type: text/html; charset=utf-8');
                 </section>
             </form>
             <section data-pannello="regole" class="rounded-3xl border border-[#d5cbb8] bg-white p-5">
+                <h2 class="font-serif text-3xl uppercase">Giorni di chiusura</h2>
+                <p class="mt-2 text-sm text-ink/70">Sabato, domenica e le feste nazionali valgono per tutti. Qui il servizio segna le sue chiusure (ponte, patrono, ferie): in quei giorni non si prenota e il menu non entra.</p>
+                <form id="chiusura-form" class="mt-4 grid gap-3 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
+                    <label class="text-sm font-semibold">Data
+                        <input id="chiusura-data" type="date" required class="mt-1 w-full rounded-xl border border-ink/15 bg-cream px-3 py-2">
+                    </label>
+                    <label class="text-sm font-semibold">Motivo
+                        <input id="chiusura-descrizione" maxlength="160" class="mt-1 w-full rounded-xl border border-ink/15 bg-cream px-3 py-2" placeholder="Festa patronale, ponte, ferie…">
+                    </label>
+                    <button type="submit" class="rounded-xl bg-moss px-4 py-3 text-sm font-semibold text-white">Aggiungi chiusura</button>
+                </form>
+                <h3 class="mt-6 text-sm font-semibold uppercase tracking-wider text-ink/50">Chiusure di questo servizio</h3>
+                <ul id="chiusure-proprie" class="mt-2 space-y-2 text-sm"></ul>
+                <h3 class="mt-6 text-sm font-semibold uppercase tracking-wider text-ink/50">Feste nazionali (solo lettura)</h3>
+                <ul id="chiusure-nazionali" class="mt-2 space-y-2 text-sm text-ink/70"></ul>
+            </section>
+            <section data-pannello="regole" class="rounded-3xl border border-[#d5cbb8] bg-white p-5">
                 <h2 class="font-serif text-3xl uppercase">Logo dell’azienda</h2>
                 <p class="mt-2 text-sm text-ink/70">Viene ridimensionato in un quadrato uguale per tutte le aziende, così resta allineato all’intestazione.</p>
                 <form id="logo-form" class="mt-4 flex flex-col gap-3 sm:flex-row sm:items-end">
@@ -743,6 +760,7 @@ header('Content-Type: text/html; charset=utf-8');
             await caricaUtenti();
             await caricaPrenotazioni();
             await caricaMenu();
+            await caricaChiusure();
         }
 
         document.getElementById('login-form').addEventListener('submit', async (event) => {
@@ -1092,6 +1110,80 @@ header('Content-Type: text/html; charset=utf-8');
                 bottone.hidden = !attivo;
             });
         }
+
+        function formatDataIt(iso) {
+            const parti = String(iso).split('-');
+            if (parti.length !== 3) {
+                return iso;
+            }
+            return parti[2] + '/' + parti[1] + '/' + parti[0];
+        }
+
+        function disegnaChiusure(chiusure) {
+            const proprie = document.getElementById('chiusure-proprie');
+            const nazionali = document.getElementById('chiusure-nazionali');
+            const righeProprie = (chiusure.proprie || []).map((voce) => {
+                const item = document.createElement('li');
+                item.className = 'flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-cream px-4 py-3';
+                const testo = document.createElement('span');
+                testo.textContent = formatDataIt(voce.data) + ' · ' + voce.descrizione;
+                const togli = document.createElement('button');
+                togli.type = 'button';
+                togli.className = 'rounded-full border border-ink/15 px-3 py-1';
+                togli.textContent = 'Togli';
+                togli.addEventListener('click', async () => {
+                    try {
+                        const payload = await api(API + 'chiusure.php', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ azione: 'togli', id: voce.id }),
+                        });
+                        state.csrf = payload.csrf || state.csrf;
+                        disegnaChiusure(payload.chiusure);
+                        mostraBanner('ok', payload.messaggio);
+                    } catch (error) {
+                        mostraBanner('errore', error.message);
+                    }
+                });
+                item.append(testo, togli);
+                return item;
+            });
+            disegnaVoci(proprie, 'Nessuna chiusura propria: solo weekend e feste nazionali.', righeProprie);
+            const righeNazionali = (chiusure.nazionali || []).map((voce) => {
+                const item = document.createElement('li');
+                item.className = 'rounded-2xl border border-ink/10 px-4 py-3';
+                item.textContent = formatDataIt(voce.data) + ' · ' + voce.descrizione;
+                return item;
+            });
+            disegnaVoci(nazionali, 'Nessuna festa nazionale nel periodo mostrato.', righeNazionali);
+        }
+
+        async function caricaChiusure() {
+            const payload = await api(API + 'chiusure.php');
+            state.csrf = payload.csrf || state.csrf;
+            disegnaChiusure(payload.chiusure);
+        }
+
+        document.getElementById('chiusura-form').addEventListener('submit', async (event) => {
+            event.preventDefault();
+            try {
+                const payload = await api(API + 'chiusure.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        azione: 'aggiungi',
+                        data: document.getElementById('chiusura-data').value,
+                        descrizione: document.getElementById('chiusura-descrizione').value,
+                    }),
+                });
+                state.csrf = payload.csrf || state.csrf;
+                document.getElementById('chiusura-form').reset();
+                disegnaChiusure(payload.chiusure);
+                mostraBanner('ok', payload.messaggio);
+            } catch (error) {
+                mostraBanner('errore', error.message);
+            }
+        });
 
         document.getElementById('utente-annulla').addEventListener('click', resetUtente);
 
