@@ -79,7 +79,7 @@ final class Installer
                 slug VARCHAR(60) NOT NULL,
                 tipo_pagamento VARCHAR(20) NOT NULL,
                 max_scelte TINYINT UNSIGNED NOT NULL DEFAULT 5,
-                min_scelte TINYINT UNSIGNED NOT NULL DEFAULT 5,
+                min_scelte TINYINT UNSIGNED NOT NULL DEFAULT 1,
                 permetti_doppio_primo TINYINT(1) NOT NULL DEFAULT 0,
                 permetti_doppio_secondo TINYINT(1) NOT NULL DEFAULT 0,
                 permetti_doppio_contorno TINYINT(1) NOT NULL DEFAULT 0,
@@ -496,9 +496,14 @@ final class Installer
             $this->pdo->exec(
                 'UPDATE aziende
                  SET min_scelte = 1
-                 WHERE bevanda_obbligatoria = 0 AND min_scelte = 1'
+                 WHERE bevanda_obbligatoria = 0'
             );
         }
+        $this->pdo->exec(
+            'UPDATE aziende
+             SET min_scelte = 1
+             WHERE bevanda_obbligatoria = 0 AND min_scelte = max_scelte AND max_scelte >= 5'
+        );
         try {
             $this->pdo->exec('ALTER TABLE utenti DROP CHECK chk_pagamento_utente');
         } catch (\Throwable) {

@@ -60,13 +60,18 @@ final class MenuPublisher
 
         foreach ($righe as $riga) {
             $chiaveData = $riga->data->format('Y-m-d');
+            $chiavePiatto = PiattoArchivio::codiceEffimero($riga->codice)
+                ? PiattoArchivio::normalizzaNome($riga->nome) . '|' . $riga->categoria->value
+                : $riga->codice;
             $firma = $riga->nome . '|' . $riga->categoria->value . '|' . $riga->prezzo;
-            if (isset($definiti[$riga->codice]) && $definiti[$riga->codice] !== $firma) {
-                $errori[] = 'Riga ' . $riga->riga . ': il codice ' . $riga->codice . ' è definito in modo contraddittorio.';
+            if ($riga->codice !== '' && !PiattoArchivio::codiceEffimero($riga->codice)) {
+                if (isset($definiti[$riga->codice]) && $definiti[$riga->codice] !== $firma) {
+                    $errori[] = 'Riga ' . $riga->riga . ': il codice ' . $riga->codice . ' è definito in modo contraddittorio.';
+                }
+                $definiti[$riga->codice] = $firma;
             }
-            $definiti[$riga->codice] = $firma;
 
-            $coppia = $chiaveData . '|' . $riga->codice;
+            $coppia = $chiaveData . '|' . $chiavePiatto;
             if (isset($visti[$coppia])) {
                 $errori[] = 'Riga ' . $riga->riga . ': piatto duplicato nello stesso giorno.';
             }
@@ -86,76 +91,25 @@ final class MenuPublisher
 
         $this->pdo->beginTransaction();
         try {
-            $idPerCodice = [];
-            $cerca = $this->pdo->prepare(
-                'SELECT id, prezzo FROM piatti WHERE azienda_id = :azienda AND codice = :codice'
-            );
-            $inserisciPiatto = $this->pdo->prepare(
-                'INSERT INTO piatti (azienda_id, codice, nome, categoria, prezzo)
-                 VALUES (:azienda, :codice, :nome, :categoria, :prezzo)'
-            );
-            $aggiorna = $this->pdo->prepare(
-                'UPDATE piatti
-                 SET nome = :nome, categoria = :categoria, prezzo = :prezzo
-                 WHERE id = :id AND azienda_id = :azienda'
-            );
-            $aggiornaSenzaPrezzo = $this->pdo->prepare(
-                'UPDATE piatti
-                 SET nome = :nome, categoria = :categoria
-                 WHERE id = :id AND azienda_id = :azienda'
-            );
-            $prezzoNoto = $this->pdo->prepare(
-                'SELECT prezzo FROM piatti
-                 WHERE azienda_id = :azienda AND nome = :nome AND categoria = :categoria
-                 ORDER BY id DESC
-                 LIMIT 1'
-            );
+            $archivio = new PiattoArchivio($this->pdo);
+            $archivio->unificaDuplicati($aziendaId);
+            $idPerRiga = [];
 
-            foreach ($righe as $riga) {
-                if (isset($idPerCodice[$riga->codice])) {
+            foreach ($righe as $indice => $riga) {
+                $chiaveCache = PiattoArchivio::codiceEffimero($riga->codice)
+                    ? PiattoArchivio::normalizzaNome($riga->nome) . '|' . $riga->categoria->value
+                    : $riga->codice;
+                if (isset($idPerRiga[$chiaveCache])) {
                     continue;
                 }
-                $cerca->execute(['azienda' => $aziendaId, 'codice' => $riga->codice]);
-                $esistente = $cerca->fetch();
-                if ($esistente !== false) {
-                    if ($riga->prezzo === '') {
-                        $aggiornaSenzaPrezzo->execute([
-                            'nome' => $riga->nome,
-                            'categoria' => $riga->categoria->value,
-                            'id' => (int) $esistente['id'],
-                            'azienda' => $aziendaId,
-                        ]);
-                    } else {
-                        $aggiorna->execute([
-                            'nome' => $riga->nome,
-                            'categoria' => $riga->categoria->value,
-                            'prezzo' => $riga->prezzo,
-                            'id' => (int) $esistente['id'],
-                            'azienda' => $aziendaId,
-                        ]);
-                    }
-                    $idPerCodice[$riga->codice] = (int) $esistente['id'];
-                    continue;
-                }
-
-                $prezzo = $riga->prezzo;
-                if ($prezzo === '') {
-                    $prezzoNoto->execute([
-                        'azienda' => $aziendaId,
-                        'nome' => $riga->nome,
-                        'categoria' => $riga->categoria->value,
-                    ]);
-                    $trovato = $prezzoNoto->fetchColumn();
-                    $prezzo = $trovato === false ? '0.00' : (string) $trovato;
-                }
-                $inserisciPiatto->execute([
-                    'azienda' => $aziendaId,
-                    'codice' => $riga->codice,
-                    'nome' => $riga->nome,
-                    'categoria' => $riga->categoria->value,
-                    'prezzo' => $prezzo,
-                ]);
-                $idPerCodice[$riga->codice] = (int) $this->pdo->lastInsertId();
+                $idPerRiga[$chiaveCache] = $archivio->trovaOCrea(
+                    $aziendaId,
+                    $riga->nome,
+                    $riga->categoria,
+                    $riga->prezzo,
+                    $riga->codice,
+                    $riga->prezzo !== '',
+                );
             }
 
             $dateChiavi = array_keys($date);
@@ -186,11 +140,21 @@ final class MenuPublisher
                 'INSERT INTO menu_voci (azienda_id, pubblicazione_id, piatto_id, data_pasto)
                  VALUES (:azienda, :pubblicazione, :piatto, :data)'
             );
+            $vistiGiorno = [];
             foreach ($righe as $riga) {
+                $chiaveCache = PiattoArchivio::codiceEffimero($riga->codice)
+                    ? PiattoArchivio::normalizzaNome($riga->nome) . '|' . $riga->categoria->value
+                    : $riga->codice;
+                $piattoId = $idPerRiga[$chiaveCache];
+                $chiaveVoce = $riga->data->format('Y-m-d') . '|' . $piattoId;
+                if (isset($vistiGiorno[$chiaveVoce])) {
+                    continue;
+                }
+                $vistiGiorno[$chiaveVoce] = true;
                 $inserisci->execute([
                     'azienda' => $aziendaId,
                     'pubblicazione' => $pubblicazioneId,
-                    'piatto' => $idPerCodice[$riga->codice],
+                    'piatto' => $piattoId,
                     'data' => $riga->data->format('Y-m-d'),
                 ]);
             }

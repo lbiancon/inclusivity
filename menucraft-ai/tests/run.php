@@ -299,8 +299,8 @@ $pdo->prepare('DELETE FROM login_tentativi WHERE azienda_slug LIKE :slug')->exec
 function creaTenant(PDO $pdo, string $slug, string $tipo, bool $doppioPrimo, bool $doppioContorno, int $wallet): array
 {
     $azienda = $pdo->prepare(
-        'INSERT INTO aziende (nome, slug, tipo_pagamento, max_scelte, permetti_doppio_primo, permetti_doppio_contorno, limite_oggi, limite_domani, bevanda_obbligatoria, caricamento_menu)
-         VALUES (:nome, :slug, :tipo, 5, :primo, :contorno, \'09:30:00\', \'18:00:00\', 0, \'giovedi\')'
+        'INSERT INTO aziende (nome, slug, tipo_pagamento, max_scelte, min_scelte, permetti_doppio_primo, permetti_doppio_contorno, limite_oggi, limite_domani, bevanda_obbligatoria, caricamento_menu)
+         VALUES (:nome, :slug, :tipo, 5, 1, :primo, :contorno, \'09:30:00\', \'18:00:00\', 0, \'giovedi\')'
     );
     $azienda->execute([
         'nome' => $slug,
@@ -438,7 +438,7 @@ verifica($elencoChiusure['nazionali'] !== [], 'feste nazionali in sola lettura')
 $calendario->togli($auroraId, (int) $patronale['id']);
 verifica($validator->motivoCalendario($auroraId, new DateTimeImmutable('2026-11-16', $fuso)) === null, 'chiusura del servizio tolta');
 attesaEccezione('CHIUSURA_NON_NECESSARIA', fn () => $calendario->aggiungi($auroraId, [
-    'data' => '2026-11-14',
+    'data' => '2026-11-21',
     'descrizione' => 'Sabato inutile',
 ]), 'sabato non si segna come chiusura se resta chiuso');
 $nazionaleId = (int) ($elencoChiusure['nazionali'][0]['id'] ?? 0);
@@ -456,7 +456,7 @@ if ($nazionaleData !== '') {
     verifica($validator->motivoCalendario($auroraId, new DateTimeImmutable($nazionaleData, $fuso)) !== null, 'togliendo la deroga la festa torna chiusa');
 }
 $pdo->prepare('UPDATE aziende SET apri_sabato = 1 WHERE id = :id')->execute(['id' => $auroraId]);
-verifica($validator->motivoCalendario($auroraId, new DateTimeImmutable('2026-11-14', $fuso)) === null, 'con apri_sabato il sabato è lavorativo');
+verifica($validator->motivoCalendario($auroraId, new DateTimeImmutable('2026-11-21', $fuso)) === null, 'con apri_sabato il sabato è lavorativo');
 $pdo->prepare('UPDATE aziende SET apri_sabato = 0 WHERE id = :id')->execute(['id' => $auroraId]);
 $calendario->aggiungi($auroraId, [
     'data' => '2026-11-16',
@@ -503,6 +503,7 @@ verifica($conteggioRossi > 0 && $conteggioAurora === 0, 'il menu caricato resta 
 
 $pdo->prepare('INSERT INTO piatti (azienda_id, codice, nome, categoria, prezzo) VALUES (?, ?, ?, ?, ?)')
     ->execute([$rossiId, 'OLD-POLLO', 'Pollo arrosto', 'secondo', '9.90']);
+$conteggioPrimaGriglia = (int) $pdo->query('SELECT COUNT(*) FROM piatti WHERE azienda_id = ' . $rossiId)->fetchColumn();
 $settimana = tempnam(sys_get_temp_dir(), 'mc') . '.xlsx';
 scriviXlsx($settimana, [
     ['Menu Mensa dal 16 al 20 novembre 2026'],
@@ -512,12 +513,36 @@ scriviXlsx($settimana, [
 ]);
 $pubblicataGriglia = $publisher->pubblica($rossiId, $rossiCaterer, $settimana, 'template-giovedi.xlsx', $giovediSera);
 verifica($pubblicataGriglia['giorni'] === 2, 'template settimanale pubblicato');
-$prezzoRiusato = (string) $pdo->query('SELECT prezzo FROM piatti WHERE azienda_id = ' . $rossiId . " AND codice = 'D-20261116'")->fetchColumn();
-$prezzoNuovo = (string) $pdo->query('SELECT prezzo FROM piatti WHERE azienda_id = ' . $rossiId . " AND codice = 'A-20261116'")->fetchColumn();
-verifica($prezzoRiusato === '9.90' && $prezzoNuovo === '0.00', 'prezzo noto riusato, piatto nuovo a 0,00');
+$prezzoPollo = (string) $pdo->query('SELECT prezzo FROM piatti WHERE azienda_id = ' . $rossiId . " AND codice = 'OLD-POLLO'")->fetchColumn();
+$vocePollo = (int) $pdo->query(
+    'SELECT COUNT(*) FROM menu_voci v INNER JOIN piatti p ON p.id = v.piatto_id
+     WHERE v.azienda_id = ' . $rossiId . " AND v.data_pasto = '2026-11-16' AND p.codice = 'OLD-POLLO'"
+)->fetchColumn();
+$tortelli = (string) $pdo->query(
+    'SELECT prezzo FROM piatti WHERE azienda_id = ' . $rossiId . " AND LOWER(TRIM(nome)) = 'tortelli di zucca'"
+)->fetchColumn();
+$conteggioDopoGriglia = (int) $pdo->query('SELECT COUNT(*) FROM piatti WHERE azienda_id = ' . $rossiId)->fetchColumn();
+verifica(
+    $prezzoPollo === '9.90' && $vocePollo === 1 && $tortelli === '0.00' && $conteggioDopoGriglia === $conteggioPrimaGriglia + 2,
+    'prezzo noto riusato per nome, nuovi piatti senza moltiplicare il pollo',
+);
+$publisher->pubblica($rossiId, $rossiCaterer, $settimana, 'template-giovedi.xlsx', $giovediSera);
+$conteggioRicarica = (int) $pdo->query('SELECT COUNT(*) FROM piatti WHERE azienda_id = ' . $rossiId)->fetchColumn();
+verifica($conteggioRicarica === $conteggioDopoGriglia, 'ricaricare la settimana non duplica il catalogo');
 $pubblicataAurora = $publisher->pubblica($auroraId, $auroraCaterer, $settimana, 'template-giovedi.xlsx', $giovediSera);
 verifica($pubblicataAurora['giorni'] === 1 && $pubblicataAurora['valido_dal'] === '2026-11-17', 'il lunedì chiuso non entra nel menu');
 unlink($settimana);
+
+$csvSenzaCodice = tempnam(sys_get_temp_dir(), 'mc') . '.csv';
+file_put_contents($csvSenzaCodice, "data,nome,categoria,prezzo\n2026-11-19,Zuppa di ceci,primo,3.40\n");
+$senzaCodice = $publisher->pubblica($rossiId, $rossiCaterer, $csvSenzaCodice, 'senza-codice.csv', $giovediSera);
+verifica($senzaCodice['giorni'] === 1, 'file senza colonna codice accettato');
+$publisher->pubblica($rossiId, $rossiCaterer, $csvSenzaCodice, 'senza-codice.csv', $giovediSera);
+$ceci = (int) $pdo->query(
+    'SELECT COUNT(*) FROM piatti WHERE azienda_id = ' . $rossiId . " AND LOWER(TRIM(nome)) = 'zuppa di ceci'"
+)->fetchColumn();
+verifica($ceci === 1, 'stesso piatto senza codice resta uno solo al ricarico');
+unlink($csvSenzaCodice);
 
 $cucina = new KitchenSummary($pdo);
 $auroraCucina = $cucina->perGiorno($auroraId, '2026-11-13');
@@ -666,18 +691,59 @@ $validator->validaQuantita($aperta, [
 ]);
 
 $banco = new MenuBanco($pdo, $validator);
-$menuGiorno = $banco->giorno($auroraId, '2026-11-13');
+$giornoBanco = '2026-12-01';
+$pubblicazioneFutura = $pdo->prepare(
+    'INSERT INTO menu_pubblicazioni (azienda_id, pubblicato_il, visibile_dal, valido_dal, valido_al, caricato_da)
+     VALUES (?, ?, ?, ?, ?, ?)'
+);
+$pubblicazioneFutura->execute([$auroraId, '2026-11-16 19:30:00', '2026-11-17 07:00:00', $giornoBanco, $giornoBanco, $auroraCaterer]);
+$pubIdFutura = (int) $pdo->lastInsertId();
+$voceFutura = $pdo->prepare(
+    'INSERT INTO menu_voci (azienda_id, pubblicazione_id, piatto_id, data_pasto) VALUES (?, ?, ?, ?)'
+);
+foreach ($idsAurora as $piattoId) {
+    $voceFutura->execute([$auroraId, $pubIdFutura, $piattoId, $giornoBanco]);
+}
+$menuGiorno = $banco->giorno($auroraId, $giornoBanco);
 $lettere = array_column($menuGiorno['piatti'], 'lettera');
 $codiciMenu = array_column($menuGiorno['piatti'], 'codice');
 verifica(in_array('A', $lettere, true) && in_array('PR1', $codiciMenu, true) && !in_array('J', $lettere, true), 'lettera del pasto accanto al codice');
 $conPera = $banco->crea($auroraId, $auroraCaterer, [
-    'data' => '2026-11-13',
+    'data' => $giornoBanco,
     'nome' => 'Pera',
     'categoria' => 'frutta',
     'prezzo' => '1,00',
     'codice' => 'FR1',
 ]);
 verifica(count($conPera['piatti']) === count($menuGiorno['piatti']) + 1, 'piatto creato nel menu del giorno');
+$piattiPrimaSenzaCodice = (int) $pdo->query('SELECT COUNT(*) FROM piatti WHERE azienda_id = ' . $auroraId)->fetchColumn();
+$banco->crea($auroraId, $auroraCaterer, [
+    'data' => '2026-12-02',
+    'nome' => 'Pera',
+    'categoria' => 'frutta',
+    'prezzo' => '1,00',
+]);
+$banco->crea($auroraId, $auroraCaterer, [
+    'data' => '2026-12-03',
+    'nome' => 'Pera',
+    'categoria' => 'frutta',
+    'prezzo' => '1,10',
+]);
+$pere = (int) $pdo->query(
+    'SELECT COUNT(*) FROM piatti WHERE azienda_id = ' . $auroraId . " AND LOWER(TRIM(nome)) = 'pera' AND categoria = 'frutta'"
+)->fetchColumn();
+verifica($pere === 1 && (int) $pdo->query('SELECT COUNT(*) FROM piatti WHERE azienda_id = ' . $auroraId)->fetchColumn() === $piattiPrimaSenzaCodice, 'crea senza codice riusa il piatto per nome');
+$pdo->prepare('INSERT INTO piatti (azienda_id, codice, nome, categoria, prezzo) VALUES (?, ?, ?, ?, ?)')
+    ->execute([$auroraId, 'A-20990101', 'Pera', 'frutta', '1.00']);
+$catalogoDopo = $banco->giorno($auroraId, $giornoBanco);
+$nomiCatalogo = array_map(
+    static fn (array $p): string => strtolower($p['nome']) . '|' . $p['categoria'],
+    $catalogoDopo['catalogo'],
+);
+verifica(count(array_filter($nomiCatalogo, static fn (string $n): bool => $n === 'pera|frutta')) <= 1, 'combo catalogo senza duplicati per nome');
+verifica((int) $pdo->query(
+    'SELECT COUNT(*) FROM piatti WHERE azienda_id = ' . $auroraId . " AND LOWER(TRIM(nome)) = 'pera' AND categoria = 'frutta'"
+)->fetchColumn() === 1, 'unificaDuplicati fonde i cloni del catalogo');
 $lettereDopo = array_column($conPera['piatti'], 'lettera');
 sort($lettereDopo);
 $attese = array_slice(MenuCraft\Support\LetteraPasto::ALFABETO, 0, count($lettereDopo));
@@ -690,7 +756,7 @@ foreach ($conPera['piatti'] as $voce) {
     }
 }
 verifica($primoId !== null, 'c\'è un primo da togliere');
-$senzaPrimo = $banco->togli($auroraId, $auroraCaterer, '2026-11-13', $primoId);
+$senzaPrimo = $banco->togli($auroraId, $auroraCaterer, $giornoBanco, $primoId);
 verifica(!in_array($primoId, array_column($senzaPrimo['piatti'], 'id'), true), 'il primo è uscito dal menu del giorno');
 $lettereTogli = array_column($senzaPrimo['piatti'], 'lettera');
 sort($lettereTogli);
@@ -698,14 +764,14 @@ verifica($lettereTogli === array_slice(MenuCraft\Support\LetteraPasto::ALFABETO,
 verifica(!in_array('Q', $lettereTogli, true), 'non compare una Q fuori sequenza');
 $pdo->prepare('UPDATE aziende SET menu_banco = 0 WHERE id = :id')->execute(['id' => $auroraId]);
 attesaEccezione('MENU_BANCO_CHIUSO', fn () => $banco->crea($auroraId, $auroraCaterer, [
-    'data' => '2026-11-13',
+    'data' => $giornoBanco,
     'nome' => 'Kiwi',
     'categoria' => 'frutta',
     'prezzo' => '1,20',
 ]), 'senza menu banco non si aggiungono piatti a mano');
 $pdo->prepare('UPDATE aziende SET menu_banco = 1 WHERE id = :id')->execute(['id' => $auroraId]);
 
-$giornoVuoto = '2026-11-27';
+$giornoVuoto = '2026-12-04';
 $suGiornoNuovo = $banco->crea($auroraId, $auroraCaterer, [
     'data' => $giornoVuoto,
     'nome' => 'Lasagne della casa',

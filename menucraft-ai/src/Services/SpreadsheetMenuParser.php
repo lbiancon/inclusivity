@@ -50,7 +50,7 @@ final class SpreadsheetMenuParser
             'xls' => $this->leggiXls($path, $intestazione),
             default => throw new MenuRuleException(
                 'FORMATO_FILE',
-                'Carica il template Excel del giovedì (.xlsx) oppure un file con le colonne data, codice, nome, categoria, prezzo.',
+                'Carica il template Excel del giovedì (.xlsx) oppure un file con le colonne data, nome, categoria (codice e prezzo sono opzionali).',
             ),
         };
 
@@ -630,12 +630,14 @@ final class SpreadsheetMenuParser
                 continue;
             }
             try {
+                $codiceGrezzo = isset($mappa['codice']) ? $this->cella($celle, $mappa['codice']) : '';
+                $prezzoGrezzo = isset($mappa['prezzo']) ? $this->cella($celle, $mappa['prezzo']) : '';
                 $righe[] = new RigaMenu(
                     data: $this->parseData($this->cella($celle, $mappa['data'])),
-                    codice: $this->parseCodice($this->cella($celle, $mappa['codice'])),
+                    codice: $this->parseCodice($codiceGrezzo),
                     nome: $this->parseNome($this->cella($celle, $mappa['nome'])),
                     categoria: $this->parseCategoria($this->cella($celle, $mappa['categoria'])),
-                    prezzo: Money::normalizza($this->cella($celle, $mappa['prezzo'])),
+                    prezzo: $prezzoGrezzo === '' ? '' : Money::normalizza($prezzoGrezzo),
                     riga: $numero,
                 );
             } catch (MenuRuleException $e) {
@@ -672,11 +674,12 @@ final class SpreadsheetMenuParser
             }
         }
 
-        $mancanti = array_diff(array_keys(self::COLONNE), array_keys($indici));
+        $obbligatorie = ['data', 'nome', 'categoria'];
+        $mancanti = array_diff($obbligatorie, array_keys($indici));
         if ($mancanti !== []) {
             throw new MenuRuleException(
                 'INTESTAZIONE',
-                'Intestazione incompleta. Servono le colonne: data, codice, nome, categoria, prezzo.',
+                'Intestazione incompleta. Servono almeno le colonne: data, nome, categoria. Codice e prezzo sono opzionali.',
             );
         }
 
@@ -729,6 +732,9 @@ final class SpreadsheetMenuParser
     private function parseCodice(string $valore): string
     {
         $codice = strtoupper(trim($valore));
+        if ($codice === '') {
+            return '';
+        }
         if (preg_match('/^[A-Z0-9][A-Z0-9-]{0,31}$/', $codice) !== 1) {
             throw new MenuRuleException('CODICE_NON_VALIDO', 'codice piatto non valido.');
         }

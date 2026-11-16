@@ -29,6 +29,7 @@ final class MenuBanco
     public function giorno(int $aziendaId, string $data): array
     {
         $giorno = $this->data($data);
+        (new PiattoArchivio($this->pdo))->unificaDuplicati($aziendaId);
         (new LetteraPasto())->assegna($this->pdo, $aziendaId, $giorno);
 
         $voci = $this->pdo->prepare(
@@ -50,14 +51,20 @@ final class MenuBanco
             'SELECT id, codice, nome, categoria, prezzo
              FROM piatti
              WHERE azienda_id = :azienda
-             ORDER BY categoria, nome'
+             ORDER BY categoria, nome, id'
         );
         $catalogo->execute(['azienda' => $aziendaId]);
         $disponibili = [];
+        $vistiCatalogo = [];
         foreach ($catalogo as $riga) {
             if (isset($presenti[(int) $riga['id']])) {
                 continue;
             }
+            $chiave = PiattoArchivio::normalizzaNome((string) $riga['nome']) . '|' . (string) $riga['categoria'];
+            if (isset($vistiCatalogo[$chiave])) {
+                continue;
+            }
+            $vistiCatalogo[$chiave] = true;
             $disponibili[] = [
                 'id' => (int) $riga['id'],
                 'codice' => CodicePiatto::etichetta((string) $riga['codice']),
@@ -128,10 +135,7 @@ final class MenuBanco
         }
         $prezzo = Money::normalizza(str_replace(',', '.', trim((string) ($input['prezzo'] ?? '0'))));
         $codice = strtoupper(trim((string) ($input['codice'] ?? '')));
-        if ($codice === '') {
-            $codice = 'MC-' . strtoupper(bin2hex(random_bytes(3)));
-        }
-        if (preg_match('/^[A-Z0-9][A-Z0-9._-]{0,30}$/', $codice) !== 1) {
+        if ($codice !== '' && preg_match('/^[A-Z0-9][A-Z0-9._-]{0,30}$/', $codice) !== 1) {
             throw new MenuRuleException('PIATTO_NON_VALIDO', 'Il codice usa lettere, numeri, punto, trattino o underscore.');
         }
         if (strlen($codice) === 1) {
@@ -140,25 +144,14 @@ final class MenuBanco
 
         $this->pdo->beginTransaction();
         try {
-            $cerca = $this->pdo->prepare('SELECT id FROM piatti WHERE azienda_id = :azienda AND codice = :codice');
-            $cerca->execute(['azienda' => $aziendaId, 'codice' => $codice]);
-            $esistente = $cerca->fetchColumn();
-            if ($esistente === false) {
-                $insert = $this->pdo->prepare(
-                    'INSERT INTO piatti (azienda_id, codice, nome, categoria, prezzo)
-                     VALUES (:azienda, :codice, :nome, :categoria, :prezzo)'
-                );
-                $insert->execute([
-                    'azienda' => $aziendaId,
-                    'codice' => $codice,
-                    'nome' => $nome,
-                    'categoria' => $categoria->value,
-                    'prezzo' => $prezzo,
-                ]);
-                $piattoId = (int) $this->pdo->lastInsertId();
-            } else {
-                $piattoId = (int) $esistente;
-            }
+            $piattoId = (new PiattoArchivio($this->pdo))->trovaOCrea(
+                $aziendaId,
+                $nome,
+                $categoria,
+                $prezzo,
+                $codice,
+                true,
+            );
             $pubblicazione = $this->pubblicazione($aziendaId, $attoreId, $giorno);
             $this->inserisciVoce($aziendaId, $pubblicazione, $piattoId, $giorno, LetteraPasto::valida(isset($input['lettera']) ? (string) $input['lettera'] : null));
             (new LetteraPasto())->assegna($this->pdo, $aziendaId, $giorno);

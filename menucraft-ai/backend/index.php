@@ -334,8 +334,8 @@ header('Content-Type: text/html; charset=utf-8');
                             <label class="text-sm font-semibold">Nome nuovo piatto
                                 <input id="piatto-nome" maxlength="120" class="mt-1 w-full rounded-xl border border-ink/15 bg-cream px-3 py-2">
                             </label>
-                            <label class="text-sm font-semibold">Codice, se ne hai già uno
-                                <input id="piatto-codice" maxlength="32" class="mt-1 w-full rounded-xl border border-ink/15 bg-cream px-3 py-2" placeholder="PR-POM">
+                            <label class="text-sm font-semibold">Codice (opzionale)
+                                <input id="piatto-codice" maxlength="32" class="mt-1 w-full rounded-xl border border-ink/15 bg-cream px-3 py-2" placeholder="lascia vuoto: riusa per nome">
                             </label>
                             <label class="text-sm font-semibold">Portata
                                 <select id="piatto-categoria" class="mt-1 w-full rounded-xl border border-ink/15 bg-cream px-3 py-2">
@@ -358,7 +358,7 @@ header('Content-Type: text/html; charset=utf-8');
                 <div class="rounded-3xl border border-[#d5cbb8] bg-white p-5">
                     <h2 class="font-serif text-3xl uppercase">Carica file settimanale o mensile</h2>
                     <div id="upload-window" class="mt-3 rounded-2xl border border-[#d5cbb8] bg-cream px-4 py-3 text-sm font-medium text-ink"></div>
-                    <p class="mt-2 text-sm text-ink/60">Scegli il CSV o Excel, poi premi Carica menu: per ogni data del file il tab Menu si riempie subito con tutte le scelte del giorno, non solo il catalogo. Poi puoi ritoccare un giorno alla volta. I modelli pronti sono qui sotto. Un .xls vecchio va salvato come .xlsx.</p>
+                    <p class="mt-2 text-sm text-ink/60">Scegli il CSV o Excel, poi premi Carica menu: per ogni data del file il tab Menu si riempie subito. Stesso piatto (stesso nome e portata) viene riusato nel catalogo anche senza codice, così ricaricare la settimana non crea copie. Il codice nel file è opzionale. Un .xls vecchio va salvato come .xlsx.</p>
                     <div class="mt-3 flex flex-wrap gap-2 text-sm">
                         <a class="rounded-full border border-ink/15 px-3 py-2 font-semibold" href="../esempi/menu-settimanale.csv" download>Scarica menu settimanale</a>
                         <a class="rounded-full border border-ink/15 px-3 py-2 font-semibold" href="../esempi/menu-mensile.csv" download>Scarica menu mensile</a>
