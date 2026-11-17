@@ -110,6 +110,7 @@ final class MenuValidator
         $this->limitePortata($azienda, PortataType::Primo, $conteggi[PortataType::Primo->value], 'LIMITE_PRIMO', 'primo', 'primi');
         $this->limitePortata($azienda, PortataType::Contorno, $conteggi[PortataType::Contorno->value], 'LIMITE_CONTORNO', 'contorno', 'contorni');
         $this->limitePortata($azienda, PortataType::Frutta, $conteggi[PortataType::Frutta->value], 'LIMITE_FRUTTA', 'frutta', 'frutti');
+        $this->limitePortata($azienda, PortataType::Yogurt, $conteggi[PortataType::Yogurt->value], 'LIMITE_YOGURT', 'yogurt', 'yogurt');
         $this->limitePortata($azienda, PortataType::Dessert, $conteggi[PortataType::Dessert->value], 'LIMITE_DOLCE', 'dolce', 'dolci');
 
         if ($totale < $minimo) {

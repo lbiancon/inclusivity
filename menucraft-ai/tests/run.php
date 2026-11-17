@@ -125,7 +125,7 @@ $validator->validaCutoff(
 verifica($validator->motivoWeekend(new DateTimeImmutable('2026-11-14', $fuso)) !== null, 'sabato chiuso');
 verifica($validator->motivoWeekend(new DateTimeImmutable('2026-11-15', $fuso)) !== null, 'domenica chiusa');
 verifica($validator->motivoWeekend(new DateTimeImmutable('2026-11-13', $fuso)) === null, 'venerdì aperto');
-$sabatoAperto = new AziendaConfig(30, 'Sabato', 'sabato', PagamentoType::Welfare, 5, false, false, '09:30:00', '18:00:00', 'intranet', true, false, 0, 0, 0, false, false, 0, 0, null, 5, '', '', 'sempre', true, true, false);
+$sabatoAperto = new AziendaConfig(30, 'Sabato', 'sabato', PagamentoType::Welfare, 5, false, false, '09:30:00', '18:00:00', 'intranet', true, false, 0, 0, 0, false, false, 0, 0, false, 0, null, 5, '', '', 'sempre', true, true, false);
 verifica($validator->motivoWeekend(new DateTimeImmutable('2026-11-14', $fuso), $sabatoAperto) === null, 'sabato lavorativo per il servizio');
 verifica($validator->motivoWeekend(new DateTimeImmutable('2026-11-15', $fuso), $sabatoAperto) !== null, 'domenica resta chiusa se non aperta');
 
@@ -142,7 +142,7 @@ attesaEccezione('LIMITE_SCELTE', fn () => $validator->validaComposizione($aziend
     PortataType::Yogurt,
     PortataType::Bevanda,
 ]), 'sesta scelta');
-$conAcqua = new AziendaConfig(9, 'Acqua', 'acqua', PagamentoType::Welfare, 5, false, false, '09:30:00', '18:00:00', 'intranet', true, false, 0, 0, 0, false, false, 0, 0, null, 5);
+$conAcqua = new AziendaConfig(9, 'Acqua', 'acqua', PagamentoType::Welfare, 5, false, false, '09:30:00', '18:00:00', 'intranet', true, false, 0, 0, 0, false, false, 0, 0, false, 0, null, 5);
 $ampio = new AziendaConfig(10, 'Ampio', 'ampio', PagamentoType::Dipendente, 5, true, true, '09:30:00', '18:00:00', 'intranet', true, false, 2, 1, 3);
 $validator->validaComposizione($ampio, [PortataType::Contorno, PortataType::Contorno, PortataType::Contorno, PortataType::Secondo, PortataType::Bevanda]);
 $validator->validaQuantita($ampio, [
@@ -181,8 +181,8 @@ verifica($welfare->prezzoApplicato('8.20') === '0.00', 'welfare azzera il prezzo
 verifica($azienda->prezzoApplicato('8.20') === '8.20', 'dipendente paga il listino');
 
 $giovediSera = new DateTimeImmutable('2026-11-12 19:00:00', $fuso);
-$soloGiovedi = new AziendaConfig(20, 'Giovedi', 'giovedi', PagamentoType::Welfare, 5, false, false, '09:30:00', '18:00:00', 'intranet', true, false, 0, 0, 0, false, false, 0, 0, null, 5, '', '', 'giovedi', false);
-$sempreAperto = new AziendaConfig(21, 'Sempre', 'sempre', PagamentoType::Welfare, 5, false, false, '09:30:00', '18:00:00', 'intranet', true, false, 0, 0, 0, false, false, 0, 0, null, 5, '', '', 'sempre', true);
+$soloGiovedi = new AziendaConfig(20, 'Giovedi', 'giovedi', PagamentoType::Welfare, 5, false, false, '09:30:00', '18:00:00', 'intranet', true, false, 0, 0, 0, false, false, 0, 0, false, 0, null, 5, '', '', 'giovedi', false);
+$sempreAperto = new AziendaConfig(21, 'Sempre', 'sempre', PagamentoType::Welfare, 5, false, false, '09:30:00', '18:00:00', 'intranet', true, false, 0, 0, 0, false, false, 0, 0, false, 0, null, 5, '', '', 'sempre', true);
 $finestra = $validator->finestraPubblicazione($soloGiovedi, $giovediSera);
 verifica($finestra['dal']->format('Y-m-d') === '2026-11-16', 'caricamento dal lunedì successivo');
 verifica($finestra['al']->format('Y-m-d') === '2026-12-31', 'caricamento fino a fine mese successivo');
@@ -555,10 +555,15 @@ verifica($auroraCucina['porzioni'][0]['lettera'] !== '' && $auroraCucina['porzio
 $exportCucina = new ExportCucina($pdo);
 $righeExport = $exportCucina->materializza($auroraId, '2026-11-13');
 verifica(count($righeExport) === 1 && ($righeExport[0]['badge'] ?? '') === 'DIP', 'export_cucina materializzato per VB.NET');
+verifica(isset($righeExport[0]['intestazione'], $righeExport[0]['celle']), 'export con intestazione dinamica');
 $inTabella = (int) $pdo->query(
     'SELECT COUNT(*) FROM export_cucina WHERE azienda_id = ' . $auroraId . " AND data_pasto = '2026-11-13'"
 )->fetchColumn();
 verifica($inTabella === 1, 'tabella export_cucina popolata');
+$jsonCelle = (string) $pdo->query(
+    'SELECT celle_json FROM export_cucina WHERE azienda_id = ' . $auroraId . " AND data_pasto = '2026-11-13' LIMIT 1"
+)->fetchColumn();
+verifica(str_starts_with($jsonCelle, '['), 'celle_json per VB.NET');
 $vistaRighe = (int) $pdo->query(
     'SELECT COUNT(*) FROM v_export_prenotazioni_righe WHERE azienda_id = ' . $auroraId . " AND data_pasto = '2026-11-13'"
 )->fetchColumn();
@@ -692,10 +697,10 @@ verifica(count($segnalate) === 1, 'la cucina vede l\'allergia sulla prenotazione
 $ruoloPiattaforma = (string) $pdo->query("SELECT u.ruolo FROM utenti u INNER JOIN aziende a ON a.id = u.azienda_id WHERE a.slug = 'menucraft' AND u.matricola = 'ADMIN'")->fetchColumn();
 verifica($ruoloPiattaforma === 'piattaforma', 'operatore del servizio');
 
-$stretta = new AziendaConfig(11, 'Stretta', 'stretta', PagamentoType::Welfare, 5, false, false, '09:30:00', '18:00:00', 'intranet', true, false, 0, 0, 0, false, false, 0, 0, null, 3);
+$stretta = new AziendaConfig(11, 'Stretta', 'stretta', PagamentoType::Welfare, 5, false, false, '09:30:00', '18:00:00', 'intranet', true, false, 0, 0, 0, false, false, 0, 0, false, 0, null, 3);
 attesaEccezione('LIMITE_FRUTTA', fn () => $validator->validaComposizione($stretta, [PortataType::Primo, PortataType::Frutta, PortataType::Frutta, PortataType::Bevanda]), 'una sola frutta');
 attesaEccezione('LIMITE_DOLCE', fn () => $validator->validaComposizione($stretta, [PortataType::Primo, PortataType::Dessert, PortataType::Dessert, PortataType::Bevanda]), 'un solo dolce');
-$aperta = new AziendaConfig(12, 'Aperta', 'aperta', PagamentoType::Welfare, 5, false, false, '09:30:00', '18:00:00', 'intranet', true, false, 0, 0, 0, true, true, 2, 2, null, 5);
+$aperta = new AziendaConfig(12, 'Aperta', 'aperta', PagamentoType::Welfare, 5, false, false, '09:30:00', '18:00:00', 'intranet', true, false, 0, 0, 0, true, true, 2, 2, true, 2, null, 5);
 $validator->validaComposizione($aperta, [PortataType::Frutta, PortataType::Frutta, PortataType::Dessert, PortataType::Dessert, PortataType::Bevanda]);
 $validator->validaQuantita($aperta, [
     ['id' => 1, 'nome' => 'Mela', 'categoria' => PortataType::Frutta],
@@ -703,6 +708,19 @@ $validator->validaQuantita($aperta, [
     ['id' => 2, 'nome' => 'Budino', 'categoria' => PortataType::Dessert],
     ['id' => 2, 'nome' => 'Budino', 'categoria' => PortataType::Dessert],
 ]);
+$validator->validaQuantita($aperta, [
+    ['id' => 3, 'nome' => 'Yogurt bianco', 'categoria' => PortataType::Yogurt],
+    ['id' => 3, 'nome' => 'Yogurt bianco', 'categoria' => PortataType::Yogurt],
+]);
+attesaEccezione('LIMITE_YOGURT', fn () => $validator->validaComposizione(
+    new AziendaConfig(13, 'Yo', 'yo', PagamentoType::Welfare, 5, false, false, '09:30:00', '18:00:00', 'intranet', true, false, 0, 0, 0, false, false, 0, 0, false, 1, null, 5),
+    [PortataType::Yogurt, PortataType::Yogurt, PortataType::Bevanda],
+), 'yogurt doppio negato senza regola');
+$pdo->prepare('UPDATE aziende SET max_contorno = 3, max_yogurt = 2, permetti_doppio_yogurt = 1 WHERE id = :id')->execute(['id' => $rossiId]);
+$layoutRossi = ExportCucina::layoutColonne(AziendaConfig::trova($pdo, $rossiId));
+$headersRossi = array_column($layoutRossi, 'header');
+verifica(in_array('CONTORNO', $headersRossi, true) && in_array('CONTORNO2', $headersRossi, true) && in_array('CONTORNO3', $headersRossi, true), 'export dinamico: 3 colonne contorno per Rossi');
+verifica(in_array('YOGURT', $headersRossi, true) && in_array('YOGURT2', $headersRossi, true), 'export dinamico: yogurt doppio = due colonne');
 
 $banco = new MenuBanco($pdo, $validator);
 $giornoBanco = '2026-12-01';

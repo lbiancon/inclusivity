@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace MenuCraft\Services;
 
+use MenuCraft\Enums\PortataType;
+use MenuCraft\Models\AziendaConfig;
+use MenuCraft\Support\LetteraPasto;
 use PDO;
 
 if (!defined('MENUCRAFT_APP')) {
@@ -12,9 +15,9 @@ if (!defined('MENUCRAFT_APP')) {
 }
 
 /**
- * Contratto stabile per l'applicazione esterna (VB.NET / Excel):
- * tabella export_cucina con le stesse colonne del file cucina,
- * più viste piatte se serve unire i dati a mano.
+ * Export cucina dinamico: le colonne PRIMO/SECONDO/... seguono i massimi
+ * del servizio (max_primo, max_contorno, max_yogurt, …).
+ * Tabella export_cucina espone intestazione+celle in JSON per VB.NET.
  */
 final class ExportCucina
 {
@@ -23,18 +26,68 @@ final class ExportCucina
     }
 
     /**
-     * Riempie export_cucina per azienda+giorno con le lettere del pasto
-     * (non i codici catalogo), così VB.NET può fare SELECT * ... e creare l'XLS.
-     *
-     * @return list<array<string, string>>
+     * @return list<array{categoria: string, slot: int, header: string}>
+     */
+    public static function layoutColonne(AziendaConfig $azienda): array
+    {
+        $layout = [];
+        $portate = [
+            [PortataType::Primo, 'PRIMO'],
+            [PortataType::Secondo, 'SECONDO'],
+            [PortataType::Contorno, 'CONTORNO'],
+            [PortataType::Frutta, 'FRUTTA'],
+            [PortataType::Yogurt, 'YOGURT'],
+            [PortataType::Dessert, 'DESSERT'],
+            [PortataType::Bevanda, 'BEVANDE'],
+        ];
+        foreach ($portate as [$categoria, $base]) {
+            $quanti = $categoria === PortataType::Bevanda
+                ? max(1, $azienda->bevandaObbligatoria ? 1 : 1)
+                : max(1, $azienda->maxPerCategoria($categoria));
+            if ($categoria === PortataType::Bevanda && !$azienda->bevandaObbligatoria) {
+                $quanti = 1;
+            }
+            for ($slot = 0; $slot < $quanti; $slot++) {
+                $header = $slot === 0 ? $base : ($base === 'BEVANDE' ? 'BEVANDE' . ($slot + 1) : $base . ($slot + 1));
+                $layout[] = [
+                    'categoria' => $categoria->value,
+                    'slot' => $slot,
+                    'header' => $header,
+                ];
+            }
+        }
+
+        return $layout;
+    }
+
+    /**
+     * @param list<array<string, mixed>> $voci
+     * @param list<array{categoria: string, slot: int, header: string}> $layout
+     * @return list<string>
+     */
+    public static function valoriCelle(array $voci, array $layout): array
+    {
+        $valori = [];
+        foreach ($layout as $colonna) {
+            $valori[] = self::cellaPortata($voci, $colonna['categoria'], $colonna['slot']);
+        }
+
+        return $valori;
+    }
+
+    /**
+     * @return list<array<string, mixed>>
      */
     public function materializza(int $aziendaId, string $data): array
     {
+        $azienda = AziendaConfig::trova($this->pdo, $aziendaId);
+        $layout = self::layoutColonne($azienda);
+        $intestazione = array_column($layout, 'header');
         $cucina = new KitchenSummary($this->pdo);
         $riepilogo = $cucina->perGiorno($aziendaId, $data);
         $quando = \DateTimeImmutable::createFromFormat('!Y-m-d', $riepilogo['data']);
         $giorno = $quando instanceof \DateTimeImmutable
-            ? $this->giornoSettimana((int) $quando->format('N'))
+            ? self::giornoSettimana((int) $quando->format('N'))
             : '';
 
         $perOrdine = [];
@@ -46,24 +99,18 @@ final class ExportCucina
         foreach ($perOrdine as $voci) {
             $prima = $voci[0];
             $istante = \DateTimeImmutable::createFromFormat('Y-m-d H:i:s', $prima['creato_il']);
+            $celle = self::valoriCelle($voci, $layout);
             $righe[] = [
                 'badge' => $prima['matricola'],
                 'employee' => $prima['ospite'] !== '' ? $prima['ospite'] : $prima['dipendente'],
-                'primo' => $this->cellaPortata($voci, 'primo', 0),
-                'secondo' => $this->cellaPortata($voci, 'secondo', 0),
-                'contorno1' => $this->cellaPortata($voci, 'contorno', 0),
-                'contorno2' => $this->cellaPortata($voci, 'contorno', 1),
-                'frutta' => $this->cellaPortata($voci, 'frutta', 0),
-                'yogurt' => $this->cellaPortata($voci, 'yogurt', 0),
-                'dessert' => $this->cellaPortata($voci, 'dessert', 0),
-                'bevande' => $this->cellaPortata($voci, 'bevanda', 0),
-                'bevande2' => $this->cellaPortata($voci, 'bevanda', 1),
                 'giorno' => $giorno,
                 'time_stamp' => $istante instanceof \DateTimeImmutable
                     ? $istante->format('d/m/Y H:i')
                     : $prima['creato_il'],
                 'payment' => $prima['a_carico'] === 'dipendente' ? 'P' : '',
                 'allergie' => $prima['nota_cucina'],
+                'intestazione' => $intestazione,
+                'celle' => $celle,
             ];
         }
 
@@ -73,11 +120,9 @@ final class ExportCucina
 
         $inserisci = $this->pdo->prepare(
             'INSERT INTO export_cucina
-                (azienda_id, data_pasto, badge, employee, primo, secondo, contorno1, contorno2,
-                 frutta, yogurt, dessert, bevande, bevande2, giorno, time_stamp, payment, allergie, aggiornato_il)
+                (azienda_id, data_pasto, badge, employee, giorno, time_stamp, payment, allergie, intestazione_json, celle_json, aggiornato_il)
              VALUES
-                (:azienda, :data, :badge, :employee, :primo, :secondo, :contorno1, :contorno2,
-                 :frutta, :yogurt, :dessert, :bevande, :bevande2, :giorno, :time_stamp, :payment, :allergie, NOW())'
+                (:azienda, :data, :badge, :employee, :giorno, :time_stamp, :payment, :allergie, :intestazione, :celle, NOW())'
         );
         foreach ($righe as $riga) {
             $inserisci->execute([
@@ -85,19 +130,12 @@ final class ExportCucina
                 'data' => $riepilogo['data'],
                 'badge' => $riga['badge'],
                 'employee' => $riga['employee'],
-                'primo' => $riga['primo'],
-                'secondo' => $riga['secondo'],
-                'contorno1' => $riga['contorno1'],
-                'contorno2' => $riga['contorno2'],
-                'frutta' => $riga['frutta'],
-                'yogurt' => $riga['yogurt'],
-                'dessert' => $riga['dessert'],
-                'bevande' => $riga['bevande'],
-                'bevande2' => $riga['bevande2'],
                 'giorno' => $riga['giorno'],
                 'time_stamp' => $riga['time_stamp'],
                 'payment' => $riga['payment'],
                 'allergie' => $riga['allergie'],
+                'intestazione' => json_encode($riga['intestazione'], JSON_UNESCAPED_UNICODE),
+                'celle' => json_encode($riga['celle'], JSON_UNESCAPED_UNICODE),
             ]);
         }
 
@@ -106,12 +144,24 @@ final class ExportCucina
 
     public function xls(int $aziendaId, string $nomeAzienda, string $data): string
     {
+        return $this->documento($aziendaId, $nomeAzienda, $data, 'xls');
+    }
+
+    public function csv(int $aziendaId, string $nomeAzienda, string $data): string
+    {
+        return $this->documento($aziendaId, $nomeAzienda, $data, 'csv');
+    }
+
+    private function documento(int $aziendaId, string $nomeAzienda, string $data, string $formato): string
+    {
+        $azienda = AziendaConfig::trova($this->pdo, $aziendaId);
+        $layout = self::layoutColonne($azienda);
         $righeExport = $this->materializza($aziendaId, $data);
         $cucina = new KitchenSummary($this->pdo);
         $riepilogo = $cucina->perGiorno($aziendaId, $data);
         $quando = \DateTimeImmutable::createFromFormat('!Y-m-d', $riepilogo['data']);
         $giorno = $quando instanceof \DateTimeImmutable
-            ? $this->giornoSettimana((int) $quando->format('N'))
+            ? self::giornoSettimana((int) $quando->format('N'))
             : '';
         $titolo = 'PRENOTAZIONE MENSA ' . strtoupper($giorno) . ' '
             . ($quando instanceof \DateTimeImmutable ? $quando->format('d/m/Y') : $riepilogo['data'])
@@ -134,37 +184,27 @@ final class ExportCucina
             ];
         }
         $foglio[] = [];
-        $foglio[] = [
-            'BADGE', 'EMPLOYEE', 'PRIMO', 'SECONDO', 'CONTORNO', 'CONTORNO',
-            'FRUTTA', 'YOGURT', 'DESSERT', 'BEVANDE', 'BEVANDE2', 'GIORNO', 'TIME_STAMP', 'PAYMENT', 'ALLERGIE',
-        ];
+        $intestazione = array_merge(
+            ['BADGE', 'EMPLOYEE'],
+            array_column($layout, 'header'),
+            ['GIORNO', 'TIME_STAMP', 'PAYMENT', 'ALLERGIE'],
+        );
+        $foglio[] = $intestazione;
         foreach ($righeExport as $riga) {
-            $foglio[] = [
-                $riga['badge'],
-                $riga['employee'],
-                $riga['primo'],
-                $riga['secondo'],
-                $riga['contorno1'],
-                $riga['contorno2'],
-                $riga['frutta'],
-                $riga['yogurt'],
-                $riga['dessert'],
-                $riga['bevande'],
-                $riga['bevande2'],
-                $riga['giorno'],
-                $riga['time_stamp'],
-                $riga['payment'],
-                $riga['allergie'],
-            ];
+            $foglio[] = array_merge(
+                [$riga['badge'], $riga['employee']],
+                $riga['celle'],
+                [$riga['giorno'], $riga['time_stamp'], $riga['payment'], $riga['allergie']],
+            );
         }
 
-        return $this->spreadsheetMl($foglio);
+        return $formato === 'xls' ? $this->spreadsheetMl($foglio) : $this->csvTesto($foglio);
     }
 
     /**
      * @param list<array<string, mixed>> $voci
      */
-    private function cellaPortata(array $voci, string $categoria, int $slot): string
+    public static function cellaPortata(array $voci, string $categoria, int $slot): string
     {
         $perLettera = [];
         foreach ($voci as $voce) {
@@ -174,7 +214,7 @@ final class ExportCucina
             $lettera = $voce['lettera'] !== '' ? $voce['lettera'] : $voce['codice'];
             $perLettera[$lettera] = ($perLettera[$lettera] ?? 0) + 1;
         }
-        $ordine = array_flip(\MenuCraft\Support\LetteraPasto::ALFABETO);
+        $ordine = array_flip(LetteraPasto::ALFABETO);
         uksort($perLettera, static function (string $a, string $b) use ($ordine): int {
             return ($ordine[$a] ?? 99) <=> ($ordine[$b] ?? 99);
         });
@@ -182,16 +222,33 @@ final class ExportCucina
         foreach ($perLettera as $lettera => $quantita) {
             $blocchi[] = $quantita > 1 ? $lettera . 'x' . $quantita : $lettera;
         }
-        if ($categoria === 'contorno' || $categoria === 'bevanda') {
-            return $blocchi[$slot] ?? '';
-        }
 
-        return $slot === 0 ? implode(' ', $blocchi) : '';
+        return $blocchi[$slot] ?? '';
     }
 
-    private function giornoSettimana(int $numero): string
+    public static function giornoSettimana(int $numero): string
     {
         return [1 => 'lunedi', 'martedi', 'mercoledi', 'giovedi', 'venerdi', 'sabato', 'domenica'][$numero] ?? '';
+    }
+
+    /** @param list<list<string>> $foglio */
+    private function csvTesto(array $foglio): string
+    {
+        $csv = "\xEF\xBB\xBF";
+        foreach ($foglio as $riga) {
+            $csv .= implode(';', array_map($this->cellaCsv(...), $riga)) . "\r\n";
+        }
+
+        return $csv;
+    }
+
+    private function cellaCsv(string $valore): string
+    {
+        if (str_contains($valore, ';') || str_contains($valore, '"') || str_contains($valore, "\n")) {
+            return '"' . str_replace('"', '""', $valore) . '"';
+        }
+
+        return $valore;
     }
 
     /** @param list<list<string>> $foglio */

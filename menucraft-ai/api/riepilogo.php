@@ -8,7 +8,6 @@ use MenuCraft\Http\JsonResponse;
 use MenuCraft\Models\AziendaConfig;
 use MenuCraft\Services\AuthService;
 use MenuCraft\Services\ExportCucina;
-use MenuCraft\Services\KitchenSummary;
 use MenuCraft\Services\MenuRuleException;
 
 if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'GET') {
@@ -28,8 +27,6 @@ try {
     }
 
     $export = new ExportCucina($pdo);
-    $export->materializza($azienda->id, $data);
-
     if ($formato === 'xls') {
         $corpo = $export->xls($azienda->id, $azienda->nome, $data);
         $nome = 'riepilogo-cucina-' . $azienda->slug . '-' . $data . '.xls';
@@ -40,7 +37,7 @@ try {
         exit;
     }
 
-    $csv = (new KitchenSummary($pdo))->csv($azienda->id, $azienda->nome, $data);
+    $csv = $export->csv($azienda->id, $azienda->nome, $data);
     $nome = 'riepilogo-cucina-' . $azienda->slug . '-' . $data . '.csv';
     header('Content-Type: text/csv; charset=utf-8');
     header('Content-Disposition: attachment; filename="' . $nome . '"');

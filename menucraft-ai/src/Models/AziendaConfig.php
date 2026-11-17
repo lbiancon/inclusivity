@@ -37,6 +37,8 @@ readonly class AziendaConfig
         public bool $permettiDoppioDessert = false,
         public int $maxFrutta = 0,
         public int $maxDessert = 0,
+        public bool $permettiDoppioYogurt = false,
+        public int $maxYogurt = 0,
         public ?string $logo = null,
         public int $minScelte = 0,
         public string $guidaLinea = '',
@@ -105,6 +107,8 @@ readonly class AziendaConfig
             permettiDoppioDessert: (int) ($riga['permetti_doppio_dessert'] ?? 0) === 1,
             maxFrutta: (int) ($riga['max_frutta'] ?? 0),
             maxDessert: (int) ($riga['max_dessert'] ?? 0),
+            permettiDoppioYogurt: (int) ($riga['permetti_doppio_yogurt'] ?? 0) === 1,
+            maxYogurt: (int) ($riga['max_yogurt'] ?? 0),
             logo: isset($riga['logo']) && is_string($riga['logo']) && $riga['logo'] !== '' ? $riga['logo'] : null,
             minScelte: (int) ($riga['min_scelte'] ?? 0),
             guidaLinea: trim((string) ($riga['guida_linea'] ?? '')),
@@ -121,7 +125,7 @@ readonly class AziendaConfig
         $stmt = $pdo->prepare(
             'SELECT id, nome, slug, tipo_pagamento, max_scelte, min_scelte, permetti_doppio_primo,
                     permetti_doppio_contorno, permetti_doppio_secondo, permetti_doppio_frutta, permetti_doppio_dessert,
-                    max_primo, max_secondo, max_contorno, max_frutta, max_dessert, logo,
+                    permetti_doppio_yogurt, max_primo, max_secondo, max_contorno, max_frutta, max_dessert, max_yogurt, logo,
                     limite_oggi, limite_domani, modalita, bevanda_obbligatoria, guida_linea, contatto_linea,
                     caricamento_menu, menu_banco, apri_sabato, apri_domenica
              FROM aziende
@@ -144,6 +148,7 @@ readonly class AziendaConfig
             PortataType::Contorno => $this->permettiDoppioContorno ? 2 : 1,
             PortataType::Frutta => $this->permettiDoppioFrutta ? 2 : 1,
             PortataType::Dessert => $this->permettiDoppioDessert ? 2 : 1,
+            PortataType::Yogurt => $this->permettiDoppioYogurt ? 2 : 1,
             default => $this->maxScelte,
         };
         $salvato = match ($categoria) {
@@ -152,6 +157,7 @@ readonly class AziendaConfig
             PortataType::Contorno => $this->maxContorno,
             PortataType::Frutta => $this->maxFrutta,
             PortataType::Dessert => $this->maxDessert,
+            PortataType::Yogurt => $this->maxYogurt,
             default => 0,
         };
         if ($salvato < 1) {
@@ -172,6 +178,7 @@ readonly class AziendaConfig
             PortataType::Contorno => $this->permettiDoppioContorno,
             PortataType::Frutta => $this->permettiDoppioFrutta,
             PortataType::Dessert => $this->permettiDoppioDessert,
+            PortataType::Yogurt => $this->permettiDoppioYogurt,
             default => false,
         };
     }
@@ -201,11 +208,13 @@ readonly class AziendaConfig
             'permetti_doppio_contorno' => $this->permettiDoppioContorno,
             'permetti_doppio_frutta' => $this->permettiDoppioFrutta,
             'permetti_doppio_dessert' => $this->permettiDoppioDessert,
+            'permetti_doppio_yogurt' => $this->permettiDoppioYogurt,
             'max_primo' => $this->maxPerCategoria(PortataType::Primo),
             'max_secondo' => $this->maxPerCategoria(PortataType::Secondo),
             'max_contorno' => $this->maxPerCategoria(PortataType::Contorno),
             'max_frutta' => $this->maxPerCategoria(PortataType::Frutta),
             'max_dessert' => $this->maxPerCategoria(PortataType::Dessert),
+            'max_yogurt' => $this->maxPerCategoria(PortataType::Yogurt),
             'logo' => $this->logo,
             'limite_oggi' => substr($this->limiteOggi, 0, 5),
             'limite_domani' => substr($this->limiteDomani, 0, 5),

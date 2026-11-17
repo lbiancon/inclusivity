@@ -619,16 +619,29 @@ header('Content-Type: text/html; charset=utf-8');
             if (categoria === 'dessert') {
                 return state.regole.doppio_dessert === true;
             }
+            if (categoria === 'yogurt') {
+                return state.regole.doppio_yogurt === true;
+            }
             return false;
+        }
+
+        function pietanzeMaxSenzaAcqua() {
+            const regole = state.regole;
+            if (!regole.bevanda_obbligatoria) {
+                return regole.max_scelte;
+            }
+            return Math.max(0, regole.max_scelte - 1);
         }
 
         function limiteMessaggio(ids) {
             const regole = state.regole;
-            const minimo = regole.min_scelte || (regole.bevanda_obbligatoria ? regole.max_scelte : 1);
             const bevande = contaBevande(ids);
             const pietanze = ids.length - bevande;
             if (regole.bevanda_obbligatoria && bevande > 1) {
                 return 'L’acqua è una sola e conta nelle ' + regole.max_scelte + ' scelte.';
+            }
+            if (regole.bevanda_obbligatoria && pietanze > pietanzeMaxSenzaAcqua()) {
+                return 'Hai già ' + pietanzeMaxSenzaAcqua() + ' pietanze: ora puoi scegliere solo l’acqua.';
             }
             if (ids.length > regole.max_scelte) {
                 return regole.bevanda_obbligatoria
@@ -636,7 +649,7 @@ header('Content-Type: text/html; charset=utf-8');
                     : 'Puoi scegliere al massimo ' + regole.max_scelte + ' piatti per buono pasto.';
             }
             const perPiatto = {};
-            const conteggi = { primo: 0, secondo: 0, contorno: 0, frutta: 0, dessert: 0 };
+            const conteggi = { primo: 0, secondo: 0, contorno: 0, frutta: 0, dessert: 0, yogurt: 0 };
             ids.forEach((id) => {
                 const piatto = state.catalogo.get(id);
                 perPiatto[id] = (perPiatto[id] || 0) + 1;
@@ -644,7 +657,7 @@ header('Content-Type: text/html; charset=utf-8');
                     conteggi[piatto.categoria] += 1;
                 }
             });
-            const nomi = { primo: 'primi', secondo: 'secondi', contorno: 'contorni', frutta: 'frutti', dessert: 'dolci' };
+            const nomi = { primo: 'primi', secondo: 'secondi', contorno: 'contorni', frutta: 'frutti', dessert: 'dolci', yogurt: 'yogurt' };
             for (const id of Object.keys(perPiatto)) {
                 const piatto = state.catalogo.get(Number(id));
                 if (perPiatto[id] > 2) {
@@ -654,7 +667,7 @@ header('Content-Type: text/html; charset=utf-8');
                     return 'Per questa portata non si può raddoppiare ' + piatto.nome + '.';
                 }
             }
-            for (const categoria of ['secondo', 'primo', 'contorno', 'frutta', 'dessert']) {
+            for (const categoria of ['secondo', 'primo', 'contorno', 'frutta', 'yogurt', 'dessert']) {
                 const massimo = regole['max_' + categoria];
                 if (conteggi[categoria] > massimo) {
                     return massimo === 1
@@ -817,23 +830,27 @@ header('Content-Type: text/html; charset=utf-8');
                 const limite = document.createElement('p');
                 limite.className = 'text-xs uppercase tracking-wider text-ink/50';
                 const doppio = doppioConsentito(portata.categoria);
-                const conMassimo = ['primo', 'secondo', 'contorno', 'frutta', 'dessert'].includes(portata.categoria);
+                const conMassimo = ['primo', 'secondo', 'contorno', 'frutta', 'yogurt', 'dessert'].includes(portata.categoria);
                 limite.textContent = portata.categoria === 'bevanda' && state.regole.bevanda_obbligatoria
-                    ? 'A parte, una sola'
+                    ? 'Obbligatoria, una sola · dopo ' + pietanzeMaxSenzaAcqua() + ' pietanze'
                     : conMassimo
                         ? 'In menu ' + portata.piatti.length + ' · massimo ' + portata.massimo + (doppio ? ' · anche lo stesso due volte' : '')
                         : 'Nel tetto delle ' + state.regole.max_scelte + ' pietanze';
                 intestazione.append(titolo, limite);
                 const griglia = document.createElement('div');
                 griglia.className = 'grid gap-2 sm:grid-cols-2';
+                const attivi = selezione();
+                const pietanzeOra = attivi.length - contaBevande(attivi);
+                const soloAcqua = state.regole.bevanda_obbligatoria && pietanzeOra >= pietanzeMaxSenzaAcqua();
                 portata.piatti.forEach((piatto) => {
-                    const quantita = selezione().filter((voce) => voce === piatto.id).length;
+                    const quantita = attivi.filter((voce) => voce === piatto.id).length;
                     const scelto = quantita > 0;
+                    const bloccatoDaAcqua = soloAcqua && portata.categoria !== 'bevanda' && !scelto;
                     const bottone = document.createElement('button');
                     bottone.type = 'button';
                     bottone.dataset.piatto = String(piatto.id);
                     bottone.setAttribute('aria-pressed', scelto ? 'true' : 'false');
-                    bottone.disabled = !giorno.selezionabile || state.utente.ruolo !== 'dipendente';
+                    bottone.disabled = !giorno.selezionabile || state.utente.ruolo !== 'dipendente' || bloccatoDaAcqua;
                     bottone.className = 'dish w-full overflow-hidden rounded-2xl border border-ink/10 disabled:cursor-default ' + (scelto ? 'is-on' : '');
                     const codice = document.createElement('span');
                     codice.className = 'code text-sm';

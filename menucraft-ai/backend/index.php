@@ -235,6 +235,11 @@ header('Content-Type: text/html; charset=utf-8');
                                     <td class="py-2"><input id="regola-frutta" type="checkbox" aria-label="Stessa frutta due volte"></td>
                                 </tr>
                                 <tr>
+                                    <td class="py-2 pr-3 font-semibold">Yogurt</td>
+                                    <td class="py-2 pr-3"><input id="regola-max-yogurt" type="number" min="1" max="4" required class="w-20 rounded-xl border border-ink/15 bg-cream px-3 py-2"></td>
+                                    <td class="py-2"><input id="regola-yogurt" type="checkbox" aria-label="Stesso yogurt due volte"></td>
+                                </tr>
+                                <tr>
                                     <td class="py-2 pr-3 font-semibold">Dolce</td>
                                     <td class="py-2 pr-3"><input id="regola-max-dessert" type="number" min="1" max="4" required class="w-20 rounded-xl border border-ink/15 bg-cream px-3 py-2"></td>
                                     <td class="py-2"><input id="regola-dessert" type="checkbox" aria-label="Stesso dolce due volte"></td>
@@ -309,7 +314,7 @@ header('Content-Type: text/html; charset=utf-8');
             <section data-pannello="cucina" hidden class="rounded-3xl border border-[#d5cbb8] bg-white p-5">
                 <h2 class="font-serif text-3xl uppercase">File per la cucina</h2>
                 <p id="cucina-testo" class="mt-2 text-sm text-ink/70"></p>
-                <p class="mt-2 text-sm text-ink/60">Per VB.NET non leggere più la tabella <code>piatti</code> con i codici: usa <code>export_cucina</code> (righe già pronte con lettere A B C) oppure la vista <code>v_export_prenotazioni_righe</code>. Ogni prenotazione e ogni scarico aggiornano la tabella. Il modello SQL è in <code>esempi/export-vbnet.sql</code>.</p>
+                <p class="mt-2 text-sm text-ink/60">Il file CSV/XLS costruisce le colonne (PRIMO, CONTORNO2, YOGURT…) in base ai massimi del servizio. Per VB.NET usa <code>export_cucina</code> (<code>intestazione_json</code> + <code>celle_json</code>) o la vista <code>v_export_prenotazioni_righe</code>. Modello in <code>esempi/export-vbnet.sql</code>.</p>
                 <label class="mt-4 block text-sm font-semibold">Giorno
                     <input id="giorno-cucina" type="date" class="mt-1 rounded-xl border border-ink/15 bg-cream px-3 py-2">
                 </label>
@@ -481,7 +486,9 @@ header('Content-Type: text/html; charset=utf-8');
             document.getElementById('regola-max-frutta').value = payload.azienda.max_frutta;
             document.getElementById('regola-max-dessert').value = payload.azienda.max_dessert;
             document.getElementById('regola-frutta').checked = payload.azienda.permetti_doppio_frutta === true;
+            document.getElementById('regola-yogurt').checked = payload.azienda.permetti_doppio_yogurt === true;
             document.getElementById('regola-dessert').checked = payload.azienda.permetti_doppio_dessert === true;
+            document.getElementById('regola-max-yogurt').value = payload.azienda.max_yogurt || 1;
             const logo = document.getElementById('azienda-logo');
             if (payload.azienda.logo) {
                 logo.src = '../' + payload.azienda.logo + '?v=' + Date.now();
@@ -829,11 +836,13 @@ header('Content-Type: text/html; charset=utf-8');
                         permetti_doppio_contorno: document.getElementById('regola-contorno').checked,
                         permetti_doppio_frutta: document.getElementById('regola-frutta').checked,
                         permetti_doppio_dessert: document.getElementById('regola-dessert').checked,
+                        permetti_doppio_yogurt: document.getElementById('regola-yogurt').checked,
                         max_primo: Number(document.getElementById('regola-max-primo').value),
                         max_secondo: Number(document.getElementById('regola-max-secondo').value),
                         max_contorno: Number(document.getElementById('regola-max-contorno').value),
                         max_frutta: Number(document.getElementById('regola-max-frutta').value),
                         max_dessert: Number(document.getElementById('regola-max-dessert').value),
+                        max_yogurt: Number(document.getElementById('regola-max-yogurt').value),
                         bevanda_obbligatoria: document.getElementById('regola-bevanda').checked,
                         guida_linea: document.getElementById('regola-guida').value,
                         contatto_linea: document.getElementById('regola-contatto').value,

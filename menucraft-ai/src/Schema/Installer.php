@@ -73,6 +73,13 @@ final class Installer
 
     private function assicuraExportCucina(): void
     {
+        $esisteExport = $this->pdo->query("SHOW TABLES LIKE 'export_cucina'")->fetch();
+        if ($esisteExport !== false) {
+            $nuova = $this->pdo->query("SHOW COLUMNS FROM export_cucina LIKE 'celle_json'")->fetch();
+            if ($nuova === false) {
+                $this->pdo->exec('DROP TABLE export_cucina');
+            }
+        }
         $this->pdo->exec(
             'CREATE TABLE IF NOT EXISTS export_cucina (
                 id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
@@ -80,19 +87,12 @@ final class Installer
                 data_pasto DATE NOT NULL,
                 badge VARCHAR(64) NOT NULL,
                 employee VARCHAR(160) NOT NULL,
-                primo VARCHAR(64) NOT NULL DEFAULT \'\',
-                secondo VARCHAR(64) NOT NULL DEFAULT \'\',
-                contorno1 VARCHAR(64) NOT NULL DEFAULT \'\',
-                contorno2 VARCHAR(64) NOT NULL DEFAULT \'\',
-                frutta VARCHAR(64) NOT NULL DEFAULT \'\',
-                yogurt VARCHAR(64) NOT NULL DEFAULT \'\',
-                dessert VARCHAR(64) NOT NULL DEFAULT \'\',
-                bevande VARCHAR(64) NOT NULL DEFAULT \'\',
-                bevande2 VARCHAR(64) NOT NULL DEFAULT \'\',
                 giorno VARCHAR(20) NOT NULL DEFAULT \'\',
                 time_stamp VARCHAR(32) NOT NULL DEFAULT \'\',
                 payment VARCHAR(8) NOT NULL DEFAULT \'\',
                 allergie VARCHAR(240) NOT NULL DEFAULT \'\',
+                intestazione_json TEXT NOT NULL,
+                celle_json TEXT NOT NULL,
                 aggiornato_il DATETIME NOT NULL,
                 PRIMARY KEY (id),
                 KEY idx_export_cucina_giorno (azienda_id, data_pasto),
@@ -166,6 +166,8 @@ final class Installer
                 permetti_doppio_dessert TINYINT(1) NOT NULL DEFAULT 0,
                 max_frutta TINYINT UNSIGNED NOT NULL DEFAULT 1,
                 max_dessert TINYINT UNSIGNED NOT NULL DEFAULT 1,
+                permetti_doppio_yogurt TINYINT(1) NOT NULL DEFAULT 0,
+                max_yogurt TINYINT UNSIGNED NOT NULL DEFAULT 1,
                 logo VARCHAR(160) NULL,
                 limite_oggi TIME NOT NULL,
                 limite_domani TIME NOT NULL,
@@ -485,6 +487,13 @@ final class Installer
                  ADD COLUMN max_frutta TINYINT UNSIGNED NOT NULL DEFAULT 1 AFTER permetti_doppio_dessert,
                  ADD COLUMN max_dessert TINYINT UNSIGNED NOT NULL DEFAULT 1 AFTER max_frutta,
                  ADD COLUMN logo VARCHAR(160) NULL AFTER max_dessert'
+            );
+        }
+        if (!$this->haColonna('aziende', 'max_yogurt')) {
+            $this->pdo->exec(
+                'ALTER TABLE aziende
+                 ADD COLUMN permetti_doppio_yogurt TINYINT(1) NOT NULL DEFAULT 0 AFTER max_dessert,
+                 ADD COLUMN max_yogurt TINYINT UNSIGNED NOT NULL DEFAULT 1 AFTER permetti_doppio_yogurt'
             );
         }
         if (!$this->haColonna('menu_voci', 'lettera')) {

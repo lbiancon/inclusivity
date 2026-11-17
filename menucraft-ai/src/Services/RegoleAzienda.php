@@ -62,6 +62,9 @@ final class RegoleAzienda
         $doppioDessert = array_key_exists('permetti_doppio_dessert', $input)
             ? ($this->flag($input['permetti_doppio_dessert']) ? 1 : 0)
             : ($attuale->permettiDoppioDessert ? 1 : 0);
+        $doppioYogurt = array_key_exists('permetti_doppio_yogurt', $input)
+            ? ($this->flag($input['permetti_doppio_yogurt']) ? 1 : 0)
+            : ($attuale->permettiDoppioYogurt ? 1 : 0);
         $maxPrimo = array_key_exists('max_primo', $input)
             ? $this->porzioni($input['max_primo'], 'Il massimo dei primi è tra 1 e 4.')
             : max(1, $attuale->maxPerCategoria(\MenuCraft\Enums\PortataType::Primo));
@@ -77,6 +80,9 @@ final class RegoleAzienda
         $maxDessert = array_key_exists('max_dessert', $input)
             ? $this->porzioni($input['max_dessert'], 'Il massimo dei dolci è tra 1 e 4.')
             : max(1, $attuale->maxPerCategoria(\MenuCraft\Enums\PortataType::Dessert));
+        $maxYogurt = array_key_exists('max_yogurt', $input)
+            ? $this->porzioni($input['max_yogurt'], 'Il massimo degli yogurt è tra 1 e 4.')
+            : max(1, $attuale->maxPerCategoria(\MenuCraft\Enums\PortataType::Yogurt));
         $guida = array_key_exists('guida_linea', $input)
             ? $this->guida((string) $input['guida_linea'])
             : $attuale->guidaLinea;
@@ -105,11 +111,13 @@ final class RegoleAzienda
                  permetti_doppio_contorno = :contorno,
                  permetti_doppio_frutta = :frutta,
                  permetti_doppio_dessert = :dessert,
+                 permetti_doppio_yogurt = :yogurt,
                  max_primo = :max_primo,
                  max_secondo = :max_secondo,
                  max_contorno = :max_contorno,
                  max_frutta = :max_frutta,
                  max_dessert = :max_dessert,
+                 max_yogurt = :max_yogurt,
                  limite_oggi = :oggi,
                  limite_domani = :domani,
                  modalita = :modalita,
@@ -131,11 +139,13 @@ final class RegoleAzienda
             'contorno' => $doppioContorno,
             'frutta' => $doppioFrutta,
             'dessert' => $doppioDessert,
+            'yogurt' => $doppioYogurt,
             'max_primo' => $maxPrimo,
             'max_secondo' => $maxSecondo,
             'max_contorno' => $maxContorno,
             'max_frutta' => $maxFrutta,
             'max_dessert' => $maxDessert,
+            'max_yogurt' => $maxYogurt,
             'oggi' => $oggi,
             'domani' => $domani,
             'modalita' => $modalita,

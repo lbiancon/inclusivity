@@ -126,60 +126,7 @@ final class KitchenSummary
 
     public function csv(int $aziendaId, string $nomeAzienda, string $data): string
     {
-        $riepilogo = $this->perGiorno($aziendaId, $data);
-        $quando = \DateTimeImmutable::createFromFormat('!Y-m-d', $riepilogo['data']);
-        $giorno = $quando instanceof \DateTimeImmutable ? $this->giornoSettimana((int) $quando->format('N')) : '';
-        $righe = [
-            ['PRENOTAZIONE MENSA ' . strtoupper($giorno) . ' ' . ($quando instanceof \DateTimeImmutable ? $quando->format('d/m/Y') : $riepilogo['data']) . ' TOT. ' . $riepilogo['buoni']],
-            ['azienda', $nomeAzienda],
-            [],
-            ['CONTEGGI'],
-            ['lettera', 'fascia', 'categoria', 'codice', 'piatto', 'porzioni'],
-        ];
-        foreach ($riepilogo['porzioni'] as $porzione) {
-            $righe[] = [
-                $porzione['lettera'],
-                $porzione['fascia'],
-                $porzione['categoria'],
-                $porzione['codice'],
-                $porzione['nome'],
-                (string) $porzione['porzioni'],
-            ];
-        }
-        $righe[] = [];
-        $righe[] = ['BADGE', 'EMPLOYEE', 'PRIMO', 'SECONDO', 'CONTORNO', 'CONTORNO', 'FRUTTA', 'YOGURT', 'DESSERT', 'BEVANDE', 'BEVANDE2', 'GIORNO', 'TIME_STAMP', 'PAYMENT', 'ALLERGIE'];
-        $perOrdine = [];
-        foreach ($riepilogo['buoni_righe'] as $riga) {
-            $perOrdine[$riga['ordine_id']][] = $riga;
-        }
-        foreach ($perOrdine as $voci) {
-            $prima = $voci[0];
-            $istante = \DateTimeImmutable::createFromFormat('Y-m-d H:i:s', $prima['creato_il']);
-            $righe[] = [
-                $prima['matricola'],
-                $prima['ospite'] !== '' ? $prima['ospite'] : $prima['dipendente'],
-                $this->cellaPortata($voci, 'primo', 0),
-                $this->cellaPortata($voci, 'secondo', 0),
-                $this->cellaPortata($voci, 'contorno', 0),
-                $this->cellaPortata($voci, 'contorno', 1),
-                $this->cellaPortata($voci, 'frutta', 0),
-                $this->cellaPortata($voci, 'yogurt', 0),
-                $this->cellaPortata($voci, 'dessert', 0),
-                $this->cellaPortata($voci, 'bevanda', 0),
-                $this->cellaPortata($voci, 'bevanda', 1),
-                $giorno,
-                $istante instanceof \DateTimeImmutable ? $istante->format('d/m/Y H:i') : $prima['creato_il'],
-                $prima['a_carico'] === 'dipendente' ? 'P' : '',
-                $prima['nota_cucina'],
-            ];
-        }
-
-        $csv = "\xEF\xBB\xBF";
-        foreach ($righe as $riga) {
-            $csv .= implode(';', array_map($this->cella(...), $riga)) . "\r\n";
-        }
-
-        return $csv;
+        return (new ExportCucina($this->pdo))->csv($aziendaId, $nomeAzienda, $data);
     }
 
     private function data(string $data): string
@@ -193,47 +140,5 @@ final class KitchenSummary
         }
 
         return $data;
-    }
-
-    /**
-     * @param list<array<string, mixed>> $voci
-     */
-    private function cellaPortata(array $voci, string $categoria, int $slot): string
-    {
-        $perLettera = [];
-        foreach ($voci as $voce) {
-            if ($voce['categoria'] !== $categoria) {
-                continue;
-            }
-            $lettera = $voce['lettera'] !== '' ? $voce['lettera'] : $voce['codice'];
-            $perLettera[$lettera] = ($perLettera[$lettera] ?? 0) + 1;
-        }
-        $ordine = array_flip(LetteraPasto::ALFABETO);
-        uksort($perLettera, static function (string $a, string $b) use ($ordine): int {
-            return ($ordine[$a] ?? 99) <=> ($ordine[$b] ?? 99);
-        });
-        $blocchi = [];
-        foreach ($perLettera as $lettera => $quantita) {
-            $blocchi[] = $quantita > 1 ? $lettera . 'x' . $quantita : $lettera;
-        }
-        if ($categoria === 'contorno' || $categoria === 'bevanda') {
-            return $blocchi[$slot] ?? '';
-        }
-
-        return $slot === 0 ? implode(' ', $blocchi) : '';
-    }
-
-    private function giornoSettimana(int $numero): string
-    {
-        return [1 => 'lunedi', 'martedi', 'mercoledi', 'giovedi', 'venerdi', 'sabato', 'domenica'][$numero] ?? '';
-    }
-
-    private function cella(string $valore): string
-    {
-        if (str_contains($valore, ';') || str_contains($valore, '"') || str_contains($valore, "\n")) {
-            return '"' . str_replace('"', '""', $valore) . '"';
-        }
-
-        return $valore;
     }
 }
