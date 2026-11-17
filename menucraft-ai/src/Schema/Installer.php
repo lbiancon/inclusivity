@@ -68,6 +68,82 @@ final class Installer
         }
 
         $this->assicuraPiattaforma();
+        $this->assicuraExportCucina();
+    }
+
+    private function assicuraExportCucina(): void
+    {
+        $this->pdo->exec(
+            'CREATE TABLE IF NOT EXISTS export_cucina (
+                id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+                azienda_id BIGINT UNSIGNED NOT NULL,
+                data_pasto DATE NOT NULL,
+                badge VARCHAR(64) NOT NULL,
+                employee VARCHAR(160) NOT NULL,
+                primo VARCHAR(64) NOT NULL DEFAULT \'\',
+                secondo VARCHAR(64) NOT NULL DEFAULT \'\',
+                contorno1 VARCHAR(64) NOT NULL DEFAULT \'\',
+                contorno2 VARCHAR(64) NOT NULL DEFAULT \'\',
+                frutta VARCHAR(64) NOT NULL DEFAULT \'\',
+                yogurt VARCHAR(64) NOT NULL DEFAULT \'\',
+                dessert VARCHAR(64) NOT NULL DEFAULT \'\',
+                bevande VARCHAR(64) NOT NULL DEFAULT \'\',
+                bevande2 VARCHAR(64) NOT NULL DEFAULT \'\',
+                giorno VARCHAR(20) NOT NULL DEFAULT \'\',
+                time_stamp VARCHAR(32) NOT NULL DEFAULT \'\',
+                payment VARCHAR(8) NOT NULL DEFAULT \'\',
+                allergie VARCHAR(240) NOT NULL DEFAULT \'\',
+                aggiornato_il DATETIME NOT NULL,
+                PRIMARY KEY (id),
+                KEY idx_export_cucina_giorno (azienda_id, data_pasto),
+                CONSTRAINT fk_export_cucina_azienda FOREIGN KEY (azienda_id) REFERENCES aziende (id) ON DELETE CASCADE
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci'
+        );
+
+        $this->pdo->exec('DROP VIEW IF EXISTS v_export_prenotazioni_righe');
+        $this->pdo->exec(
+            'CREATE VIEW v_export_prenotazioni_righe AS
+             SELECT
+                o.azienda_id,
+                a.slug AS azienda_slug,
+                o.data_pasto,
+                o.id AS ordine_id,
+                u.matricola AS badge,
+                CASE WHEN o.ospite = 1 THEN COALESCE(o.ospite_nome, \'\') ELSE u.nome END AS employee,
+                COALESCE(v.lettera, \'\') AS lettera,
+                r.categoria,
+                r.nome AS piatto,
+                p.codice AS codice_catalogo,
+                CASE WHEN o.a_carico = \'dipendente\' THEN \'P\' ELSE \'\' END AS payment,
+                COALESCE(NULLIF(o.nota_cucina, \'\'), u.allergie, \'\') AS allergie,
+                o.creato_il
+             FROM ordini o
+             INNER JOIN aziende a ON a.id = o.azienda_id
+             INNER JOIN utenti u ON u.id = o.utente_id AND u.azienda_id = o.azienda_id
+             INNER JOIN ordine_righe r ON r.ordine_id = o.id AND r.azienda_id = o.azienda_id
+             INNER JOIN piatti p ON p.id = r.piatto_id AND p.azienda_id = o.azienda_id
+             LEFT JOIN menu_voci v
+                ON v.azienda_id = o.azienda_id
+               AND v.data_pasto = o.data_pasto
+               AND v.piatto_id = r.piatto_id'
+        );
+
+        $this->pdo->exec('DROP VIEW IF EXISTS v_export_menu_giorno');
+        $this->pdo->exec(
+            'CREATE VIEW v_export_menu_giorno AS
+             SELECT
+                v.azienda_id,
+                a.slug AS azienda_slug,
+                v.data_pasto,
+                COALESCE(v.lettera, \'\') AS lettera,
+                p.categoria,
+                p.nome AS piatto,
+                p.codice AS codice_catalogo,
+                p.prezzo
+             FROM menu_voci v
+             INNER JOIN aziende a ON a.id = v.azienda_id
+             INNER JOIN piatti p ON p.id = v.piatto_id AND p.azienda_id = v.azienda_id'
+        );
     }
 
     private function creaTabelle(): void

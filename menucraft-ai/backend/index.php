@@ -309,10 +309,14 @@ header('Content-Type: text/html; charset=utf-8');
             <section data-pannello="cucina" hidden class="rounded-3xl border border-[#d5cbb8] bg-white p-5">
                 <h2 class="font-serif text-3xl uppercase">File per la cucina</h2>
                 <p id="cucina-testo" class="mt-2 text-sm text-ink/70"></p>
+                <p class="mt-2 text-sm text-ink/60">Per VB.NET non leggere più la tabella <code>piatti</code> con i codici: usa <code>export_cucina</code> (righe già pronte con lettere A B C) oppure la vista <code>v_export_prenotazioni_righe</code>. Ogni prenotazione e ogni scarico aggiornano la tabella. Il modello SQL è in <code>esempi/export-vbnet.sql</code>.</p>
                 <label class="mt-4 block text-sm font-semibold">Giorno
                     <input id="giorno-cucina" type="date" class="mt-1 rounded-xl border border-ink/15 bg-cream px-3 py-2">
                 </label>
-                <button id="scarica-riepilogo" type="button" class="mt-4 rounded-xl bg-terracotta px-4 py-3 text-sm font-semibold text-white">Scarica il file</button>
+                <div class="mt-4 flex flex-wrap gap-2">
+                    <button id="scarica-riepilogo" type="button" class="rounded-xl bg-terracotta px-4 py-3 text-sm font-semibold text-white">Scarica CSV</button>
+                    <button id="scarica-riepilogo-xls" type="button" class="rounded-xl border border-ink px-4 py-3 text-sm font-semibold">Scarica XLS</button>
+                </div>
             </section>
             <section data-pannello="menu" hidden class="space-y-4">
                 <div id="menu-banco-box" class="rounded-3xl border border-[#d5cbb8] bg-white p-5">
@@ -849,17 +853,20 @@ header('Content-Type: text/html; charset=utf-8');
             }
         });
 
-        document.getElementById('scarica-riepilogo').addEventListener('click', async () => {
+        async function scaricaCucina(formato) {
             const data = document.getElementById('giorno-cucina').value;
             if (!data) {
                 mostraBanner('errore', 'Indica il giorno del file.');
                 return;
             }
             try {
-                const response = await fetch(API + 'riepilogo.php?data=' + encodeURIComponent(data), {
-                    credentials: 'same-origin',
-                    headers: { Accept: 'text/csv, application/json' },
-                });
+                const response = await fetch(
+                    API + 'riepilogo.php?data=' + encodeURIComponent(data) + '&formato=' + encodeURIComponent(formato),
+                    {
+                        credentials: 'same-origin',
+                        headers: { Accept: formato === 'xls' ? 'application/vnd.ms-excel, application/json' : 'text/csv, application/json' },
+                    },
+                );
                 const tipo = response.headers.get('Content-Type') || '';
                 if (!response.ok || tipo.includes('application/json')) {
                     const payload = await response.json();
@@ -869,14 +876,16 @@ header('Content-Type: text/html; charset=utf-8');
                 const url = URL.createObjectURL(blob);
                 const link = document.createElement('a');
                 link.href = url;
-                link.download = 'riepilogo-cucina-' + data + '.csv';
+                link.download = 'riepilogo-cucina-' + data + '.' + formato;
                 link.click();
                 URL.revokeObjectURL(url);
-                mostraBanner('ok', 'File cucina scaricato per il ' + data + '. Mandalo con la tua applicazione.');
+                mostraBanner('ok', 'File cucina ' + formato.toUpperCase() + ' scaricato per il ' + data + '. Mandalo con la tua applicazione.');
             } catch (error) {
                 mostraBanner('errore', error.message);
             }
-        });
+        }
+        document.getElementById('scarica-riepilogo').addEventListener('click', () => scaricaCucina('csv'));
+        document.getElementById('scarica-riepilogo-xls').addEventListener('click', () => scaricaCucina('xls'));
 
         document.getElementById('upload-form').addEventListener('submit', async (event) => {
             event.preventDefault();

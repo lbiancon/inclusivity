@@ -17,6 +17,7 @@ use MenuCraft\Services\Anagrafica;
 use MenuCraft\Services\AuthService;
 use MenuCraft\Services\CalendarioChiusure;
 use MenuCraft\Services\PrenotazioniAzienda;
+use MenuCraft\Services\ExportCucina;
 use MenuCraft\Services\KitchenSummary;
 use MenuCraft\Services\RegoleAzienda;
 use MenuCraft\Services\ItalianHolidayCalendar;
@@ -424,29 +425,27 @@ verifica($annullo['annullato'] === true, 'annullo prenotazione');
 
 $calendario = new CalendarioChiusure($pdo);
 $patronale = $calendario->aggiungi($auroraId, [
-    'data' => '2026-11-16',
+    'data' => '2026-11-23',
     'descrizione' => 'Festa patronale QA',
 ]);
-verifica($patronale['data'] === '2026-11-16', 'chiusura del servizio salvata');
-$motivo = $validator->motivoCalendario($auroraId, new DateTimeImmutable('2026-11-16', $fuso));
+verifica($patronale['data'] === '2026-11-23', 'chiusura del servizio salvata');
+$motivo = $validator->motivoCalendario($auroraId, new DateTimeImmutable('2026-11-23', $fuso));
 verifica(is_string($motivo) && str_contains($motivo, 'Festa patronale QA'), 'chiusura di tenant');
-$motivoRossi = $validator->motivoCalendario($rossiId, new DateTimeImmutable('2026-11-16', $fuso));
+$motivoRossi = $validator->motivoCalendario($rossiId, new DateTimeImmutable('2026-11-23', $fuso));
 verifica($motivoRossi === null, 'la chiusura non trapela sull\'altro tenant');
 $elencoChiusure = $calendario->elenco($auroraId);
-verifica(count(array_filter($elencoChiusure['proprie'], static fn (array $voce): bool => $voce['data'] === '2026-11-16')) === 1, 'elenco chiusure proprie');
+verifica(count(array_filter($elencoChiusure['proprie'], static fn (array $voce): bool => $voce['data'] === '2026-11-23')) === 1, 'elenco chiusure proprie');
 verifica($elencoChiusure['nazionali'] !== [], 'feste nazionali in sola lettura');
 $calendario->togli($auroraId, (int) $patronale['id']);
-verifica($validator->motivoCalendario($auroraId, new DateTimeImmutable('2026-11-16', $fuso)) === null, 'chiusura del servizio tolta');
+verifica($validator->motivoCalendario($auroraId, new DateTimeImmutable('2026-11-23', $fuso)) === null, 'chiusura del servizio tolta');
 attesaEccezione('CHIUSURA_NON_NECESSARIA', fn () => $calendario->aggiungi($auroraId, [
     'data' => '2026-11-21',
     'descrizione' => 'Sabato inutile',
 ]), 'sabato non si segna come chiusura se resta chiuso');
 $nazionaleId = (int) ($elencoChiusure['nazionali'][0]['id'] ?? 0);
 $nazionaleData = (string) ($elencoChiusure['nazionali'][0]['data'] ?? '');
-if ($nazionaleId > 0) {
+if ($nazionaleId > 0 && $nazionaleData >= (new DateTimeImmutable('now', $fuso))->format('Y-m-d')) {
     attesaEccezione('CHIUSURA_NON_TROVATA', fn () => $calendario->togli($auroraId, $nazionaleId), 'le feste nazionali non si cancellano dal banco');
-}
-if ($nazionaleData !== '') {
     $apertura = $calendario->apri($auroraId, [
         'data' => $nazionaleData,
         'descrizione' => 'Aperto in deroga',
@@ -454,14 +453,16 @@ if ($nazionaleData !== '') {
     verifica($validator->motivoCalendario($auroraId, new DateTimeImmutable($nazionaleData, $fuso)) === null, 'festa nazionale resa lavorativa');
     $calendario->togliApertura($auroraId, (int) $apertura['id']);
     verifica($validator->motivoCalendario($auroraId, new DateTimeImmutable($nazionaleData, $fuso)) !== null, 'togliendo la deroga la festa torna chiusa');
+} elseif ($nazionaleId > 0) {
+    attesaEccezione('CHIUSURA_NON_TROVATA', fn () => $calendario->togli($auroraId, $nazionaleId), 'le feste nazionali non si cancellano dal banco');
 }
 $pdo->prepare('UPDATE aziende SET apri_sabato = 1 WHERE id = :id')->execute(['id' => $auroraId]);
 verifica($validator->motivoCalendario($auroraId, new DateTimeImmutable('2026-11-21', $fuso)) === null, 'con apri_sabato il sabato è lavorativo');
 $pdo->prepare('UPDATE aziende SET apri_sabato = 0 WHERE id = :id')->execute(['id' => $auroraId]);
-$calendario->aggiungi($auroraId, [
-    'data' => '2026-11-16',
-    'descrizione' => 'Festa patronale QA',
-]);
+// Chiusura storica sul lunedì della griglia di test (inserimento diretto: la data è già trascorsa).
+$pdo->prepare(
+    'INSERT INTO calendario_chiusure (azienda_id, data_chiusura, descrizione) VALUES (?, ?, ?)'
+)->execute([$auroraId, '2026-11-16', 'Festa patronale QA']);
 
 $auth = new AuthService($pdo);
 $login = $auth->login('qa-rossi', 'DIP', 'MenuCraft!2026');
@@ -551,6 +552,19 @@ verifica($cucina->perGiorno($rossiId, '2026-11-13')['buoni'] === 0, 'riepilogo i
 $csvCucina = $cucina->csv($auroraId, 'QA Aurora', '2026-11-13');
 verifica(str_contains($csvCucina, 'SE2;') && str_contains($csvCucina, 'TOT. 1') && str_contains($csvCucina, 'CONTEGGI'), 'csv con lettera, totale e parziali');
 verifica($auroraCucina['porzioni'][0]['lettera'] !== '' && $auroraCucina['porzioni'][0]['fascia'] === 'verde', 'il parziale cucina ha lettera e fascia');
+$exportCucina = new ExportCucina($pdo);
+$righeExport = $exportCucina->materializza($auroraId, '2026-11-13');
+verifica(count($righeExport) === 1 && ($righeExport[0]['badge'] ?? '') === 'DIP', 'export_cucina materializzato per VB.NET');
+$inTabella = (int) $pdo->query(
+    'SELECT COUNT(*) FROM export_cucina WHERE azienda_id = ' . $auroraId . " AND data_pasto = '2026-11-13'"
+)->fetchColumn();
+verifica($inTabella === 1, 'tabella export_cucina popolata');
+$vistaRighe = (int) $pdo->query(
+    'SELECT COUNT(*) FROM v_export_prenotazioni_righe WHERE azienda_id = ' . $auroraId . " AND data_pasto = '2026-11-13'"
+)->fetchColumn();
+verifica($vistaRighe >= 1, 'vista v_export_prenotazioni_righe leggibile');
+$xlsCucina = $exportCucina->xls($auroraId, 'QA Aurora', '2026-11-13');
+verifica(str_contains($xlsCucina, 'Workbook') && str_contains($xlsCucina, 'BADGE') && str_contains($xlsCucina, 'DIP'), 'xls SpreadsheetML per spedizione esterna');
 
 $prenotazioni = new PrenotazioniAzienda($pdo);
 $listaAurora = $prenotazioni->delGiorno($auroraId, '2026-11-13');

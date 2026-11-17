@@ -102,6 +102,12 @@ final class OrderService
             throw $e;
         }
 
+        try {
+            (new ExportCucina($this->pdo))->materializza($aziendaId, $dataPasto->format('Y-m-d'));
+        } catch (\Throwable) {
+            // L'ordine è già salvato: l'export si aggiorna al prossimo scarico cucina.
+        }
+
         $risultato['saldo'] = $mostraSaldo ? $this->saldo($azienda, $utenteId, true) : null;
 
         return $risultato;

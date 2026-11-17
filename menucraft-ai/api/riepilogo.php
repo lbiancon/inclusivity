@@ -7,6 +7,7 @@ require dirname(__DIR__) . '/bootstrap.php';
 use MenuCraft\Http\JsonResponse;
 use MenuCraft\Models\AziendaConfig;
 use MenuCraft\Services\AuthService;
+use MenuCraft\Services\ExportCucina;
 use MenuCraft\Services\KitchenSummary;
 use MenuCraft\Services\MenuRuleException;
 
@@ -21,9 +22,26 @@ try {
     $utente = (new AuthService($pdo))->richiediRuolo('caterer');
     $azienda = AziendaConfig::trova($pdo, $utente['azienda_id']);
     $data = (string) ($_GET['data'] ?? '');
+    $formato = strtolower(trim((string) ($_GET['formato'] ?? 'csv')));
+    if (!in_array($formato, ['csv', 'xls'], true)) {
+        throw new MenuRuleException('FORMATO_FILE', 'Usa formato=csv oppure formato=xls.');
+    }
+
+    $export = new ExportCucina($pdo);
+    $export->materializza($azienda->id, $data);
+
+    if ($formato === 'xls') {
+        $corpo = $export->xls($azienda->id, $azienda->nome, $data);
+        $nome = 'riepilogo-cucina-' . $azienda->slug . '-' . $data . '.xls';
+        header('Content-Type: application/vnd.ms-excel; charset=utf-8');
+        header('Content-Disposition: attachment; filename="' . $nome . '"');
+        header('X-Content-Type-Options: nosniff');
+        echo $corpo;
+        exit;
+    }
+
     $csv = (new KitchenSummary($pdo))->csv($azienda->id, $azienda->nome, $data);
     $nome = 'riepilogo-cucina-' . $azienda->slug . '-' . $data . '.csv';
-
     header('Content-Type: text/csv; charset=utf-8');
     header('Content-Disposition: attachment; filename="' . $nome . '"');
     header('X-Content-Type-Options: nosniff');
