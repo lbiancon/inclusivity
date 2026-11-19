@@ -164,9 +164,11 @@ final class MenuValidator
             return;
         }
 
-        $messaggio = $massimo === 1
-            ? sprintf('Per questa azienda è consentito un solo %s.', $singolare)
-            : sprintf('Sono consentiti al massimo %d %s.', $massimo, $plurale);
+        $messaggio = match (true) {
+            $massimo < 1 => sprintf('Per questa azienda la portata %s non è prevista.', $singolare),
+            $massimo === 1 => sprintf('Per questa azienda è consentito un solo %s.', $singolare),
+            default => sprintf('Sono consentiti al massimo %d %s.', $massimo, $plurale),
+        };
         throw new MenuRuleException($codice, $messaggio);
     }
 

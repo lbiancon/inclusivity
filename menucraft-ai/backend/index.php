@@ -209,45 +209,45 @@ header('Content-Type: text/html; charset=utf-8');
                             <thead>
                                 <tr class="text-xs uppercase tracking-wider text-ink/50">
                                     <th class="py-2 pr-3">Portata</th>
-                                    <th class="py-2 pr-3">Massimo, il doppio è 2</th>
+                                    <th class="py-2 pr-3">Massimo (0 = non usata)</th>
                                     <th class="py-2">Anche lo stesso piatto</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 <tr>
                                     <td class="py-2 pr-3 font-semibold">Primo</td>
-                                    <td class="py-2 pr-3"><input id="regola-max-primo" type="number" min="1" max="4" required class="w-20 rounded-xl border border-ink/15 bg-cream px-3 py-2"></td>
+                                    <td class="py-2 pr-3"><input id="regola-max-primo" type="number" min="0" max="4" required class="w-20 rounded-xl border border-ink/15 bg-cream px-3 py-2"></td>
                                     <td class="py-2"><input id="regola-primo" type="checkbox" aria-label="Stesso primo due volte"></td>
                                 </tr>
                                 <tr>
                                     <td class="py-2 pr-3 font-semibold">Secondo</td>
-                                    <td class="py-2 pr-3"><input id="regola-max-secondo" type="number" min="1" max="4" required class="w-20 rounded-xl border border-ink/15 bg-cream px-3 py-2"></td>
+                                    <td class="py-2 pr-3"><input id="regola-max-secondo" type="number" min="0" max="4" required class="w-20 rounded-xl border border-ink/15 bg-cream px-3 py-2"></td>
                                     <td class="py-2"><input id="regola-secondo" type="checkbox" aria-label="Stesso secondo due volte"></td>
                                 </tr>
                                 <tr>
                                     <td class="py-2 pr-3 font-semibold">Contorno</td>
-                                    <td class="py-2 pr-3"><input id="regola-max-contorno" type="number" min="1" max="4" required class="w-20 rounded-xl border border-ink/15 bg-cream px-3 py-2"></td>
+                                    <td class="py-2 pr-3"><input id="regola-max-contorno" type="number" min="0" max="4" required class="w-20 rounded-xl border border-ink/15 bg-cream px-3 py-2"></td>
                                     <td class="py-2"><input id="regola-contorno" type="checkbox" aria-label="Stesso contorno due volte"></td>
                                 </tr>
                                 <tr>
                                     <td class="py-2 pr-3 font-semibold">Frutta</td>
-                                    <td class="py-2 pr-3"><input id="regola-max-frutta" type="number" min="1" max="4" required class="w-20 rounded-xl border border-ink/15 bg-cream px-3 py-2"></td>
+                                    <td class="py-2 pr-3"><input id="regola-max-frutta" type="number" min="0" max="4" required class="w-20 rounded-xl border border-ink/15 bg-cream px-3 py-2"></td>
                                     <td class="py-2"><input id="regola-frutta" type="checkbox" aria-label="Stessa frutta due volte"></td>
                                 </tr>
                                 <tr>
                                     <td class="py-2 pr-3 font-semibold">Yogurt</td>
-                                    <td class="py-2 pr-3"><input id="regola-max-yogurt" type="number" min="1" max="4" required class="w-20 rounded-xl border border-ink/15 bg-cream px-3 py-2"></td>
+                                    <td class="py-2 pr-3"><input id="regola-max-yogurt" type="number" min="0" max="4" required class="w-20 rounded-xl border border-ink/15 bg-cream px-3 py-2"></td>
                                     <td class="py-2"><input id="regola-yogurt" type="checkbox" aria-label="Stesso yogurt due volte"></td>
                                 </tr>
                                 <tr>
                                     <td class="py-2 pr-3 font-semibold">Dolce</td>
-                                    <td class="py-2 pr-3"><input id="regola-max-dessert" type="number" min="1" max="4" required class="w-20 rounded-xl border border-ink/15 bg-cream px-3 py-2"></td>
+                                    <td class="py-2 pr-3"><input id="regola-max-dessert" type="number" min="0" max="4" required class="w-20 rounded-xl border border-ink/15 bg-cream px-3 py-2"></td>
                                     <td class="py-2"><input id="regola-dessert" type="checkbox" aria-label="Stesso dolce due volte"></td>
                                 </tr>
                             </tbody>
                         </table>
                     </div>
-                    <p class="mt-3 text-sm text-ink/60">Con acqua obbligatoria, minimo e massimo valgono acqua inclusa: per il gestore senza pagamento al bancone di solito sono 5 e 5. L’acqua da sola non chiude il buono. Nella tabella, il numero è quante porzioni di quella portata entrano; la casella consente due volte lo stesso piatto.</p>
+                    <p class="mt-3 text-sm text-ink/60">Ogni azienda può avere un menu diverso: metti 4 ai primi e 0 alla frutta se quella ditta non la usa. Con acqua obbligatoria, minimo e massimo valgono acqua inclusa (es. 5 e 5). L’acqua da sola non chiude il buono. Il file cucina costruisce solo le colonne delle portate con massimo &gt; 0.</p>
                 </section>
                 <section class="rounded-3xl border border-[#d5cbb8] bg-white p-5">
                     <h2 class="font-serif text-3xl uppercase">Messaggi per chi prenota</h2>

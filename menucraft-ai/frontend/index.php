@@ -668,8 +668,11 @@ header('Content-Type: text/html; charset=utf-8');
                 }
             }
             for (const categoria of ['secondo', 'primo', 'contorno', 'frutta', 'yogurt', 'dessert']) {
-                const massimo = regole['max_' + categoria];
+                const massimo = Number(regole['max_' + categoria] ?? 0);
                 if (conteggi[categoria] > massimo) {
+                    if (massimo < 1) {
+                        return 'Per questa azienda la portata ' + nomi[categoria] + ' non è prevista.';
+                    }
                     return massimo === 1
                         ? 'Per questa azienda se ne sceglie soltanto uno tra i ' + nomi[categoria] + '.'
                         : 'Sono consentiti al massimo ' + massimo + ' ' + nomi[categoria] + '.';

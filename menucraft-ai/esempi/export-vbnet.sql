@@ -1,11 +1,13 @@
 -- Export cucina dinamico per VB.NET.
--- Le colonne pietanze (PRIMO, CONTORNO2, YOGURT, …) dipendono dalle regole
--- del servizio (max_primo, max_contorno, max_yogurt, …) e sono in JSON.
+-- Le colonne pietanze (PRIMO, CONTORNO2, …) dipendono dai massimi del servizio:
+-- max 0 = portata assente (niente colonna FRUTTA se frutta=0).
+-- OSPITE = 'S' se il buono è di un ospite; HOST = nome del dipendente che lo ospita.
 
--- Righe già pronte: intestazione_json e celle_json allineati.
 SELECT
     badge AS BADGE,
     employee AS EMPLOYEE,
+    ospite AS OSPITE,
+    host AS HOST,
     giorno AS GIORNO,
     time_stamp AS TIME_STAMP,
     payment AS PAYMENT,
@@ -17,12 +19,11 @@ WHERE azienda_id = ?          -- oppure JOIN aziende a ON a.id = export_cucina.a
   AND data_pasto = ?          -- 'AAAA-MM-GG'
 ORDER BY id;
 
--- Esempio: intestazione_json = ["PRIMO","PRIMO2","SECONDO","CONTORNO","CONTORNO2","CONTORNO3","FRUTTA","YOGURT","DESSERT","BEVANDE"]
---          celle_json       = ["A","B","D","E","","","F","","","H"]
--- In VB.NET: deserializzare i due JSON e scrivere le colonne nell'XLS nello stesso ordine.
+-- intestazione_json e celle_json sono allineati (stesso ordine di colonne).
+-- In VB.NET: deserializzare i due JSON e scrivere le colonne nell'XLS.
 
--- Vista piatta (lettera del giorno, non codice catalogo) se preferisci fare il pivot tu.
-SELECT badge, employee, lettera, categoria, piatto, payment, allergie, creato_il
+-- Vista piatta se preferisci fare il pivot tu.
+SELECT badge, employee, ospite, host, lettera, categoria, piatto, payment, allergie, creato_il
 FROM v_export_prenotazioni_righe
 WHERE azienda_slug = ?
   AND data_pasto = ?

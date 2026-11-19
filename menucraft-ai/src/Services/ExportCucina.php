@@ -15,9 +15,9 @@ if (!defined('MENUCRAFT_APP')) {
 }
 
 /**
- * Export cucina dinamico: le colonne PRIMO/SECONDO/... seguono i massimi
- * del servizio (max_primo, max_contorno, max_yogurt, …).
- * Tabella export_cucina espone intestazione+celle in JSON per VB.NET.
+ * Export cucina dinamico per azienda: solo le portate con massimo > 0
+ * (es. Pippo con 4 primi, 3 secondi e frutta a 0 non ha colonna FRUTTA).
+ * Colonne fisse: BADGE, EMPLOYEE, OSPITE, HOST + GIORNO/TIME_STAMP/PAYMENT/ALLERGIE.
  */
 final class ExportCucina
 {
@@ -38,23 +38,25 @@ final class ExportCucina
             [PortataType::Frutta, 'FRUTTA'],
             [PortataType::Yogurt, 'YOGURT'],
             [PortataType::Dessert, 'DESSERT'],
-            [PortataType::Bevanda, 'BEVANDE'],
         ];
         foreach ($portate as [$categoria, $base]) {
-            $quanti = $categoria === PortataType::Bevanda
-                ? max(1, $azienda->bevandaObbligatoria ? 1 : 1)
-                : max(1, $azienda->maxPerCategoria($categoria));
-            if ($categoria === PortataType::Bevanda && !$azienda->bevandaObbligatoria) {
-                $quanti = 1;
-            }
+            $quanti = $azienda->maxPerCategoria($categoria);
             for ($slot = 0; $slot < $quanti; $slot++) {
-                $header = $slot === 0 ? $base : ($base === 'BEVANDE' ? 'BEVANDE' . ($slot + 1) : $base . ($slot + 1));
+                $header = $slot === 0 ? $base : $base . ($slot + 1);
                 $layout[] = [
                     'categoria' => $categoria->value,
                     'slot' => $slot,
                     'header' => $header,
                 ];
             }
+        }
+        // Bevanda: una colonna se obbligatoria oppure se comunque ammessa nel vassoio
+        if ($azienda->bevandaObbligatoria || $azienda->portataAttiva(PortataType::Bevanda)) {
+            $layout[] = [
+                'categoria' => PortataType::Bevanda->value,
+                'slot' => 0,
+                'header' => 'BEVANDE',
+            ];
         }
 
         return $layout;
@@ -98,11 +100,14 @@ final class ExportCucina
         $righe = [];
         foreach ($perOrdine as $voci) {
             $prima = $voci[0];
+            $eOspite = $prima['ospite'] !== '';
             $istante = \DateTimeImmutable::createFromFormat('Y-m-d H:i:s', $prima['creato_il']);
             $celle = self::valoriCelle($voci, $layout);
             $righe[] = [
                 'badge' => $prima['matricola'],
-                'employee' => $prima['ospite'] !== '' ? $prima['ospite'] : $prima['dipendente'],
+                'employee' => $eOspite ? $prima['ospite'] : $prima['dipendente'],
+                'ospite' => $eOspite ? 'S' : '',
+                'host' => $eOspite ? $prima['dipendente'] : '',
                 'giorno' => $giorno,
                 'time_stamp' => $istante instanceof \DateTimeImmutable
                     ? $istante->format('d/m/Y H:i')
@@ -120,9 +125,9 @@ final class ExportCucina
 
         $inserisci = $this->pdo->prepare(
             'INSERT INTO export_cucina
-                (azienda_id, data_pasto, badge, employee, giorno, time_stamp, payment, allergie, intestazione_json, celle_json, aggiornato_il)
+                (azienda_id, data_pasto, badge, employee, ospite, host, giorno, time_stamp, payment, allergie, intestazione_json, celle_json, aggiornato_il)
              VALUES
-                (:azienda, :data, :badge, :employee, :giorno, :time_stamp, :payment, :allergie, :intestazione, :celle, NOW())'
+                (:azienda, :data, :badge, :employee, :ospite, :host, :giorno, :time_stamp, :payment, :allergie, :intestazione, :celle, NOW())'
         );
         foreach ($righe as $riga) {
             $inserisci->execute([
@@ -130,6 +135,8 @@ final class ExportCucina
                 'data' => $riepilogo['data'],
                 'badge' => $riga['badge'],
                 'employee' => $riga['employee'],
+                'ospite' => $riga['ospite'],
+                'host' => $riga['host'],
                 'giorno' => $riga['giorno'],
                 'time_stamp' => $riga['time_stamp'],
                 'payment' => $riga['payment'],
@@ -185,14 +192,14 @@ final class ExportCucina
         }
         $foglio[] = [];
         $intestazione = array_merge(
-            ['BADGE', 'EMPLOYEE'],
+            ['BADGE', 'EMPLOYEE', 'OSPITE', 'HOST'],
             array_column($layout, 'header'),
             ['GIORNO', 'TIME_STAMP', 'PAYMENT', 'ALLERGIE'],
         );
         $foglio[] = $intestazione;
         foreach ($righeExport as $riga) {
             $foglio[] = array_merge(
-                [$riga['badge'], $riga['employee']],
+                [$riga['badge'], $riga['employee'], $riga['ospite'], $riga['host']],
                 $riga['celle'],
                 [$riga['giorno'], $riga['time_stamp'], $riga['payment'], $riga['allergie']],
             );

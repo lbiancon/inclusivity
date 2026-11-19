@@ -310,10 +310,14 @@ final class BookingBoard
             if (!isset($gruppi[$categoria->value])) {
                 continue;
             }
+            $massimo = $azienda->maxPerCategoria($categoria);
+            if ($massimo < 1 && $categoria !== PortataType::Bevanda) {
+                continue;
+            }
             $portate[] = [
                 'categoria' => $categoria->value,
                 'etichetta' => $categoria->etichetta(),
-                'massimo' => $azienda->maxPerCategoria($categoria),
+                'massimo' => $massimo,
                 'piatti' => $gruppi[$categoria->value],
             ];
         }

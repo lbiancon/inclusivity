@@ -87,6 +87,8 @@ final class Installer
                 data_pasto DATE NOT NULL,
                 badge VARCHAR(64) NOT NULL,
                 employee VARCHAR(160) NOT NULL,
+                ospite CHAR(1) NOT NULL DEFAULT \'\',
+                host VARCHAR(160) NOT NULL DEFAULT \'\',
                 giorno VARCHAR(20) NOT NULL DEFAULT \'\',
                 time_stamp VARCHAR(32) NOT NULL DEFAULT \'\',
                 payment VARCHAR(8) NOT NULL DEFAULT \'\',
@@ -99,6 +101,14 @@ final class Installer
                 CONSTRAINT fk_export_cucina_azienda FOREIGN KEY (azienda_id) REFERENCES aziende (id) ON DELETE CASCADE
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci'
         );
+        $haOspite = $this->pdo->query("SHOW COLUMNS FROM export_cucina LIKE 'ospite'")->fetch();
+        if ($haOspite === false) {
+            $this->pdo->exec(
+                "ALTER TABLE export_cucina
+                 ADD COLUMN ospite CHAR(1) NOT NULL DEFAULT '' AFTER employee,
+                 ADD COLUMN host VARCHAR(160) NOT NULL DEFAULT '' AFTER ospite"
+            );
+        }
 
         $this->pdo->exec('DROP VIEW IF EXISTS v_export_prenotazioni_righe');
         $this->pdo->exec(
@@ -110,6 +120,8 @@ final class Installer
                 o.id AS ordine_id,
                 u.matricola AS badge,
                 CASE WHEN o.ospite = 1 THEN COALESCE(o.ospite_nome, \'\') ELSE u.nome END AS employee,
+                CASE WHEN o.ospite = 1 THEN \'S\' ELSE \'\' END AS ospite,
+                CASE WHEN o.ospite = 1 THEN u.nome ELSE \'\' END AS host,
                 COALESCE(v.lettera, \'\') AS lettera,
                 r.categoria,
                 r.nome AS piatto,

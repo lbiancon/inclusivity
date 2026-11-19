@@ -66,23 +66,23 @@ final class RegoleAzienda
             ? ($this->flag($input['permetti_doppio_yogurt']) ? 1 : 0)
             : ($attuale->permettiDoppioYogurt ? 1 : 0);
         $maxPrimo = array_key_exists('max_primo', $input)
-            ? $this->porzioni($input['max_primo'], 'Il massimo dei primi è tra 1 e 4.')
-            : max(1, $attuale->maxPerCategoria(\MenuCraft\Enums\PortataType::Primo));
+            ? $this->porzioni($input['max_primo'], 'Il massimo dei primi è tra 0 e 4 (0 = non usata).')
+            : $attuale->maxPerCategoria(\MenuCraft\Enums\PortataType::Primo);
         $maxSecondo = array_key_exists('max_secondo', $input)
-            ? $this->porzioni($input['max_secondo'], 'Il massimo dei secondi è tra 1 e 4.')
-            : max(1, $attuale->maxPerCategoria(\MenuCraft\Enums\PortataType::Secondo));
+            ? $this->porzioni($input['max_secondo'], 'Il massimo dei secondi è tra 0 e 4 (0 = non usata).')
+            : $attuale->maxPerCategoria(\MenuCraft\Enums\PortataType::Secondo);
         $maxContorno = array_key_exists('max_contorno', $input)
-            ? $this->porzioni($input['max_contorno'], 'Il massimo dei contorni è tra 1 e 4.')
-            : max(1, $attuale->maxPerCategoria(\MenuCraft\Enums\PortataType::Contorno));
+            ? $this->porzioni($input['max_contorno'], 'Il massimo dei contorni è tra 0 e 4 (0 = non usata).')
+            : $attuale->maxPerCategoria(\MenuCraft\Enums\PortataType::Contorno);
         $maxFrutta = array_key_exists('max_frutta', $input)
-            ? $this->porzioni($input['max_frutta'], 'Il massimo della frutta è tra 1 e 4.')
-            : max(1, $attuale->maxPerCategoria(\MenuCraft\Enums\PortataType::Frutta));
+            ? $this->porzioni($input['max_frutta'], 'Il massimo della frutta è tra 0 e 4 (0 = non usata).')
+            : $attuale->maxPerCategoria(\MenuCraft\Enums\PortataType::Frutta);
         $maxDessert = array_key_exists('max_dessert', $input)
-            ? $this->porzioni($input['max_dessert'], 'Il massimo dei dolci è tra 1 e 4.')
-            : max(1, $attuale->maxPerCategoria(\MenuCraft\Enums\PortataType::Dessert));
+            ? $this->porzioni($input['max_dessert'], 'Il massimo dei dolci è tra 0 e 4 (0 = non usata).')
+            : $attuale->maxPerCategoria(\MenuCraft\Enums\PortataType::Dessert);
         $maxYogurt = array_key_exists('max_yogurt', $input)
-            ? $this->porzioni($input['max_yogurt'], 'Il massimo degli yogurt è tra 1 e 4.')
-            : max(1, $attuale->maxPerCategoria(\MenuCraft\Enums\PortataType::Yogurt));
+            ? $this->porzioni($input['max_yogurt'], 'Il massimo degli yogurt è tra 0 e 4 (0 = non usata).')
+            : $attuale->maxPerCategoria(\MenuCraft\Enums\PortataType::Yogurt);
         $guida = array_key_exists('guida_linea', $input)
             ? $this->guida((string) $input['guida_linea'])
             : $attuale->guidaLinea;
@@ -166,7 +166,8 @@ final class RegoleAzienda
     private function porzioni(mixed $valore, string $messaggio): int
     {
         $numero = filter_var($valore, FILTER_VALIDATE_INT);
-        if ($numero === false || $numero < 1 || $numero > 4) {
+        // 0 = portata non usata da questa azienda; 1–4 = quante porzioni ammesse
+        if ($numero === false || $numero < 0 || $numero > 4) {
             throw new MenuRuleException('REGOLA_NON_VALIDA', $messaggio);
         }
 

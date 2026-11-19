@@ -30,15 +30,15 @@ readonly class AziendaConfig
         public string $modalita = 'intranet',
         public bool $bevandaObbligatoria = false,
         public bool $permettiDoppioSecondo = false,
-        public int $maxPrimo = 0,
-        public int $maxSecondo = 0,
-        public int $maxContorno = 0,
+        public ?int $maxPrimo = null,
+        public ?int $maxSecondo = null,
+        public ?int $maxContorno = null,
         public bool $permettiDoppioFrutta = false,
         public bool $permettiDoppioDessert = false,
-        public int $maxFrutta = 0,
-        public int $maxDessert = 0,
+        public ?int $maxFrutta = null,
+        public ?int $maxDessert = null,
         public bool $permettiDoppioYogurt = false,
-        public int $maxYogurt = 0,
+        public ?int $maxYogurt = null,
         public ?string $logo = null,
         public int $minScelte = 0,
         public string $guidaLinea = '',
@@ -100,15 +100,15 @@ readonly class AziendaConfig
             modalita: self::modalita((string) ($riga['modalita'] ?? 'intranet')),
             bevandaObbligatoria: (int) ($riga['bevanda_obbligatoria'] ?? 0) === 1,
             permettiDoppioSecondo: (int) ($riga['permetti_doppio_secondo'] ?? 0) === 1,
-            maxPrimo: (int) ($riga['max_primo'] ?? 0),
-            maxSecondo: (int) ($riga['max_secondo'] ?? 0),
-            maxContorno: (int) ($riga['max_contorno'] ?? 0),
+            maxPrimo: self::massimoSalvato($riga, 'max_primo'),
+            maxSecondo: self::massimoSalvato($riga, 'max_secondo'),
+            maxContorno: self::massimoSalvato($riga, 'max_contorno'),
             permettiDoppioFrutta: (int) ($riga['permetti_doppio_frutta'] ?? 0) === 1,
             permettiDoppioDessert: (int) ($riga['permetti_doppio_dessert'] ?? 0) === 1,
-            maxFrutta: (int) ($riga['max_frutta'] ?? 0),
-            maxDessert: (int) ($riga['max_dessert'] ?? 0),
+            maxFrutta: self::massimoSalvato($riga, 'max_frutta'),
+            maxDessert: self::massimoSalvato($riga, 'max_dessert'),
             permettiDoppioYogurt: (int) ($riga['permetti_doppio_yogurt'] ?? 0) === 1,
-            maxYogurt: (int) ($riga['max_yogurt'] ?? 0),
+            maxYogurt: self::massimoSalvato($riga, 'max_yogurt'),
             logo: isset($riga['logo']) && is_string($riga['logo']) && $riga['logo'] !== '' ? $riga['logo'] : null,
             minScelte: (int) ($riga['min_scelte'] ?? 0),
             guidaLinea: trim((string) ($riga['guida_linea'] ?? '')),
@@ -142,6 +142,10 @@ readonly class AziendaConfig
 
     public function maxPerCategoria(PortataType $categoria): int
     {
+        if ($categoria === PortataType::Bevanda) {
+            return 1;
+        }
+
         $base = match ($categoria) {
             PortataType::Secondo => $this->permettiDoppioSecondo ? 2 : 1,
             PortataType::Primo => $this->permettiDoppioPrimo ? 2 : 1,
@@ -158,16 +162,25 @@ readonly class AziendaConfig
             PortataType::Frutta => $this->maxFrutta,
             PortataType::Dessert => $this->maxDessert,
             PortataType::Yogurt => $this->maxYogurt,
-            default => 0,
+            default => null,
         };
-        if ($salvato < 1) {
+        // null = non impostato (usa i flag); 0 = portata spenta per questa azienda
+        if ($salvato === null) {
             return $base;
+        }
+        if ($salvato < 1) {
+            return 0;
         }
         if ($this->doppioStessoPiatto($categoria) && $salvato < 2) {
             return 2;
         }
 
         return $salvato;
+    }
+
+    public function portataAttiva(PortataType $categoria): bool
+    {
+        return $this->maxPerCategoria($categoria) > 0;
     }
 
     public function doppioStessoPiatto(PortataType $categoria): bool
@@ -241,6 +254,16 @@ readonly class AziendaConfig
             7 => $this->apriDomenica,
             default => true,
         };
+    }
+
+    /** @param array<string, mixed> $riga */
+    private static function massimoSalvato(array $riga, string $chiave): ?int
+    {
+        if (!array_key_exists($chiave, $riga) || $riga[$chiave] === null || $riga[$chiave] === '') {
+            return null;
+        }
+
+        return (int) $riga[$chiave];
     }
 
     private static function caricamentoMenu(string $valore): string
