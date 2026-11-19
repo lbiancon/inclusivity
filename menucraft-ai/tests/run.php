@@ -560,10 +560,19 @@ $inTabella = (int) $pdo->query(
     'SELECT COUNT(*) FROM export_cucina WHERE azienda_id = ' . $auroraId . " AND data_pasto = '2026-11-13'"
 )->fetchColumn();
 verifica($inTabella === 1, 'tabella export_cucina popolata');
+$inXls = (int) $pdo->query(
+    'SELECT COUNT(*) FROM export_xls WHERE azienda_id = ' . $auroraId . " AND data_pasto = '2026-11-13'"
+)->fetchColumn();
+verifica($inXls === 1, 'tabella piatta export_xls per VB.NET');
+$vistaXls = $pdo->query(
+    "SELECT BADGE, EMPLOYEE, PRIMO, SECONDO, CONTORNO, CONTORNO2, FRUTTA, YOGURT, DESSERT, BEVANDE, BEVANDE2, GIORNO, TIME_STAMP, PAYMENT
+     FROM v_export_xls WHERE azienda_id = " . $auroraId . " AND data_pasto = '2026-11-13'"
+)->fetch();
+verifica(is_array($vistaXls) && ($vistaXls['BADGE'] ?? '') === 'DIP', 'v_export_xls colonne fisse per DataTable');
 $jsonCelle = (string) $pdo->query(
     'SELECT celle_json FROM export_cucina WHERE azienda_id = ' . $auroraId . " AND data_pasto = '2026-11-13' LIMIT 1"
 )->fetchColumn();
-verifica(str_starts_with($jsonCelle, '['), 'celle_json per VB.NET');
+verifica(str_starts_with($jsonCelle, '['), 'celle_json dinamiche affiancate');
 $vistaRighe = (int) $pdo->query(
     'SELECT COUNT(*) FROM v_export_prenotazioni_righe WHERE azienda_id = ' . $auroraId . " AND data_pasto = '2026-11-13'"
 )->fetchColumn();

@@ -1,30 +1,47 @@
--- Export cucina dinamico per VB.NET.
--- Le colonne pietanze (PRIMO, CONTORNO2, …) dipendono dai massimi del servizio:
--- max 0 = portata assente (niente colonna FRUTTA se frutta=0).
--- OSPITE = 'S' se il buono è di un ospite; HOST = nome del dipendente che lo ospita.
+-- ============================================================================
+-- Export per VB.NET (stessa logica del vecchio software)
+-- ============================================================================
+-- MenuCraft riempie la tabella piatta `export_xls` a ogni prenotazione
+-- e a ogni download cucina. Lo schema delle colonne è FISSO, così la
+-- query produce un DataTable uguale a prima e la tua ExportExcel
+-- non va toccata.
+--
+-- Colonne fisse (come il file che mandavi al servizio):
+--   BADGE, EMPLOYEE, PRIMO, SECONDO, CONTORNO, CONTORNO2,
+--   FRUTTA, YOGURT, DESSERT, BEVANDE, BEVANDE2,
+--   GIORNO, TIME_STAMP, PAYMENT
+-- Extra utili (ignora in SELECT se non servono all'Excel):
+--   OSPITE ('S' se ospite), HOST (dipendente che ospita), ALLERGIE
+-- ============================================================================
 
+-- Query tipica da usare in VB.NET (MySqlDataAdapter.Fill → DataTable):
 SELECT
-    badge AS BADGE,
-    employee AS EMPLOYEE,
-    ospite AS OSPITE,
-    host AS HOST,
-    giorno AS GIORNO,
-    time_stamp AS TIME_STAMP,
-    payment AS PAYMENT,
-    allergie AS ALLERGIE,
-    intestazione_json,
-    celle_json
-FROM export_cucina
-WHERE azienda_id = ?          -- oppure JOIN aziende a ON a.id = export_cucina.azienda_id AND a.slug = ?
-  AND data_pasto = ?          -- 'AAAA-MM-GG'
-ORDER BY id;
+    BADGE,
+    EMPLOYEE,
+    PRIMO,
+    SECONDO,
+    CONTORNO,
+    CONTORNO2,
+    FRUTTA,
+    YOGURT,
+    DESSERT,
+    BEVANDE,
+    BEVANDE2,
+    GIORNO,
+    TIME_STAMP,
+    PAYMENT
+FROM v_export_xls
+WHERE azienda_slug = ?          -- es. 'officine-rossi'
+  AND data_pasto = ?            -- 'AAAA-MM-GG'
+ORDER BY BADGE, EMPLOYEE;
 
--- intestazione_json e celle_json sono allineati (stesso ordine di colonne).
--- In VB.NET: deserializzare i due JSON e scrivere le colonne nell'XLS.
+-- Stessa cosa sulla tabella grezza (nomi colonna lowercase):
+-- SELECT badge AS BADGE, employee AS EMPLOYEE, primo AS PRIMO, ...
+-- FROM export_xls
+-- WHERE azienda_id = ? AND data_pasto = ?
+-- ORDER BY id;
 
--- Vista piatta se preferisci fare il pivot tu.
-SELECT badge, employee, ospite, host, lettera, categoria, piatto, payment, allergie, creato_il
-FROM v_export_prenotazioni_righe
-WHERE azienda_slug = ?
-  AND data_pasto = ?
-ORDER BY ordine_id, lettera;
+-- Se ti serve anche l'ospite nell'Excel (senza cambiare ExportExcel,
+-- aggiungi le colonne nel DataTable solo se la tua funzione le mappa
+-- per nome; altrimenti lasciale fuori dalla SELECT sopra):
+--   OSPITE, HOST, ALLERGIE

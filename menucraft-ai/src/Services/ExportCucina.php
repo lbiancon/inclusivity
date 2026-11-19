@@ -15,9 +15,9 @@ if (!defined('MENUCRAFT_APP')) {
 }
 
 /**
- * Export cucina dinamico per azienda: solo le portate con massimo > 0
- * (es. Pippo con 4 primi, 3 secondi e frutta a 0 non ha colonna FRUTTA).
- * Colonne fisse: BADGE, EMPLOYEE, OSPITE, HOST + GIORNO/TIME_STAMP/PAYMENT/ALLERGIE.
+ * Due uscite:
+ * - CSV/XLS PHP dinamico (solo portate attive dell'azienda)
+ * - tabella piatta export_xls per VB.NET (schema fisso classico → DataTable → Excel)
  */
 final class ExportCucina
 {
@@ -122,12 +122,25 @@ final class ExportCucina
         $this->pdo->prepare(
             'DELETE FROM export_cucina WHERE azienda_id = :azienda AND data_pasto = :data'
         )->execute(['azienda' => $aziendaId, 'data' => $riepilogo['data']]);
+        $this->pdo->prepare(
+            'DELETE FROM export_xls WHERE azienda_id = :azienda AND data_pasto = :data'
+        )->execute(['azienda' => $aziendaId, 'data' => $riepilogo['data']]);
 
         $inserisci = $this->pdo->prepare(
             'INSERT INTO export_cucina
                 (azienda_id, data_pasto, badge, employee, ospite, host, giorno, time_stamp, payment, allergie, intestazione_json, celle_json, aggiornato_il)
              VALUES
                 (:azienda, :data, :badge, :employee, :ospite, :host, :giorno, :time_stamp, :payment, :allergie, :intestazione, :celle, NOW())'
+        );
+        $inserisciXls = $this->pdo->prepare(
+            'INSERT INTO export_xls
+                (azienda_id, data_pasto, badge, employee, ospite, host,
+                 primo, secondo, contorno, contorno2, frutta, yogurt, dessert, bevande, bevande2,
+                 giorno, time_stamp, payment, allergie, aggiornato_il)
+             VALUES
+                (:azienda, :data, :badge, :employee, :ospite, :host,
+                 :primo, :secondo, :contorno, :contorno2, :frutta, :yogurt, :dessert, :bevande, :bevande2,
+                 :giorno, :time_stamp, :payment, :allergie, NOW())'
         );
         foreach ($righe as $riga) {
             $inserisci->execute([
@@ -143,6 +156,34 @@ final class ExportCucina
                 'allergie' => $riga['allergie'],
                 'intestazione' => json_encode($riga['intestazione'], JSON_UNESCAPED_UNICODE),
                 'celle' => json_encode($riga['celle'], JSON_UNESCAPED_UNICODE),
+            ]);
+        }
+        foreach ($perOrdine as $voci) {
+            $prima = $voci[0];
+            $eOspite = $prima['ospite'] !== '';
+            $istante = \DateTimeImmutable::createFromFormat('Y-m-d H:i:s', $prima['creato_il']);
+            $inserisciXls->execute([
+                'azienda' => $aziendaId,
+                'data' => $riepilogo['data'],
+                'badge' => $prima['matricola'],
+                'employee' => $eOspite ? $prima['ospite'] : $prima['dipendente'],
+                'ospite' => $eOspite ? 'S' : '',
+                'host' => $eOspite ? $prima['dipendente'] : '',
+                'primo' => self::cellaUnica($voci, 'primo'),
+                'secondo' => self::cellaUnica($voci, 'secondo'),
+                'contorno' => self::cellaPortata($voci, 'contorno', 0),
+                'contorno2' => self::cellaPortataExtra($voci, 'contorno', 1),
+                'frutta' => self::cellaUnica($voci, 'frutta'),
+                'yogurt' => self::cellaUnica($voci, 'yogurt'),
+                'dessert' => self::cellaUnica($voci, 'dessert'),
+                'bevande' => self::cellaPortata($voci, 'bevanda', 0),
+                'bevande2' => self::cellaPortata($voci, 'bevanda', 1),
+                'giorno' => $giorno,
+                'time_stamp' => $istante instanceof \DateTimeImmutable
+                    ? $istante->format('d/m/Y H:i')
+                    : $prima['creato_il'],
+                'payment' => $prima['a_carico'] === 'dipendente' ? 'P' : '',
+                'allergie' => $prima['nota_cucina'],
             ]);
         }
 
@@ -210,8 +251,9 @@ final class ExportCucina
 
     /**
      * @param list<array<string, mixed>> $voci
+     * @return list<string>
      */
-    public static function cellaPortata(array $voci, string $categoria, int $slot): string
+    public static function blocchiPortata(array $voci, string $categoria): array
     {
         $perLettera = [];
         foreach ($voci as $voce) {
@@ -230,7 +272,37 @@ final class ExportCucina
             $blocchi[] = $quantita > 1 ? $lettera . 'x' . $quantita : $lettera;
         }
 
-        return $blocchi[$slot] ?? '';
+        return $blocchi;
+    }
+
+    /**
+     * Una sola colonna (PRIMO/SECONDO/…): tutte le lettere, Ax2 se doppio.
+     *
+     * @param list<array<string, mixed>> $voci
+     */
+    public static function cellaUnica(array $voci, string $categoria): string
+    {
+        return implode(' ', self::blocchiPortata($voci, $categoria));
+    }
+
+    /**
+     * @param list<array<string, mixed>> $voci
+     */
+    public static function cellaPortata(array $voci, string $categoria, int $slot): string
+    {
+        return self::blocchiPortata($voci, $categoria)[$slot] ?? '';
+    }
+
+    /**
+     * Secondo slot + eventuali terzi (es. 3 contorni → CONTORNO2 = "F G").
+     *
+     * @param list<array<string, mixed>> $voci
+     */
+    public static function cellaPortataExtra(array $voci, string $categoria, int $daSlot): string
+    {
+        $blocchi = self::blocchiPortata($voci, $categoria);
+
+        return implode(' ', array_slice($blocchi, $daSlot));
     }
 
     public static function giornoSettimana(int $numero): string
