@@ -1,36 +1,38 @@
 -- ============================================================================
--- Compatibilità VB.NET (dataMensa + DatatableToExcel invariate)
+-- Percorso consigliato per VB.NET (dinamico)
 -- ============================================================================
--- MenuCraft riempie la tabella `prenotazioni` con lo stesso schema del
--- tuo software attuale. La tua query può restare quasi uguale.
+-- 1) MenuCraft scrive export_cucina a ogni prenotazione/download:
+--      badge, employee, ospite ('S'|''), giorno, time_stamp, payment,
+--      intestazione_json = ["PRIMO","CONTORNO","BEVANDE",...]
+--      celle_json        = ["A","Fx2","M",...]
 --
--- JSON (export_cucina): solo per il download CSV/XLS dinamico in PHP,
--- in base ai massimi del servizio. Il VB.NET continua sulla tabella piatta.
+-- 2) In VB usa esempi/ExportCucinaDataTable.vb → dataMensa(_opt)
+--    che costruisce il DataTable dalle colonne JSON e lo passi a
+--    DatatableToExcel (invariata sulla scrittura celle).
 --
--- ID_PRENOTAZIONE termina sempre con 5 cifre = id giorno (yy + giorno anno).
--- Esempio 2026-11-13 → 24317. In VB: getIdPrenotazione deve restituire
--- lo stesso valore, oppure usa il filtro su data_pasto qui sotto.
+-- 3) Filtro ospiti: ospite = 'S'  (come CODE_EMPLOYEE = 'OSPITE')
+--    Filtro dipendenti: ospite <> 'S'
+--
+-- Attenzione: in DatatableToExcel i merge PRIMO/SECONDO e colIndex 15/16
+-- per il titolo erano legati allo schema fisso. Con colonne dinamiche
+-- leggi GIORNO e TIME_STAMP per nome (helper ValoreColonna nel .vb).
 -- ============================================================================
 
--- Query come la tua dataMensa (ospiti / dipendenti):
 SELECT
-    CODE_EMPLOYEE AS BADGE,
-    EMPLOYEE,
-    PRIMO, PRIMO2, PRIMO3,
-    SECONDO, SECONDO2,
-    CONTORNO, CONTORNO2,
-    FRUTTA, YOGURT, DESSERT,
-    BEVANDE, BEVANDE2,
-    GIORNO, TIME_STAMP, PAYMENT
-FROM prenotazioni
-WHERE RIGHT(ID_PRENOTAZIONE, 5) = ?          -- id giorno a 5 cifre
-  AND CODE_EMPLOYEE = 'OSPITE'              -- oppure <> 'OSPITE'
-ORDER BY EMPLOYEE ASC;
+    badge,
+    employee,
+    ospite,
+    host,
+    giorno,
+    time_stamp,
+    payment,
+    intestazione_json,
+    celle_json
+FROM export_cucina
+WHERE data_pasto = ?                 -- 'AAAA-MM-GG'
+  AND azienda_id = ?                 -- opzionale
+  AND ospite = 'S'                   -- oppure <> 'S'
+ORDER BY employee;
 
--- Alternativa più semplice (consigliata se aggiorni solo la WHERE):
--- WHERE data_pasto = 'AAAA-MM-GG'
---   AND azienda_id = ?
---   AND CODE_EMPLOYEE = 'OSPITE'
-
--- Ospite: CODE_EMPLOYEE = 'OSPITE', EMPL_RIF = matricola del dipendente host.
--- Doppi: Ax2 nella stessa colonna (PRIMO / CONTORNO / …).
+-- Tabella legacy `prenotazioni` (schema fisso) resta popolata in parallelo
+-- se ti serve un periodo di transizione; il percorso nuovo è export_cucina.

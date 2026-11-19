@@ -589,6 +589,26 @@ $jsonCelle = (string) $pdo->query(
     'SELECT celle_json FROM export_cucina WHERE azienda_id = ' . $auroraId . " AND data_pasto = '2026-11-13' LIMIT 1"
 )->fetchColumn();
 verifica(str_starts_with($jsonCelle, '['), 'celle_json dinamiche affiancate');
+$rigaJson = $pdo->query(
+    "SELECT badge, employee, ospite, giorno, time_stamp, payment, intestazione_json, celle_json
+     FROM export_cucina WHERE azienda_id = " . $auroraId . " AND data_pasto = '2026-11-13' LIMIT 1"
+)->fetch();
+$headersJson = json_decode((string) $rigaJson['intestazione_json'], true);
+$celleJson = json_decode((string) $rigaJson['celle_json'], true);
+verifica(is_array($headersJson) && is_array($celleJson) && count($headersJson) === count($celleJson), 'JSON intestazione/celle allineati per DataTable VB');
+// Simula dataMensaDaExportCucina: colonne BADGE+EMPLOYEE+cibo+GIORNO+TIME_STAMP+PAYMENT
+$dataTableSim = ['BADGE' => $rigaJson['ospite'] === 'S' ? 'OSPITE' : $rigaJson['badge'], 'EMPLOYEE' => $rigaJson['employee']];
+foreach ($headersJson as $i => $nomeCol) {
+    $dataTableSim[(string) $nomeCol] = (string) ($celleJson[$i] ?? '');
+}
+$dataTableSim['GIORNO'] = $rigaJson['giorno'];
+$dataTableSim['TIME_STAMP'] = $rigaJson['time_stamp'];
+$dataTableSim['PAYMENT'] = $rigaJson['payment'];
+verifica(
+    isset($dataTableSim['BADGE'], $dataTableSim['EMPLOYEE'], $dataTableSim['GIORNO'], $dataTableSim['TIME_STAMP'])
+    && $dataTableSim['BADGE'] === 'DIP',
+    'DataTable VB ricostruibile da export_cucina',
+);
 $vistaRighe = (int) $pdo->query(
     'SELECT COUNT(*) FROM v_export_prenotazioni_righe WHERE azienda_id = ' . $auroraId . " AND data_pasto = '2026-11-13'"
 )->fetchColumn();
