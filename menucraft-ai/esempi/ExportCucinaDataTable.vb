@@ -1,5 +1,5 @@
-' Esempio: come prima, query → DataTable → ExportExcel (invariata).
-' Adatta connection string, parametri azienda/data e il nome della tua ExportExcel.
+' Compatibile con dataMensa attuale: stessa SELECT su tabella prenotazioni.
+' DatatableToExcel non va toccata: riceve lo stesso DataTable di colonne.
 
 Imports MySql.Data.MySqlClient
 Imports System.Data
@@ -7,41 +7,39 @@ Imports System.Data
 Public Module ExportCucinaDataTable
 
     ''' <summary>
-    ''' Carica le prenotazioni del giorno in un DataTable con le colonne
-    ''' classiche (BADGE, EMPLOYEE, PRIMO, … PAYMENT) da passare a ExportExcel.
+    ''' Equivalente di dataMensa: _opt = "='OSPITE'" oppure "&lt;&gt;'OSPITE'"
+    ''' idGiorno = RIGHT(ID_PRENOTAZIONE,5) = yy + giorno dell'anno (es. 13/11/2026 → 24317)
     ''' </summary>
-    Public Function CaricaPrenotazioniGiorno(
+    Public Function dataMensa(
         connessione As String,
-        aziendaSlug As String,
-        dataPasto As Date
+        idGiorno As String,
+        ByVal _opt As String
     ) As DataTable
 
         Dim sql As String =
-            "SELECT BADGE, EMPLOYEE, PRIMO, SECONDO, CONTORNO, CONTORNO2, " &
-            "FRUTTA, YOGURT, DESSERT, BEVANDE, BEVANDE2, GIORNO, TIME_STAMP, PAYMENT " &
-            "FROM v_export_xls " &
-            "WHERE azienda_slug = @slug AND data_pasto = @data " &
-            "ORDER BY BADGE, EMPLOYEE"
+            "SELECT CODE_EMPLOYEE as BADGE,EMPLOYEE,PRIMO,PRIMO2,PRIMO3,SECONDO,SECONDO2," &
+            "CONTORNO,CONTORNO2,FRUTTA,YOGURT,DESSERT,BEVANDE,BEVANDE2,GIORNO,TIME_STAMP,PAYMENT " &
+            "FROM prenotazioni WHERE RIGHT(ID_PRENOTAZIONE , 5) = @id " &
+            "AND CODE_EMPLOYEE " & _opt & " ORDER BY EMPLOYEE ASC"
 
-        Dim tabella As New DataTable()
+        Dim dt As New DataTable("prenotazioni")
         Using cn As New MySqlConnection(connessione)
             Using cmd As New MySqlCommand(sql, cn)
-                cmd.Parameters.AddWithValue("@slug", aziendaSlug)
-                cmd.Parameters.AddWithValue("@data", dataPasto.ToString("yyyy-MM-dd"))
+                cmd.Parameters.AddWithValue("@id", idGiorno)
                 Using da As New MySqlDataAdapter(cmd)
-                    da.Fill(tabella)
+                    da.Fill(dt)
                 End Using
             End Using
         End Using
-        Return tabella
+        Return dt
     End Function
 
     ''' <summary>
-    ''' Uso tipico: non modificare ExportExcel, passa solo il DataTable.
+    ''' Calcolo id giorno allineato a MenuCraft (ExportCucina::idGiornoPasto).
+    ''' Usa questo in getIdPrenotazione se vuoi restare su RIGHT(ID,5).
     ''' </summary>
-    Public Sub EsempioUso(connessione As String, slug As String, giorno As Date, percorsoXls As String)
-        Dim dt As DataTable = CaricaPrenotazioniGiorno(connessione, slug, giorno)
-        ' ExportExcel(dt, percorsoXls)   ' ← la tua funzione esistente, invariata
-    End Sub
+    Public Function idGiornoPasto(giorno As Date) As String
+        Return giorno.ToString("yy") & (giorno.DayOfYear).ToString("000")
+    End Function
 
 End Module

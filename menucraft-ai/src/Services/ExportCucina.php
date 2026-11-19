@@ -16,8 +16,8 @@ if (!defined('MENUCRAFT_APP')) {
 
 /**
  * Due uscite:
- * - CSV/XLS PHP dinamico (solo portate attive dell'azienda)
- * - tabella piatta export_xls per VB.NET (schema fisso classico → DataTable → Excel)
+ * - CSV/XLS PHP: colonne dinamiche dalle regole del servizio (JSON in export_cucina)
+ * - tabella `prenotazioni`: schema fisso del VB.NET attuale (dataMensa → DatatableToExcel)
  */
 final class ExportCucina
 {
@@ -91,6 +91,7 @@ final class ExportCucina
         $giorno = $quando instanceof \DateTimeImmutable
             ? self::giornoSettimana((int) $quando->format('N'))
             : '';
+        $idGiorno = self::idGiornoPasto($riepilogo['data']);
 
         $perOrdine = [];
         foreach ($riepilogo['buoni_righe'] as $riga) {
@@ -110,7 +111,7 @@ final class ExportCucina
                 'host' => $eOspite ? $prima['dipendente'] : '',
                 'giorno' => $giorno,
                 'time_stamp' => $istante instanceof \DateTimeImmutable
-                    ? $istante->format('d/m/Y H:i')
+                    ? $istante->format('Y-m-d H:i:s')
                     : $prima['creato_il'],
                 'payment' => $prima['a_carico'] === 'dipendente' ? 'P' : '',
                 'allergie' => $prima['nota_cucina'],
@@ -123,7 +124,7 @@ final class ExportCucina
             'DELETE FROM export_cucina WHERE azienda_id = :azienda AND data_pasto = :data'
         )->execute(['azienda' => $aziendaId, 'data' => $riepilogo['data']]);
         $this->pdo->prepare(
-            'DELETE FROM export_xls WHERE azienda_id = :azienda AND data_pasto = :data'
+            'DELETE FROM prenotazioni WHERE azienda_id = :azienda AND data_pasto = :data'
         )->execute(['azienda' => $aziendaId, 'data' => $riepilogo['data']]);
 
         $inserisci = $this->pdo->prepare(
@@ -132,15 +133,15 @@ final class ExportCucina
              VALUES
                 (:azienda, :data, :badge, :employee, :ospite, :host, :giorno, :time_stamp, :payment, :allergie, :intestazione, :celle, NOW())'
         );
-        $inserisciXls = $this->pdo->prepare(
-            'INSERT INTO export_xls
-                (azienda_id, data_pasto, badge, employee, ospite, host,
-                 primo, secondo, contorno, contorno2, frutta, yogurt, dessert, bevande, bevande2,
-                 giorno, time_stamp, payment, allergie, aggiornato_il)
+        $inserisciPren = $this->pdo->prepare(
+            'INSERT INTO prenotazioni
+                (azienda_id, data_pasto, ID_PRENOTAZIONE, CODE_EMPLOYEE, EMPLOYEE, EMPL_RIF, ENTE, GIORNO,
+                 PRIMO, PRIMO2, PRIMO3, SECONDO, SECONDO2, CONTORNO, CONTORNO2,
+                 FRUTTA, YOGURT, DESSERT, BEVANDE, BEVANDE2, TIME_STAMP, PAYMENT, aggiornato_il)
              VALUES
-                (:azienda, :data, :badge, :employee, :ospite, :host,
-                 :primo, :secondo, :contorno, :contorno2, :frutta, :yogurt, :dessert, :bevande, :bevande2,
-                 :giorno, :time_stamp, :payment, :allergie, NOW())'
+                (:azienda, :data, :id_pren, :code, :employee, :empl_rif, :ente, :giorno,
+                 :primo, :primo2, :primo3, :secondo, :secondo2, :contorno, :contorno2,
+                 :frutta, :yogurt, :dessert, :bevande, :bevande2, :time_stamp, :payment, NOW())'
         );
         foreach ($righe as $riga) {
             $inserisci->execute([
@@ -162,32 +163,63 @@ final class ExportCucina
             $prima = $voci[0];
             $eOspite = $prima['ospite'] !== '';
             $istante = \DateTimeImmutable::createFromFormat('Y-m-d H:i:s', $prima['creato_il']);
-            $inserisciXls->execute([
+            $nomeOspite = $eOspite ? (string) $prima['ospite'] : '';
+            $idPren = self::idPrenotazione($eOspite, $nomeOspite, (int) $prima['ordine_id'], $idGiorno);
+            $inserisciPren->execute([
                 'azienda' => $aziendaId,
                 'data' => $riepilogo['data'],
-                'badge' => $prima['matricola'],
-                'employee' => $eOspite ? $prima['ospite'] : $prima['dipendente'],
-                'ospite' => $eOspite ? 'S' : '',
-                'host' => $eOspite ? $prima['dipendente'] : '',
-                'primo' => self::cellaUnica($voci, 'primo'),
-                'secondo' => self::cellaUnica($voci, 'secondo'),
+                'id_pren' => $idPren,
+                'code' => $eOspite ? 'OSPITE' : $prima['matricola'],
+                'employee' => $eOspite ? $nomeOspite : $prima['dipendente'],
+                'empl_rif' => $eOspite ? $prima['matricola'] : '',
+                'ente' => '',
+                'giorno' => $giorno,
+                'primo' => self::cellaPortata($voci, 'primo', 0),
+                'primo2' => self::cellaPortata($voci, 'primo', 1),
+                'primo3' => self::cellaPortata($voci, 'primo', 2),
+                'secondo' => self::cellaPortata($voci, 'secondo', 0),
+                'secondo2' => self::cellaPortata($voci, 'secondo', 1),
                 'contorno' => self::cellaPortata($voci, 'contorno', 0),
-                'contorno2' => self::cellaPortataExtra($voci, 'contorno', 1),
-                'frutta' => self::cellaUnica($voci, 'frutta'),
-                'yogurt' => self::cellaUnica($voci, 'yogurt'),
-                'dessert' => self::cellaUnica($voci, 'dessert'),
+                'contorno2' => self::cellaPortata($voci, 'contorno', 1),
+                'frutta' => self::cellaPortata($voci, 'frutta', 0),
+                'yogurt' => self::cellaPortata($voci, 'yogurt', 0),
+                'dessert' => self::cellaPortata($voci, 'dessert', 0),
                 'bevande' => self::cellaPortata($voci, 'bevanda', 0),
                 'bevande2' => self::cellaPortata($voci, 'bevanda', 1),
-                'giorno' => $giorno,
                 'time_stamp' => $istante instanceof \DateTimeImmutable
-                    ? $istante->format('d/m/Y H:i')
+                    ? $istante->format('Y-m-d H:i:s')
                     : $prima['creato_il'],
                 'payment' => $prima['a_carico'] === 'dipendente' ? 'P' : '',
-                'allergie' => $prima['nota_cucina'],
             ]);
         }
 
         return $righe;
+    }
+
+    /** Chiave giorno a 5 cifre: usata da VB con RIGHT(ID_PRENOTAZIONE, 5). */
+    public static function idGiornoPasto(string $data): string
+    {
+        $quando = \DateTimeImmutable::createFromFormat('!Y-m-d', $data);
+        if (!$quando instanceof \DateTimeImmutable) {
+            return '00000';
+        }
+
+        return sprintf('%02d%03d', (int) $quando->format('y'), (int) $quando->format('z') + 1);
+    }
+
+    public static function idPrenotazione(bool $ospite, string $nomeOspite, int $ordineId, string $idGiorno): string
+    {
+        if ($ospite) {
+            $slug = preg_replace('/[^A-Za-z]/', '', $nomeOspite) ?? '';
+            $slug = strtoupper($slug);
+            if ($slug === '') {
+                $slug = 'OSPITE';
+            }
+
+            return $slug . $idGiorno;
+        }
+
+        return (string) $ordineId . $idGiorno;
     }
 
     public function xls(int $aziendaId, string $nomeAzienda, string $data): string
@@ -307,7 +339,15 @@ final class ExportCucina
 
     public static function giornoSettimana(int $numero): string
     {
-        return [1 => 'lunedi', 'martedi', 'mercoledi', 'giovedi', 'venerdi', 'sabato', 'domenica'][$numero] ?? '';
+        return [
+            1 => 'Lunedì',
+            2 => 'Martedì',
+            3 => 'Mercoledì',
+            4 => 'Giovedì',
+            5 => 'Venerdì',
+            6 => 'Sabato',
+            7 => 'Domenica',
+        ][$numero] ?? '';
     }
 
     /** @param list<list<string>> $foglio */

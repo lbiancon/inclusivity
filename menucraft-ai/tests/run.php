@@ -560,15 +560,31 @@ $inTabella = (int) $pdo->query(
     'SELECT COUNT(*) FROM export_cucina WHERE azienda_id = ' . $auroraId . " AND data_pasto = '2026-11-13'"
 )->fetchColumn();
 verifica($inTabella === 1, 'tabella export_cucina popolata');
-$inXls = (int) $pdo->query(
-    'SELECT COUNT(*) FROM export_xls WHERE azienda_id = ' . $auroraId . " AND data_pasto = '2026-11-13'"
+$idGiorno = ExportCucina::idGiornoPasto('2026-11-13');
+$inPren = (int) $pdo->query(
+    'SELECT COUNT(*) FROM prenotazioni WHERE azienda_id = ' . $auroraId . " AND data_pasto = '2026-11-13'"
 )->fetchColumn();
-verifica($inXls === 1, 'tabella piatta export_xls per VB.NET');
-$vistaXls = $pdo->query(
-    "SELECT BADGE, EMPLOYEE, PRIMO, SECONDO, CONTORNO, CONTORNO2, FRUTTA, YOGURT, DESSERT, BEVANDE, BEVANDE2, GIORNO, TIME_STAMP, PAYMENT
-     FROM v_export_xls WHERE azienda_id = " . $auroraId . " AND data_pasto = '2026-11-13'"
+verifica($inPren === 1, 'tabella prenotazioni per VB.NET');
+$rigaPren = $pdo->query(
+    "SELECT CODE_EMPLOYEE, EMPLOYEE, PRIMO, PRIMO2, PRIMO3, SECONDO, SECONDO2, CONTORNO, CONTORNO2,
+            FRUTTA, YOGURT, DESSERT, BEVANDE, BEVANDE2, GIORNO, TIME_STAMP, PAYMENT, ID_PRENOTAZIONE
+     FROM prenotazioni WHERE azienda_id = " . $auroraId . " AND data_pasto = '2026-11-13' LIMIT 1"
 )->fetch();
-verifica(is_array($vistaXls) && ($vistaXls['BADGE'] ?? '') === 'DIP', 'v_export_xls colonne fisse per DataTable');
+verifica(
+    is_array($rigaPren)
+    && ($rigaPren['CODE_EMPLOYEE'] ?? '') === 'DIP'
+    && str_ends_with((string) $rigaPren['ID_PRENOTAZIONE'], $idGiorno),
+    'prenotazioni: colonne dataMensa + RIGHT(ID,5)',
+);
+$vbLike = $pdo->prepare(
+    "SELECT CODE_EMPLOYEE as BADGE, EMPLOYEE, PRIMO, PRIMO2, PRIMO3, SECONDO, SECONDO2,
+            CONTORNO, CONTORNO2, FRUTTA, YOGURT, DESSERT, BEVANDE, BEVANDE2, GIORNO, TIME_STAMP, PAYMENT
+     FROM prenotazioni
+     WHERE RIGHT(ID_PRENOTAZIONE, 5) = :id AND CODE_EMPLOYEE <> 'OSPITE'
+     ORDER BY EMPLOYEE ASC"
+);
+$vbLike->execute(['id' => $idGiorno]);
+verifica(count($vbLike->fetchAll()) >= 1, 'query dataMensa stile VB.NET');
 $jsonCelle = (string) $pdo->query(
     'SELECT celle_json FROM export_cucina WHERE azienda_id = ' . $auroraId . " AND data_pasto = '2026-11-13' LIMIT 1"
 )->fetchColumn();
@@ -809,6 +825,17 @@ verifica(
     && $rigaOspite['host'] !== ''
     && !in_array('FRUTTA', $rigaOspite['intestazione'], true),
     'export marca ospite S e host, senza colonna frutta',
+);
+$ospitePren = $pdo->query(
+    "SELECT CODE_EMPLOYEE, EMPLOYEE, EMPL_RIF FROM prenotazioni
+     WHERE azienda_id = " . $rossiId . " AND data_pasto = '2026-11-13' AND CODE_EMPLOYEE = 'OSPITE' LIMIT 1"
+)->fetch();
+verifica(
+    is_array($ospitePren)
+    && $ospitePren['CODE_EMPLOYEE'] === 'OSPITE'
+    && $ospitePren['EMPLOYEE'] === 'Mario Ospite'
+    && $ospitePren['EMPL_RIF'] !== '',
+    'prenotazioni: ospite come nel software attuale',
 );
 
 $banco = new MenuBanco($pdo, $validator);

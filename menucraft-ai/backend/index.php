@@ -314,7 +314,7 @@ header('Content-Type: text/html; charset=utf-8');
             <section data-pannello="cucina" hidden class="rounded-3xl border border-[#d5cbb8] bg-white p-5">
                 <h2 class="font-serif text-3xl uppercase">File per la cucina</h2>
                 <p id="cucina-testo" class="mt-2 text-sm text-ink/70"></p>
-                <p class="mt-2 text-sm text-ink/60">Il download CSV/XLS è dinamico. Per VB.NET (query → DataTable → Excel invariato) usa la tabella piatta <code>export_xls</code> o la vista <code>v_export_xls</code> con colonne fisse BADGE…PAYMENT. Query e esempio VB in <code>esempi/export-vbnet.sql</code> e <code>esempi/ExportCucinaDataTable.vb</code>.</p>
+                <p class="mt-2 text-sm text-ink/60">Due uscite: il download CSV/XLS PHP è dinamico (JSON). Per VB.NET la tabella <code>prenotazioni</code> ha lo schema classico (PRIMO…PRIMO3, CODE_EMPLOYEE=OSPITE, …) così <code>dataMensa</code> e <code>DatatableToExcel</code> restano uguali. Vedi <code>esempi/export-vbnet.sql</code>.</p>
                 <label class="mt-4 block text-sm font-semibold">Giorno
                     <input id="giorno-cucina" type="date" class="mt-1 rounded-xl border border-ink/15 bg-cream px-3 py-2">
                 </label>

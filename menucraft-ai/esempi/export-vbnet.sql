@@ -1,47 +1,36 @@
 -- ============================================================================
--- Export per VB.NET (stessa logica del vecchio software)
+-- Compatibilità VB.NET (dataMensa + DatatableToExcel invariate)
 -- ============================================================================
--- MenuCraft riempie la tabella piatta `export_xls` a ogni prenotazione
--- e a ogni download cucina. Lo schema delle colonne è FISSO, così la
--- query produce un DataTable uguale a prima e la tua ExportExcel
--- non va toccata.
+-- MenuCraft riempie la tabella `prenotazioni` con lo stesso schema del
+-- tuo software attuale. La tua query può restare quasi uguale.
 --
--- Colonne fisse (come il file che mandavi al servizio):
---   BADGE, EMPLOYEE, PRIMO, SECONDO, CONTORNO, CONTORNO2,
---   FRUTTA, YOGURT, DESSERT, BEVANDE, BEVANDE2,
---   GIORNO, TIME_STAMP, PAYMENT
--- Extra utili (ignora in SELECT se non servono all'Excel):
---   OSPITE ('S' se ospite), HOST (dipendente che ospita), ALLERGIE
+-- JSON (export_cucina): solo per il download CSV/XLS dinamico in PHP,
+-- in base ai massimi del servizio. Il VB.NET continua sulla tabella piatta.
+--
+-- ID_PRENOTAZIONE termina sempre con 5 cifre = id giorno (yy + giorno anno).
+-- Esempio 2026-11-13 → 24317. In VB: getIdPrenotazione deve restituire
+-- lo stesso valore, oppure usa il filtro su data_pasto qui sotto.
 -- ============================================================================
 
--- Query tipica da usare in VB.NET (MySqlDataAdapter.Fill → DataTable):
+-- Query come la tua dataMensa (ospiti / dipendenti):
 SELECT
-    BADGE,
+    CODE_EMPLOYEE AS BADGE,
     EMPLOYEE,
-    PRIMO,
-    SECONDO,
-    CONTORNO,
-    CONTORNO2,
-    FRUTTA,
-    YOGURT,
-    DESSERT,
-    BEVANDE,
-    BEVANDE2,
-    GIORNO,
-    TIME_STAMP,
-    PAYMENT
-FROM v_export_xls
-WHERE azienda_slug = ?          -- es. 'officine-rossi'
-  AND data_pasto = ?            -- 'AAAA-MM-GG'
-ORDER BY BADGE, EMPLOYEE;
+    PRIMO, PRIMO2, PRIMO3,
+    SECONDO, SECONDO2,
+    CONTORNO, CONTORNO2,
+    FRUTTA, YOGURT, DESSERT,
+    BEVANDE, BEVANDE2,
+    GIORNO, TIME_STAMP, PAYMENT
+FROM prenotazioni
+WHERE RIGHT(ID_PRENOTAZIONE, 5) = ?          -- id giorno a 5 cifre
+  AND CODE_EMPLOYEE = 'OSPITE'              -- oppure <> 'OSPITE'
+ORDER BY EMPLOYEE ASC;
 
--- Stessa cosa sulla tabella grezza (nomi colonna lowercase):
--- SELECT badge AS BADGE, employee AS EMPLOYEE, primo AS PRIMO, ...
--- FROM export_xls
--- WHERE azienda_id = ? AND data_pasto = ?
--- ORDER BY id;
+-- Alternativa più semplice (consigliata se aggiorni solo la WHERE):
+-- WHERE data_pasto = 'AAAA-MM-GG'
+--   AND azienda_id = ?
+--   AND CODE_EMPLOYEE = 'OSPITE'
 
--- Se ti serve anche l'ospite nell'Excel (senza cambiare ExportExcel,
--- aggiungi le colonne nel DataTable solo se la tua funzione le mappa
--- per nome; altrimenti lasciale fuori dalla SELECT sopra):
---   OSPITE, HOST, ALLERGIE
+-- Ospite: CODE_EMPLOYEE = 'OSPITE', EMPL_RIF = matricola del dipendente host.
+-- Doppi: Ax2 nella stessa colonna (PRIMO / CONTORNO / …).

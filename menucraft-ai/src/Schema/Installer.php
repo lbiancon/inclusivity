@@ -110,63 +110,42 @@ final class Installer
             );
         }
 
-        // Tabella piatta per VB.NET: SELECT → DataTable → ExportExcel (invariato).
-        // Colonne fisse come il vecchio file: BADGE…BEVANDE2, GIORNO, TIME_STAMP, PAYMENT.
+        // Tabella compatibile con il VB.NET attuale (dataMensa → DatatableToExcel).
+        // Stesso schema della vecchia `prenotazioni`: colonne fisse PRIMO..PRIMO3 ecc.
+        // export_cucina (JSON) resta per CSV/XLS dinamico in PHP.
+        $this->pdo->exec('DROP TABLE IF EXISTS export_xls');
+        $this->pdo->exec('DROP VIEW IF EXISTS v_export_xls');
         $this->pdo->exec(
-            'CREATE TABLE IF NOT EXISTS export_xls (
+            'CREATE TABLE IF NOT EXISTS prenotazioni (
                 id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
                 azienda_id BIGINT UNSIGNED NOT NULL,
                 data_pasto DATE NOT NULL,
-                badge VARCHAR(64) NOT NULL DEFAULT \'\',
-                employee VARCHAR(160) NOT NULL DEFAULT \'\',
-                ospite CHAR(1) NOT NULL DEFAULT \'\',
-                host VARCHAR(160) NOT NULL DEFAULT \'\',
-                primo VARCHAR(64) NOT NULL DEFAULT \'\',
-                secondo VARCHAR(64) NOT NULL DEFAULT \'\',
-                contorno VARCHAR(64) NOT NULL DEFAULT \'\',
-                contorno2 VARCHAR(64) NOT NULL DEFAULT \'\',
-                frutta VARCHAR(64) NOT NULL DEFAULT \'\',
-                yogurt VARCHAR(64) NOT NULL DEFAULT \'\',
-                dessert VARCHAR(64) NOT NULL DEFAULT \'\',
-                bevande VARCHAR(64) NOT NULL DEFAULT \'\',
-                bevande2 VARCHAR(64) NOT NULL DEFAULT \'\',
-                giorno VARCHAR(20) NOT NULL DEFAULT \'\',
-                time_stamp VARCHAR(32) NOT NULL DEFAULT \'\',
-                payment VARCHAR(8) NOT NULL DEFAULT \'\',
-                allergie VARCHAR(240) NOT NULL DEFAULT \'\',
+                ID_PRENOTAZIONE VARCHAR(40) NOT NULL,
+                CODE_EMPLOYEE VARCHAR(64) NOT NULL DEFAULT \'\',
+                EMPLOYEE VARCHAR(160) NOT NULL DEFAULT \'\',
+                EMPL_RIF VARCHAR(64) NOT NULL DEFAULT \'\',
+                ENTE VARCHAR(64) NOT NULL DEFAULT \'\',
+                GIORNO VARCHAR(20) NOT NULL DEFAULT \'\',
+                PRIMO VARCHAR(32) NOT NULL DEFAULT \'\',
+                PRIMO2 VARCHAR(32) NOT NULL DEFAULT \'\',
+                PRIMO3 VARCHAR(32) NOT NULL DEFAULT \'\',
+                SECONDO VARCHAR(32) NOT NULL DEFAULT \'\',
+                SECONDO2 VARCHAR(32) NOT NULL DEFAULT \'\',
+                CONTORNO VARCHAR(32) NOT NULL DEFAULT \'\',
+                CONTORNO2 VARCHAR(32) NOT NULL DEFAULT \'\',
+                FRUTTA VARCHAR(32) NOT NULL DEFAULT \'\',
+                YOGURT VARCHAR(32) NOT NULL DEFAULT \'\',
+                DESSERT VARCHAR(32) NOT NULL DEFAULT \'\',
+                BEVANDE VARCHAR(32) NOT NULL DEFAULT \'\',
+                BEVANDE2 VARCHAR(32) NOT NULL DEFAULT \'\',
+                TIME_STAMP VARCHAR(32) NOT NULL DEFAULT \'\',
+                PAYMENT VARCHAR(8) NOT NULL DEFAULT \'\',
                 aggiornato_il DATETIME NOT NULL,
                 PRIMARY KEY (id),
-                KEY idx_export_xls_giorno (azienda_id, data_pasto),
-                CONSTRAINT fk_export_xls_azienda FOREIGN KEY (azienda_id) REFERENCES aziende (id) ON DELETE CASCADE
+                KEY idx_prenotazioni_giorno (azienda_id, data_pasto),
+                KEY idx_prenotazioni_id (ID_PRENOTAZIONE),
+                CONSTRAINT fk_prenotazioni_azienda FOREIGN KEY (azienda_id) REFERENCES aziende (id) ON DELETE CASCADE
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci'
-        );
-
-        $this->pdo->exec('DROP VIEW IF EXISTS v_export_xls');
-        $this->pdo->exec(
-            'CREATE VIEW v_export_xls AS
-             SELECT
-                x.azienda_id,
-                a.slug AS azienda_slug,
-                x.data_pasto,
-                x.badge AS BADGE,
-                x.employee AS EMPLOYEE,
-                x.ospite AS OSPITE,
-                x.host AS HOST,
-                x.primo AS PRIMO,
-                x.secondo AS SECONDO,
-                x.contorno AS CONTORNO,
-                x.contorno2 AS CONTORNO2,
-                x.frutta AS FRUTTA,
-                x.yogurt AS YOGURT,
-                x.dessert AS DESSERT,
-                x.bevande AS BEVANDE,
-                x.bevande2 AS BEVANDE2,
-                x.giorno AS GIORNO,
-                x.time_stamp AS TIME_STAMP,
-                x.payment AS PAYMENT,
-                x.allergie AS ALLERGIE
-             FROM export_xls x
-             INNER JOIN aziende a ON a.id = x.azienda_id'
         );
 
         $this->pdo->exec('DROP VIEW IF EXISTS v_export_prenotazioni_righe');
