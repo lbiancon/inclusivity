@@ -33,12 +33,24 @@ JsonResponse::guard(static function (): void {
     $body = JsonResponse::readJson();
     $azione = (string) ($body['azione'] ?? '');
 
-    if ($azione === 'aggiungi') {
+    if ($azione === 'aggiungi' || $azione === 'aggiungi_periodo') {
         $voce = $calendario->aggiungi($utente['azienda_id'], $body);
+        $quanti = (int) ($voce['giorni_aggiunti'] ?? 1);
+        if ($quanti > 1) {
+            $testo = 'Servizio non disponibile dal '
+                . (new DateTimeImmutable($voce['data']))->format('d/m/Y')
+                . ' al '
+                . (new DateTimeImmutable((string) $voce['data_al']))->format('d/m/Y')
+                . ' (' . $quanti . ' giorni). Il messaggio è visibile a chi prenota.';
+        } else {
+            $testo = 'Chiusura segnata per il '
+                . (new DateTimeImmutable($voce['data']))->format('d/m/Y')
+                . '. Il messaggio è visibile a chi prenota.';
+        }
         JsonResponse::send(200, [
             'ok' => true,
             'csrf' => $utente['csrf'],
-            'messaggio' => 'Chiusura segnata per il ' . (new DateTimeImmutable($voce['data']))->format('d/m/Y') . '.',
+            'messaggio' => $testo,
             'voce' => $voce,
             'chiusure' => $calendario->elenco($utente['azienda_id']),
         ]);

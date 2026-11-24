@@ -319,7 +319,8 @@ final class MenuValidator
             return null;
         }
 
-        return 'Mensa chiusa: ' . $mappa[$chiave] . '.';
+        // Il testo lo scrive il catering (ferie, ponte, ecc.): lo mostriamo così com'è.
+        return rtrim($mappa[$chiave], " \t.") . '.';
     }
 
     public function validaCalendario(int $aziendaId, DateTimeImmutable $data): void

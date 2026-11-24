@@ -101,44 +101,113 @@ final class CalendarioChiusure
      */
     public function aggiungi(int $aziendaId, array $input): array
     {
-        $data = $this->data((string) ($input['data'] ?? ''));
-        $descrizione = $this->descrizione((string) ($input['descrizione'] ?? ''));
-        $azienda = AziendaConfig::trova($this->pdo, $aziendaId);
-        $giorno = (int) (new DateTimeImmutable($data, new DateTimeZone(MenuValidator::FUSO)))->format('N');
-        if (!$azienda->weekendAperto($giorno) && ($giorno === 6 || $giorno === 7)) {
+        $dal = $this->data((string) ($input['data'] ?? $input['data_dal'] ?? ''));
+        $alGrezzo = trim((string) ($input['data_al'] ?? ''));
+        $al = $alGrezzo !== '' ? $this->data($alGrezzo) : $dal;
+        if ($al < $dal) {
+            throw new MenuRuleException('DATA_NON_VALIDA', 'La data finale non può precedere quella iniziale.');
+        }
+
+        $fuso = new DateTimeZone(MenuValidator::FUSO);
+        $inizio = new DateTimeImmutable($dal, $fuso);
+        $fine = new DateTimeImmutable($al, $fuso);
+        $giorni = (int) $inizio->diff($fine)->days + 1;
+        if ($giorni > 90) {
             throw new MenuRuleException(
-                'CHIUSURA_NON_NECESSARIA',
-                'Sabato e domenica sono già chiusi. Attiva “lavora il sabato/domenica” se vuoi gestirli giorno per giorno.',
+                'PERIODO_TROPPO_LUNGO',
+                'Il periodo di ferie o chiusura resta entro 90 giorni. Spezzalo in più blocchi.',
             );
         }
 
-        try {
-            $stmt = $this->pdo->prepare(
-                'INSERT INTO calendario_chiusure (azienda_id, data_chiusura, descrizione)
-                 VALUES (:azienda, :data, :descrizione)'
-            );
-            $stmt->execute([
-                'azienda' => $aziendaId,
-                'data' => $data,
-                'descrizione' => $descrizione,
-            ]);
-        } catch (\PDOException $e) {
-            if ($e->getCode() === '23000') {
+        $messaggio = $this->descrizione((string) (
+            $input['messaggio'] ?? $input['descrizione'] ?? ''
+        ));
+        $azienda = AziendaConfig::trova($this->pdo, $aziendaId);
+        $nazionali = $this->dateNazionali($aziendaId, $dal, $al);
+
+        $inserisci = $this->pdo->prepare(
+            'INSERT INTO calendario_chiusure (azienda_id, data_chiusura, descrizione)
+             VALUES (:azienda, :data, :descrizione)'
+        );
+        $aggiunte = [];
+        $saltate = 0;
+        $cursor = $inizio;
+        while ($cursor <= $fine) {
+            $chiave = $cursor->format('Y-m-d');
+            $dow = (int) $cursor->format('N');
+            $weekendChiuso = !$azienda->weekendAperto($dow) && ($dow === 6 || $dow === 7);
+            if ($weekendChiuso || isset($nazionali[$chiave])) {
+                $saltate++;
+                $cursor = $cursor->modify('+1 day');
+                continue;
+            }
+            try {
+                $inserisci->execute([
+                    'azienda' => $aziendaId,
+                    'data' => $chiave,
+                    'descrizione' => $messaggio,
+                ]);
+                $aggiunte[] = [
+                    'id' => (int) $this->pdo->lastInsertId(),
+                    'data' => $chiave,
+                    'descrizione' => $messaggio,
+                    'propria' => true,
+                ];
+            } catch (\PDOException $e) {
+                if ($e->getCode() === '23000') {
+                    $saltate++;
+                } else {
+                    throw $e;
+                }
+            }
+            $cursor = $cursor->modify('+1 day');
+        }
+
+        if ($aggiunte === []) {
+            if ($giorni === 1) {
                 throw new MenuRuleException(
-                    'CHIUSURA_DUPLICATA',
-                    'Questa data è già segnata come chiusura per il servizio.',
-                    409,
+                    'CHIUSURA_NON_NECESSARIA',
+                    'Quel giorno è già chiuso (weekend, festa nazionale o chiusura già presente).',
                 );
             }
-            throw $e;
+            throw new MenuRuleException(
+                'CHIUSURA_NON_NECESSARIA',
+                'Nel periodo indicato non c’è nessun giorno lavorativo da chiudere (solo weekend/feste o già segnati).',
+            );
         }
 
+        $prima = $aggiunte[0];
+        $ultima = $aggiunte[count($aggiunte) - 1];
+
         return [
-            'id' => (int) $this->pdo->lastInsertId(),
-            'data' => $data,
-            'descrizione' => $descrizione,
+            'id' => $prima['id'],
+            'data' => $prima['data'],
+            'data_al' => $ultima['data'],
+            'descrizione' => $messaggio,
+            'messaggio' => $messaggio,
+            'giorni_aggiunti' => count($aggiunte),
+            'giorni_saltati' => $saltate,
+            'voci' => $aggiunte,
             'propria' => true,
         ];
+    }
+
+    /** @return array<string, true> */
+    private function dateNazionali(int $aziendaId, string $dal, string $al): array
+    {
+        $stmt = $this->pdo->prepare(
+            'SELECT data_chiusura
+             FROM calendario_chiusure
+             WHERE azienda_id IS NULL
+               AND data_chiusura BETWEEN :dal AND :al'
+        );
+        $stmt->execute(['dal' => $dal, 'al' => $al]);
+        $mappa = [];
+        foreach ($stmt as $riga) {
+            $mappa[(string) $riga['data_chiusura']] = true;
+        }
+
+        return $mappa;
     }
 
     public function togli(int $aziendaId, int $chiusuraId): void
@@ -232,10 +301,10 @@ final class CalendarioChiusure
         $testo = preg_replace('/\s+/u', ' ', trim($testo)) ?? '';
         $testo = trim(preg_replace('/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/u', '', $testo) ?? '');
         if ($testo === '') {
-            $testo = 'Chiusura del servizio';
+            $testo = 'Servizio non disponibile';
         }
-        if (mb_strlen($testo) > 160) {
-            throw new MenuRuleException('DESCRIZIONE_NON_VALIDA', 'La descrizione resta entro 160 caratteri.');
+        if (mb_strlen($testo) > 400) {
+            throw new MenuRuleException('DESCRIZIONE_NON_VALIDA', 'Il messaggio per chi prenota resta entro 400 caratteri.');
         }
 
         return $testo;

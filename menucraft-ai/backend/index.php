@@ -273,7 +273,7 @@ header('Content-Type: text/html; charset=utf-8');
             </form>
             <section data-pannello="regole" class="rounded-3xl border border-[#d5cbb8] bg-white p-5">
                 <h2 class="font-serif text-3xl uppercase">Giorni di chiusura</h2>
-                <p class="mt-2 text-sm text-ink/70">Di base sabato, domenica e le feste nazionali sono chiusi. Ogni servizio può aprirli se lavora, oppure aggiungere chiusure proprie (ponte, patrono, ferie).</p>
+                <p class="mt-2 text-sm text-ink/70">Di base sabato, domenica e le feste nazionali sono chiusi. Qui segni ferie o giorni in cui il servizio non è disponibile: chi prenota vede il messaggio sul giorno chiuso.</p>
                 <div class="mt-4 grid gap-3 sm:grid-cols-2 text-sm">
                     <label class="flex items-start gap-3 rounded-2xl border border-ink/10 bg-cream p-4">
                         <input id="apri-sabato" type="checkbox" class="mt-1">
@@ -284,15 +284,18 @@ header('Content-Type: text/html; charset=utf-8');
                         <span><strong class="font-semibold">Lavora la domenica</strong><span class="mt-1 block text-ink/60">Se attivo, la domenica è prenotabile come un giorno feriale.</span></span>
                     </label>
                 </div>
-                <p class="mt-3 text-xs text-ink/50">Salva le regole qui sotto per fissare sabato e domenica. Le feste e le chiusure singole si gestiscono subito con i tasti di questa sezione.</p>
-                <form id="chiusura-form" class="mt-4 grid gap-3 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
-                    <label class="text-sm font-semibold">Data chiusura
+                <p class="mt-3 text-xs text-ink/50">Salva le regole qui sotto per fissare sabato e domenica. Ferie e chiusure si gestiscono subito con questo modulo.</p>
+                <form id="chiusura-form" class="mt-4 grid gap-3 sm:grid-cols-2">
+                    <label class="text-sm font-semibold">Dal
                         <input id="chiusura-data" type="date" required class="mt-1 w-full rounded-xl border border-ink/15 bg-cream px-3 py-2">
                     </label>
-                    <label class="text-sm font-semibold">Motivo
-                        <input id="chiusura-descrizione" maxlength="160" class="mt-1 w-full rounded-xl border border-ink/15 bg-cream px-3 py-2" placeholder="Festa patronale, ponte, ferie…">
+                    <label class="text-sm font-semibold">Al <span class="font-normal text-ink/50">(vuoto = un solo giorno)</span>
+                        <input id="chiusura-data-al" type="date" class="mt-1 w-full rounded-xl border border-ink/15 bg-cream px-3 py-2">
                     </label>
-                    <button type="submit" class="rounded-xl bg-moss px-4 py-3 text-sm font-semibold text-white">Aggiungi chiusura</button>
+                    <label class="text-sm font-semibold sm:col-span-2">Messaggio per chi prenota
+                        <textarea id="chiusura-descrizione" maxlength="400" rows="3" class="mt-1 w-full rounded-xl border border-ink/15 bg-cream px-3 py-2 font-normal" placeholder="Esempio: mensa chiusa per ferie natalizie. Riapertura il 7 gennaio."></textarea>
+                    </label>
+                    <button type="submit" class="rounded-xl bg-moss px-4 py-3 text-sm font-semibold text-white sm:col-span-2">Segna ferie / non disponibile</button>
                 </form>
                 <h3 class="mt-6 text-sm font-semibold uppercase tracking-wider text-ink/50">Chiusure di questo servizio</h3>
                 <ul id="chiusure-proprie" class="mt-2 space-y-2 text-sm"></ul>
@@ -1268,9 +1271,10 @@ header('Content-Type: text/html; charset=utf-8');
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        azione: 'aggiungi',
+                        azione: 'aggiungi_periodo',
                         data: document.getElementById('chiusura-data').value,
-                        descrizione: document.getElementById('chiusura-descrizione').value,
+                        data_al: document.getElementById('chiusura-data-al').value,
+                        messaggio: document.getElementById('chiusura-descrizione').value,
                     }),
                 });
                 state.csrf = payload.csrf || state.csrf;

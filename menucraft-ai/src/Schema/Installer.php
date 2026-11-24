@@ -291,7 +291,7 @@ final class Installer
                 id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
                 azienda_id BIGINT UNSIGNED NULL,
                 data_chiusura DATE NOT NULL,
-                descrizione VARCHAR(160) NOT NULL,
+                descrizione VARCHAR(400) NOT NULL,
                 azienda_scope BIGINT UNSIGNED GENERATED ALWAYS AS (IFNULL(azienda_id, 0)) STORED,
                 PRIMARY KEY (id),
                 UNIQUE KEY uq_chiusura (azienda_scope, data_chiusura),
@@ -621,6 +621,11 @@ final class Installer
                 CONSTRAINT fk_apertura_azienda FOREIGN KEY (azienda_id) REFERENCES aziende (id) ON DELETE CASCADE
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci'
         );
+        // Messaggio ferie/indisponibilità mostrato a chi prenota (fino a 400 caratteri).
+        $tipoDesc = $this->pdo->query("SHOW COLUMNS FROM calendario_chiusure LIKE 'descrizione'")->fetch();
+        if (is_array($tipoDesc) && isset($tipoDesc['Type']) && stripos((string) $tipoDesc['Type'], 'varchar(400)') === false) {
+            $this->pdo->exec('ALTER TABLE calendario_chiusure MODIFY descrizione VARCHAR(400) NOT NULL');
+        }
         $this->pdo->exec(
             "UPDATE aziende
              SET guida_linea = COALESCE(NULLIF(guida_linea, ''), 'Prenota il vassoio entro l''orario di chiusura indicato. Se la linea è già chiusa, chiama o scrivi al numero indicato.'),

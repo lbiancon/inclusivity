@@ -14,3 +14,22 @@ Come usarli
   3. Il sistema pubblica i piatti sui giorni indicati; le lettere ripartono da A B C.
 
 Puoi anche usare un Excel del giovedì a griglia, oppure salvare questi CSV come .xlsx.
+
+Sovrascrivere la cartella sul server di lavoro
+=============================================
+Sì, puoi copiare tutta la cartella menucraft-ai/ sopra quella già installata.
+
+Cosa succede al database
+  Alla prima richiesta PHP (o aprendo index) gira Installer: crea tabelle mancanti
+  e aggiunge colonne nuove. I dati già presenti (aziende, utenti, ordini, menu)
+  restano. Non serve uno script SQL a mano.
+
+Cosa NON sovrascrivere / controllare
+  - config: se sul server hai password DB diverse, ripristina config/database.php
+    o le variabili MENUCRAFT_DB_* dopo la copia.
+  - assets/loghi/: i logo caricati stanno qui; se li cancelli spariscono dalle pagine.
+  - Non cancellare il database MySQL “menucraft”: la cartella PHP non contiene i dati.
+
+Se qualcosa non torna
+  Ricarica una pagina (frontend o backend): le migrazioni ripartono da sole.
+  Controlla che Apache/PHP punti alla cartella nuova e che MySQL sia acceso.
