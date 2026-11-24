@@ -1371,11 +1371,9 @@ header('Content-Type: text/html; charset=utf-8');
             try {
                 await api(API + 'logout.php', { method: 'POST' });
             } catch (error) {
-                // La vista torna al login anche se la sessione era già chiusa.
+                // Si torna comunque alla pagina di scelta ingresso.
             }
-            state.csrf = null;
-            document.getElementById('app-view').hidden = true;
-            document.getElementById('login-view').hidden = false;
+            window.location.href = '../';
         });
 
         api(API + 'sessione.php').then(entra).catch(() => {

@@ -766,45 +766,47 @@ header('Content-Type: text/html; charset=utf-8');
                 heading.className = 'font-serif text-2xl';
                 heading.textContent = settimana.titolo;
                 titolo.append(heading);
-                if (settimana.avviso) {
+                const listaAvvisi = Array.isArray(settimana.avvisi) && settimana.avvisi.length
+                    ? settimana.avvisi
+                    : (settimana.avviso ? [settimana.avviso] : []);
+                if (listaAvvisi.length) {
                     const avviso = document.createElement('p');
                     avviso.className = 'rounded-full bg-[#f8e7df] px-3 py-1 text-xs font-medium text-terracotta';
-                    avviso.textContent = settimana.avviso;
+                    avviso.textContent = listaAvvisi[0];
                     titolo.append(avviso);
                 }
                 const griglia = document.createElement('div');
                 griglia.className = 'grid grid-cols-2 gap-2 sm:grid-cols-5';
                 settimana.giorni.forEach((giorno) => {
                     const attivo = state.giorno && state.giorno.data === giorno.data;
-                    const nodo = document.createElement(giorno.saltato ? 'div' : 'button');
-                    if (!giorno.saltato) {
-                        nodo.type = 'button';
-                        nodo.dataset.giorno = giorno.data;
-                    }
+                    const chiuso = !!giorno.chiuso;
+                    const nodo = document.createElement('button');
+                    nodo.type = 'button';
+                    nodo.dataset.giorno = giorno.data;
                     nodo.className = 'day rounded-2xl border px-3 py-3 text-left ' + (
-                        giorno.saltato
-                            ? 'is-skip border-dashed border-ink/15 text-ink/40'
+                        chiuso
+                            ? (attivo
+                                ? 'border-amber-700 bg-amber-700 text-white'
+                                : 'border-amber-200 bg-amber-50 text-amber-950 hover:border-amber-700')
                             : attivo
                                 ? 'border-moss bg-moss text-white'
                                 : 'border-ink/10 bg-white hover:border-moss'
                     );
                     const nome = document.createElement('span');
-                    nome.className = 'block text-xs uppercase tracking-wider ' + (giorno.saltato ? 'line-through' : '');
+                    nome.className = 'block text-xs uppercase tracking-wider';
                     nome.textContent = giorno.etichetta;
                     const numero = document.createElement('span');
                     numero.className = 'block font-serif text-2xl';
                     numero.textContent = giorno.numero;
                     nodo.append(nome, numero);
-                    if (giorno.saltato) {
+                    if (chiuso) {
                         const nota = document.createElement('span');
-                        nota.className = 'mt-1 block text-[11px] leading-snug';
-                        nota.textContent = 'Saltato';
+                        nota.className = 'mt-1 block text-[11px] leading-snug font-semibold ' + (attivo ? 'text-white/90' : 'text-amber-900');
+                        nota.textContent = 'Ferie / chiuso';
                         nodo.append(nota);
-                    } else if (!giorno.selezionabile && giorno.motivo) {
-                        const nota = document.createElement('span');
-                        nota.className = 'mt-1 block text-[11px] leading-snug ' + (attivo ? 'text-white/80' : 'text-ink/50');
-                        nota.textContent = 'Chiuso';
-                        nodo.append(nota);
+                        if (giorno.motivo) {
+                            nodo.title = giorno.motivo;
+                        }
                     } else if (settimana.lunedi_saltato && giorno.data === settimana.ancora) {
                         const nota = document.createElement('span');
                         nota.className = 'mt-1 block text-[11px] leading-snug ' + (attivo ? 'text-white/80' : 'text-terracotta');
@@ -814,20 +816,38 @@ header('Content-Type: text/html; charset=utf-8');
                     griglia.append(nodo);
                 });
                 card.append(titolo, griglia);
+                if (listaAvvisi.length > 1) {
+                    const box = document.createElement('div');
+                    box.className = 'mt-3 space-y-1 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950';
+                    listaAvvisi.forEach((testo) => {
+                        const riga = document.createElement('p');
+                        riga.textContent = testo;
+                        box.append(riga);
+                    });
+                    card.append(box);
+                }
                 weeks.append(card);
             });
 
             const menu = document.getElementById('menu');
             menu.replaceChildren();
             const giorno = state.giorno;
-            if (giorno.motivo && !giorno.selezionabile) {
+            if (giorno && ((giorno.chiuso && giorno.motivo) || (giorno.motivo && !giorno.selezionabile))) {
                 const avviso = document.createElement('div');
-                avviso.className = 'rounded-3xl border border-amber-200 bg-amber-50 p-4 text-amber-950';
+                avviso.className = 'rounded-3xl border border-amber-200 bg-amber-50 p-5 text-amber-950';
                 avviso.setAttribute('role', 'status');
+                const titoloAvviso = document.createElement('p');
+                titoloAvviso.className = 'text-xs uppercase tracking-[0.18em] text-amber-900/70';
+                titoloAvviso.textContent = giorno.chiuso ? 'Servizio non disponibile' : 'Giorno non prenotabile';
                 const testo = document.createElement('p');
-                testo.className = 'font-medium';
+                testo.className = 'mt-2 font-serif text-2xl uppercase leading-snug';
                 testo.textContent = giorno.motivo;
-                avviso.append(testo);
+                const aiuto = document.createElement('p');
+                aiuto.className = 'mt-2 text-sm text-amber-950/80';
+                aiuto.textContent = giorno.chiuso
+                    ? 'Questo giorno è in ferie o chiusura del servizio. Scegli un altro giorno prenotabile.'
+                    : 'Seleziona un altro giorno della settimana.';
+                avviso.append(titoloAvviso, testo, aiuto);
                 menu.append(avviso);
             }
             if (!giorno.portate.length && giorno.selezionabile) {
@@ -1157,9 +1177,7 @@ header('Content-Type: text/html; charset=utf-8');
             } catch (error) {
                 // La sessione locale si chiude comunque se il server ha già invalidato il cookie.
             }
-            state.csrf = null;
-            appView.hidden = true;
-            loginView.hidden = false;
+            window.location.href = '../';
         });
 
         api(API + 'sessione.php').then(entra).catch(() => {

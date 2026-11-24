@@ -120,26 +120,34 @@ final class BookingBoard
             $giorni[] = $this->descriviGiorno($azienda, $lunedi->modify('+' . $i . ' days'), $chiusure, $menu, $now, $oggi);
         }
 
-        $lunediSaltato = $giorni[0]['saltato'] === true;
+        $lunediChiuso = ($giorni[0]['chiuso'] ?? false) === true;
         $ancora = $giorni[0]['data'];
-        if ($lunediSaltato) {
+        if ($lunediChiuso) {
             $ancora = $giorni[1]['data'];
-        } else {
-            foreach ($giorni as $giorno) {
-                if ($giorno['selezionabile']) {
-                    $ancora = $giorno['data'];
-                    break;
-                }
+        }
+        foreach ($giorni as $giorno) {
+            if ($giorno['selezionabile']) {
+                $ancora = $giorno['data'];
+                break;
+            }
+        }
+
+        $avvisi = [];
+        if ($lunediChiuso) {
+            $avvisi[] = 'Lunedì è chiuso: la settimana si prenota da martedì.';
+        }
+        foreach ($giorni as $giorno) {
+            if (($giorno['chiuso'] ?? false) && is_string($giorno['motivo'] ?? null) && $giorno['motivo'] !== '') {
+                $avvisi[] = $giorno['etichetta'] . ' ' . $giorno['numero'] . ': ' . $giorno['motivo'];
             }
         }
 
         return [
             'titolo' => $titolo,
-            'lunedi_saltato' => $lunediSaltato,
+            'lunedi_saltato' => $lunediChiuso,
             'ancora' => $ancora,
-            'avviso' => $lunediSaltato
-                ? 'Lunedì è chiuso: la settimana si prenota da martedì.'
-                : null,
+            'avviso' => $avvisi[0] ?? null,
+            'avvisi' => $avvisi,
             'giorni' => $giorni,
         ];
     }
@@ -187,7 +195,9 @@ final class BookingBoard
             'data' => $chiave,
             'etichetta' => self::GIORNI[$numero],
             'numero' => $data->format('j'),
-            'saltato' => $chiusura !== null,
+            // I giorni di ferie/chiusura restano cliccabili per leggere il messaggio.
+            'saltato' => false,
+            'chiuso' => $chiusura !== null,
             'selezionabile' => $selezionabile,
             'motivo' => $motivo,
         ];
@@ -221,10 +231,12 @@ final class BookingBoard
 
         $descrizione = $this->descriviGiorno($azienda, $parsata, $chiusure, $menu, $now, $oggi);
         $piatti = [];
-        if ($descrizione['motivo'] === null || $descrizione['selezionabile'] === true) {
-            $piatti = $this->piatti($azienda, $parsata, $now);
-        } elseif (($menu[$data]['visibile_dal'] ?? '9999') <= $now->format('Y-m-d H:i:s') && $descrizione['saltato'] !== true) {
-            $piatti = $this->piatti($azienda, $parsata, $now);
+        if (($descrizione['chiuso'] ?? false) !== true) {
+            if ($descrizione['motivo'] === null || $descrizione['selezionabile'] === true) {
+                $piatti = $this->piatti($azienda, $parsata, $now);
+            } elseif (($menu[$data]['visibile_dal'] ?? '9999') <= $now->format('Y-m-d H:i:s')) {
+                $piatti = $this->piatti($azienda, $parsata, $now);
+            }
         }
 
         return [
@@ -233,6 +245,7 @@ final class BookingBoard
             'numero' => $descrizione['numero'],
             'selezionabile' => $descrizione['selezionabile'],
             'saltato' => $descrizione['saltato'],
+            'chiuso' => $descrizione['chiuso'] ?? false,
             'motivo' => $descrizione['motivo'],
             'portate' => $piatti,
             'ordine' => $this->ordineEsistente($azienda->id, $utenteId, $data, false),
