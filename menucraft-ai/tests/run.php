@@ -847,15 +847,18 @@ verifica(
     'export marca ospite S e host, senza colonna frutta',
 );
 $ospitePren = $pdo->query(
-    "SELECT CODE_EMPLOYEE, EMPLOYEE, EMPL_RIF FROM prenotazioni
+    "SELECT CODE_EMPLOYEE, EMPLOYEE, EMPL_RIF, OSPITE, HOST, PAYMENT FROM prenotazioni
      WHERE azienda_id = " . $rossiId . " AND data_pasto = '2026-11-13' AND CODE_EMPLOYEE = 'OSPITE' LIMIT 1"
 )->fetch();
 verifica(
     is_array($ospitePren)
     && $ospitePren['CODE_EMPLOYEE'] === 'OSPITE'
     && $ospitePren['EMPLOYEE'] === 'Mario Ospite'
-    && $ospitePren['EMPL_RIF'] !== '',
-    'prenotazioni: ospite come nel software attuale',
+    && $ospitePren['EMPL_RIF'] !== ''
+    && ($ospitePren['OSPITE'] ?? '') === 'S'
+    && ($ospitePren['HOST'] ?? '') !== ''
+    && ($ospitePren['PAYMENT'] ?? '') === '',
+    'prenotazioni: ospite S anche a carico azienda (PAYMENT vuoto, non P)',
 );
 
 $banco = new MenuBanco($pdo, $validator);

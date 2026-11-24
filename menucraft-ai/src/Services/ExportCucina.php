@@ -135,11 +135,11 @@ final class ExportCucina
         );
         $inserisciPren = $this->pdo->prepare(
             'INSERT INTO prenotazioni
-                (azienda_id, data_pasto, ID_PRENOTAZIONE, CODE_EMPLOYEE, EMPLOYEE, EMPL_RIF, ENTE, GIORNO,
+                (azienda_id, data_pasto, ID_PRENOTAZIONE, CODE_EMPLOYEE, EMPLOYEE, EMPL_RIF, OSPITE, HOST, ENTE, GIORNO,
                  PRIMO, PRIMO2, PRIMO3, SECONDO, SECONDO2, CONTORNO, CONTORNO2,
                  FRUTTA, YOGURT, DESSERT, BEVANDE, BEVANDE2, TIME_STAMP, PAYMENT, aggiornato_il)
              VALUES
-                (:azienda, :data, :id_pren, :code, :employee, :empl_rif, :ente, :giorno,
+                (:azienda, :data, :id_pren, :code, :employee, :empl_rif, :ospite, :host, :ente, :giorno,
                  :primo, :primo2, :primo3, :secondo, :secondo2, :contorno, :contorno2,
                  :frutta, :yogurt, :dessert, :bevande, :bevande2, :time_stamp, :payment, NOW())'
         );
@@ -172,6 +172,9 @@ final class ExportCucina
                 'code' => $eOspite ? 'OSPITE' : $prima['matricola'],
                 'employee' => $eOspite ? $nomeOspite : $prima['dipendente'],
                 'empl_rif' => $eOspite ? $prima['matricola'] : '',
+                // S = ospite (sempre), indipendente da a_carico. P in PAYMENT = a carico dipendente.
+                'ospite' => $eOspite ? 'S' : '',
+                'host' => $eOspite ? $prima['dipendente'] : '',
                 'ente' => '',
                 'giorno' => $giorno,
                 'primo' => self::cellaPortata($voci, 'primo', 0),

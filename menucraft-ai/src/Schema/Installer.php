@@ -124,6 +124,8 @@ final class Installer
                 CODE_EMPLOYEE VARCHAR(64) NOT NULL DEFAULT \'\',
                 EMPLOYEE VARCHAR(160) NOT NULL DEFAULT \'\',
                 EMPL_RIF VARCHAR(64) NOT NULL DEFAULT \'\',
+                OSPITE CHAR(1) NOT NULL DEFAULT \'\',
+                HOST VARCHAR(160) NOT NULL DEFAULT \'\',
                 ENTE VARCHAR(64) NOT NULL DEFAULT \'\',
                 GIORNO VARCHAR(20) NOT NULL DEFAULT \'\',
                 PRIMO VARCHAR(32) NOT NULL DEFAULT \'\',
@@ -147,6 +149,22 @@ final class Installer
                 CONSTRAINT fk_prenotazioni_azienda FOREIGN KEY (azienda_id) REFERENCES aziende (id) ON DELETE CASCADE
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci'
         );
+
+        // Migrazione: tabelle già create senza OSPITE/HOST (S = ospite, indipendente da PAYMENT).
+        $haOspitePren = $this->pdo->query("SHOW COLUMNS FROM prenotazioni LIKE 'OSPITE'")->fetch();
+        if (!$haOspitePren) {
+            $this->pdo->exec(
+                "ALTER TABLE prenotazioni
+                 ADD COLUMN OSPITE CHAR(1) NOT NULL DEFAULT '' AFTER EMPL_RIF"
+            );
+        }
+        $haHostPren = $this->pdo->query("SHOW COLUMNS FROM prenotazioni LIKE 'HOST'")->fetch();
+        if (!$haHostPren) {
+            $this->pdo->exec(
+                "ALTER TABLE prenotazioni
+                 ADD COLUMN HOST VARCHAR(160) NOT NULL DEFAULT '' AFTER OSPITE"
+            );
+        }
 
         $this->pdo->exec('DROP VIEW IF EXISTS v_export_prenotazioni_righe');
         $this->pdo->exec(
