@@ -178,6 +178,20 @@ header('Content-Type: text/html; charset=utf-8');
                     <textarea id="allergie" maxlength="240" rows="2" class="mt-1 w-full rounded-2xl border border-ink/10 bg-white px-3 py-2 text-sm font-normal" placeholder="Es. lattosio, glutine, frutta a guscio"></textarea>
                 </label>
                 <button id="salva-allergie" type="button" class="mt-2 w-full rounded-2xl border border-ink/15 px-3 py-2 text-sm">Segnala in cucina</button>
+                <div class="mt-5 rounded-2xl border border-ink/10 bg-cream p-4">
+                    <h3 class="font-serif text-2xl uppercase">Password</h3>
+                    <p class="mt-1 text-xs text-ink/60">Cambia la password del tuo accesso. Serve quella attuale.</p>
+                    <label class="mt-3 block text-sm font-semibold">Password attuale
+                        <input id="password-attuale" type="password" autocomplete="current-password" class="mt-1 w-full rounded-2xl border border-ink/10 bg-white px-3 py-2 text-sm font-normal">
+                    </label>
+                    <label class="mt-2 block text-sm font-semibold">Nuova password
+                        <input id="password-nuova" type="password" autocomplete="new-password" minlength="10" maxlength="72" class="mt-1 w-full rounded-2xl border border-ink/10 bg-white px-3 py-2 text-sm font-normal">
+                    </label>
+                    <label class="mt-2 block text-sm font-semibold">Conferma nuova
+                        <input id="password-conferma" type="password" autocomplete="new-password" minlength="10" maxlength="72" class="mt-1 w-full rounded-2xl border border-ink/10 bg-white px-3 py-2 text-sm font-normal">
+                    </label>
+                    <button id="salva-password" type="button" class="mt-3 w-full rounded-2xl border border-ink/15 bg-white px-3 py-2 text-sm">Aggiorna password</button>
+                </div>
                 <div class="mt-4 grid gap-2">
                     <button id="submit-order" type="button" class="rounded-2xl bg-moss px-4 py-3 font-semibold text-white disabled:cursor-not-allowed disabled:bg-ink/20">Conferma prenotazione</button>
                     <button id="cancel-order" type="button" hidden class="rounded-2xl border border-ink/15 px-4 py-3 text-sm">Annulla buono</button>
@@ -1083,6 +1097,46 @@ header('Content-Type: text/html; charset=utf-8');
                     body: JSON.stringify({ allergie: document.getElementById('allergie').value }),
                 });
                 state.csrf = payload.csrf || state.csrf;
+                mostraBanner('ok', payload.messaggio, null, []);
+            } catch (error) {
+                mostraBanner('errore', error.message, error.codice, error.dettagli);
+            }
+        });
+
+        document.getElementById('salva-password').addEventListener('click', async () => {
+            const attuale = document.getElementById('password-attuale').value;
+            const nuova = document.getElementById('password-nuova').value;
+            const conferma = document.getElementById('password-conferma').value;
+            if (nuova !== conferma) {
+                mostraBanner('errore', 'La conferma non coincide con la nuova password.', null, []);
+                return;
+            }
+            try {
+                const payload = await api(API + 'password.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        password_attuale: attuale,
+                        password_nuova: nuova,
+                    }),
+                });
+                state.csrf = payload.csrf || state.csrf;
+                document.getElementById('password-attuale').value = '';
+                document.getElementById('password-nuova').value = '';
+                document.getElementById('password-conferma').value = '';
+                // Aggiorna l’accesso salvato sul dispositivo, se c’è.
+                try {
+                    const lista = JSON.parse(localStorage.getItem(STORAGE_ACCESSI) || '[]');
+                    if (Array.isArray(lista) && state.azienda?.slug && state.utente?.matricola) {
+                        const next = lista.map((voce) => {
+                            if (voce && voce.slug === state.azienda.slug && voce.matricola === state.utente.matricola) {
+                                return { ...voce, password: nuova };
+                            }
+                            return voce;
+                        });
+                        localStorage.setItem(STORAGE_ACCESSI, JSON.stringify(next));
+                    }
+                } catch (e) {}
                 mostraBanner('ok', payload.messaggio, null, []);
             } catch (error) {
                 mostraBanner('errore', error.message, error.codice, error.dettagli);

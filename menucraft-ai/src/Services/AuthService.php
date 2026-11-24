@@ -252,6 +252,38 @@ final class AuthService
         }
     }
 
+    public function cambiaPassword(int $utenteId, int $aziendaId, string $attuale, string $nuova): void
+    {
+        if (str_contains($nuova, "\0") || strlen($nuova) < 10 || strlen($nuova) > 72) {
+            throw new MenuRuleException('PASSWORD_NON_VALIDA', 'La nuova password deve avere tra 10 e 72 caratteri.');
+        }
+        if ($attuale === $nuova) {
+            throw new MenuRuleException('PASSWORD_UGUALE', 'La nuova password deve essere diversa da quella attuale.');
+        }
+
+        $stmt = $this->pdo->prepare(
+            'SELECT id, password_hash FROM utenti WHERE id = :id AND azienda_id = :azienda LIMIT 1'
+        );
+        $stmt->execute(['id' => $utenteId, 'azienda' => $aziendaId]);
+        $riga = $stmt->fetch();
+        if ($riga === false) {
+            throw new MenuRuleException('UTENTE_SCONOSCIUTO', 'Utente non trovato.', 404);
+        }
+        if (!password_verify($attuale, (string) $riga['password_hash'])) {
+            $this->pad($attuale);
+            throw new MenuRuleException('PASSWORD_ATTUALE', 'La password attuale non è corretta.', 401);
+        }
+
+        $aggiorna = $this->pdo->prepare(
+            'UPDATE utenti SET password_hash = :hash WHERE id = :id AND azienda_id = :azienda'
+        );
+        $aggiorna->execute([
+            'hash' => password_hash($nuova, PASSWORD_BCRYPT, ['cost' => self::COSTO_BCRYPT]),
+            'id' => $utenteId,
+            'azienda' => $aziendaId,
+        ]);
+    }
+
     /** @return array{id: int, azienda_id: int, matricola: string, nome: string, ruolo: string, csrf: string} */
     public function richiediRuolo(string $ruolo): array
     {

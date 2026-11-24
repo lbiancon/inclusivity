@@ -15,6 +15,18 @@ Come usarli
 
 Puoi anche usare un Excel del giovedì a griglia, oppure salvare questi CSV come .xlsx.
 
+Import utenti
+=============
+utenti-import.csv
+  Colonne: matricola;nome;password;pagamento;allergie;saldo
+  pagamento: eredita | busta | buono | pagante | welfare
+  Nel backend, sezione Utenti: «Scarica template» poi «Importa utenti».
+  Matricole già presenti vengono aggiornate (password vuota = lascia invariata).
+
+Password dipendente
+===================
+Dal frontend, nello scontrino: Password attuale + nuova + conferma.
+
 Sovrascrivere la cartella sul server di lavoro
 =============================================
 Sì, puoi copiare tutta la cartella menucraft-ai/ sopra quella già installata.

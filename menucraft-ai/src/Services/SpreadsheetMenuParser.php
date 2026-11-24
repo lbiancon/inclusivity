@@ -41,24 +41,36 @@ final class SpreadsheetMenuParser
     /** @return list<RigaMenu> */
     public function parse(string $path, string $filename): array
     {
-        $estensione = strtolower(pathinfo($filename, PATHINFO_EXTENSION));
-        $intestazione = (string) file_get_contents($path, false, null, 0, 4);
-
-        $tabella = match ($estensione) {
-            'csv', 'txt' => $this->leggiCsv($path),
-            'xlsx' => $this->leggiXlsx($path, $intestazione),
-            'xls' => $this->leggiXls($path, $intestazione),
-            default => throw new MenuRuleException(
-                'FORMATO_FILE',
-                'Carica il template Excel del giovedì (.xlsx) oppure un file con le colonne data, nome, categoria (codice e prezzo sono opzionali).',
-            ),
-        };
+        $tabella = $this->leggiTabella($path, $filename);
 
         if ($this->sembraGriglia($tabella)) {
             return $this->mappaGriglia($tabella);
         }
 
         return $this->mappa($tabella);
+    }
+
+    /**
+     * Legge CSV/XLSX come tabella grezza (prima riga = intestazioni).
+     *
+     * @return list<list<string>>
+     */
+    public function leggiTabella(string $path, string $filename, string $erroreFormato = ''): array
+    {
+        $estensione = strtolower(pathinfo($filename, PATHINFO_EXTENSION));
+        $intestazione = (string) file_get_contents($path, false, null, 0, 4);
+
+        return match ($estensione) {
+            'csv', 'txt' => $this->leggiCsv($path),
+            'xlsx' => $this->leggiXlsx($path, $intestazione),
+            'xls' => $this->leggiXls($path, $intestazione),
+            default => throw new MenuRuleException(
+                'FORMATO_FILE',
+                $erroreFormato !== ''
+                    ? $erroreFormato
+                    : 'Carica il template Excel del giovedì (.xlsx) oppure un file con le colonne data, nome, categoria (codice e prezzo sono opzionali).',
+            ),
+        };
     }
 
     /** @return list<list<string>> */
