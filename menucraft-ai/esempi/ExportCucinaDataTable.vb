@@ -1,8 +1,15 @@
 ' ============================================================================
-' MenuCraft → VB.NET
-' 1) dataMensaDaExportCucina: legge export_cucina (JSON) → DataTable dinamico
-' 2) DatatableToExcel: un solo foglio, dipendenti poi ospiti in fondo
-'    Colonne e titolo sono dinamici (niente indici fissi 15/16, niente merge PRIMO).
+' MenuCraft → VB.NET (allineato al tuo flusso originale)
+'
+' Data: usa la stessa dataNow del tuo form (non è fissa nel DB).
+'       Tipicamente la data del pasto da esportare (es. domani se lanci la sera).
+' File: ini_nomeFile & "_" & getIdPrenotazione(dataNow) & ini_fileFormat
+'       salvato in ini_pathSave (stesso server/cartella del file INI di prima)
+' Mail: dopo SaveAs richiama la tua sendMailSMTPKSS come facevi già
+'
+' 1) dataMensaDaExportCucina: export_cucina JSON → DataTable dinamico
+' 2) DatatableToExcel: un foglio, dipendenti + ospiti in fondo
+' 3) EseguiExportMensa: dataNow + INI + Excel + mail (orchestratore)
 ' ============================================================================
 
 Imports MySql.Data.MySqlClient
@@ -14,6 +21,40 @@ Imports Excel = Microsoft.Office.Interop.Excel
 Imports System.Reflection
 
 Public Module ExportCucinaDataTable
+
+#Region "Data / nome file (come il tuo getIdPrenotazione)"
+
+    ''' <summary>
+    ''' Chiave giorno a 5 cifre: yy + giorno dell'anno (1..366).
+    ''' Stesso algoritmo di MenuCraft (ExportCucina::idGiornoPasto) e del
+    ''' RIGHT(ID_PRENOTAZIONE, 5) che usavi sulla tabella prenotazioni.
+    ''' </summary>
+    Public Function getIdPrenotazione(dataNow As Date) As String
+        Return dataNow.ToString("yy") & dataNow.DayOfYear.ToString("000")
+    End Function
+
+    ''' <summary>Data pasto ISO per il filtro SQL su export_cucina.data_pasto.</summary>
+    Public Function DataPastoIso(dataNow As Date) As String
+        Return dataNow.ToString("yyyy-MM-dd")
+    End Function
+
+    ''' <summary>Stesso nome file di prima: {ini_nomeFile}_{id5}{ini_fileFormat}.</summary>
+    Public Function NomeFileMensa(ini_nomeFile As String, idPrenotazione As String, ini_fileFormat As String) As String
+        Return ini_nomeFile & "_" & idPrenotazione & ini_fileFormat
+    End Function
+
+    ''' <summary>Percorso completo sul server/cartella remota (ini_pathSave).</summary>
+    Public Function PercorsoFileMensa(ini_pathSave As String, nameFile As String) As String
+        If String.IsNullOrEmpty(ini_pathSave) Then
+            Return nameFile
+        End If
+        If ini_pathSave.EndsWith("\") OrElse ini_pathSave.EndsWith("/") Then
+            Return ini_pathSave & nameFile
+        End If
+        Return ini_pathSave.TrimEnd() & "\" & nameFile
+    End Function
+
+#End Region
 
 #Region "DataTable da export_cucina"
 
@@ -292,6 +333,53 @@ Public Module ExportCucinaDataTable
         Dim dt As DataTable = dataMensaCompleto(connessione, dataPasto, aziendaId)
         DatatableToExcel(dt, percorsoFile)
     End Sub
+
+    ''' <summary>
+    ''' Orchestratore come il tuo DatatableToExcel originale:
+    ''' dataNow → id 5 cifre → DataTable → SaveAs(ini_pathSave\nome).
+    '''
+    ''' Nel form / timer dove già leggevi l'INI (stesso punto di prima):
+    '''
+    '''   ' dataNow = la tua variabile di sempre (data del pasto da esportare).
+    '''   ' Se la sera esporti il pasto di domani: dataNow = Date.Today.AddDays(1)
+    '''   Dim nameFile As String = Nothing
+    '''   Dim percorso As String = EseguiExportMensa(
+    '''       connectionDB().ConnectionString, dataNow,
+    '''       ini_pathSave, ini_nomeFile, ini_fileFormat, nameFile, aziendaId)
+    '''   If percorso &lt;&gt; "" Then
+    '''       messages = messages &amp; Now &amp; " Invio il file Creato per Email" &amp; vbCrLf
+    '''       sendMailSMTPKSS("Ordini-mensa@eu.joysonsafety.com", "",
+    '''           "ordine pasti JOYSONSAFETY",
+    '''           "Ciao siamo la JoysonSafety in allegato il file in excel che contiente gli ordini del giorno",
+    '''           nameFile, ini_pathSave, "", "", listInvioMail, "mensa")
+    '''   End If
+    '''
+    ''' sendMailSMTPKSS e la lettura INI restano nel tuo progetto (non sono qui).
+    ''' </summary>
+    Public Function EseguiExportMensa(
+        connessione As String,
+        dataNow As Date,
+        ini_pathSave As String,
+        ini_nomeFile As String,
+        ini_fileFormat As String,
+        ByRef nameFile As String,
+        Optional aziendaId As Object = Nothing
+    ) As String
+
+        Dim idPrenotazione As String = getIdPrenotazione(dataNow)
+        Dim dataPasto As String = DataPastoIso(dataNow)
+        nameFile = NomeFileMensa(ini_nomeFile, idPrenotazione, ini_fileFormat)
+        Dim strFileName As String = PercorsoFileMensa(ini_pathSave, nameFile)
+
+        Dim dt As DataTable = dataMensaCompleto(connessione, dataPasto, aziendaId)
+        If dt Is Nothing OrElse dt.Rows.Count = 0 Then
+            nameFile = ""
+            Return ""
+        End If
+
+        DatatableToExcel(dt, strFileName)
+        Return strFileName
+    End Function
 
 #End Region
 

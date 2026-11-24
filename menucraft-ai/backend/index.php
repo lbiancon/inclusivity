@@ -314,7 +314,7 @@ header('Content-Type: text/html; charset=utf-8');
             <section data-pannello="cucina" hidden class="rounded-3xl border border-[#d5cbb8] bg-white p-5">
                 <h2 class="font-serif text-3xl uppercase">File per la cucina</h2>
                 <p id="cucina-testo" class="mt-2 text-sm text-ink/70"></p>
-                <p class="mt-2 text-sm text-ink/60">Per VB.NET: <code>esempi/ExportCucinaDataTable.vb</code> legge <code>export_cucina</code>, costruisce il DataTable dal JSON e scrive un solo foglio Excel (dipendenti + ospiti in fondo), senza indici colonna fissi. Vedi anche <code>esempi/export-vbnet.sql</code>.</p>
+                <p class="mt-2 text-sm text-ink/60">Per VB.NET: <code>EseguiExportMensa</code> in <code>esempi/ExportCucinaDataTable.vb</code> usa la tua <code>dataNow</code>, salva su <code>ini_pathSave</code> con il nome di prima e poi richiami <code>sendMailSMTPKSS</code> come già facevi. Dettagli in <code>esempi/export-vbnet.sql</code>.</p>
                 <label class="mt-4 block text-sm font-semibold">Giorno
                     <input id="giorno-cucina" type="date" class="mt-1 rounded-xl border border-ink/15 bg-cream px-3 py-2">
                 </label>
