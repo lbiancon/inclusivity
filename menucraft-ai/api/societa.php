@@ -29,7 +29,21 @@ JsonResponse::guard(static function (): void {
     }
 
     $auth->richiediCsrf();
-    $creata = $anagrafica->creaSocieta(JsonResponse::readJson());
+    $body = JsonResponse::readJson();
+    $azione = (string) ($body['azione'] ?? 'crea');
+
+    if ($azione === 'aggiorna') {
+        $aggiornata = $anagrafica->aggiornaSocieta($body);
+        JsonResponse::send(200, [
+            'ok' => true,
+            'csrf' => $utente['csrf'],
+            'messaggio' => $aggiornata['messaggio'],
+            'societa' => $aggiornata,
+            'elenco' => $anagrafica->elencoSocieta(),
+        ]);
+    }
+
+    $creata = $anagrafica->creaSocieta($body);
     JsonResponse::send(201, [
         'ok' => true,
         'csrf' => $utente['csrf'],

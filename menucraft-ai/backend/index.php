@@ -142,11 +142,13 @@ header('Content-Type: text/html; charset=utf-8');
                         <input id="societa-caterer-matricola" required maxlength="32" class="mt-1 w-full rounded-xl border border-ink/15 bg-cream px-3 py-2" placeholder="CAT-1">
                     </label>
                     <label class="text-sm font-semibold sm:col-span-2">Password catering
-                        <input id="societa-caterer-password" required minlength="10" maxlength="72" type="password" class="mt-1 w-full rounded-xl border border-ink/15 bg-cream px-3 py-2">
+                        <input id="societa-caterer-password" minlength="10" maxlength="72" type="password" class="mt-1 w-full rounded-xl border border-ink/15 bg-cream px-3 py-2" placeholder="Obbligatoria in creazione; in modifica lascia vuota per non cambiarla">
                     </label>
-                    <button type="submit" class="rounded-xl bg-moss px-4 py-3 text-sm font-semibold text-white sm:col-span-2">Crea la cucina</button>
+                    <input id="societa-id" type="hidden" value="">
+                    <button id="societa-salva" type="submit" class="rounded-xl bg-moss px-4 py-3 text-sm font-semibold text-white">Crea la cucina</button>
+                    <button id="societa-annulla" type="button" hidden class="rounded-xl border border-ink/15 px-4 py-3 text-sm">Annulla modifica</button>
                 </form>
-                <p class="mt-4 text-sm text-ink/60">Le cucine create restano in questo elenco. Per entrare nel banco di una cucina fai Esci e accedi con il suo codice azienda e la matricola del catering. Su ogni riga puoi anche caricare il logo.</p>
+                <p class="mt-4 text-sm text-ink/60">Le cucine create restano in questo elenco: puoi modificarle se hai sbagliato i dati. Per entrare nel banco fai Esci e accedi con codice azienda e matricola catering. Su ogni riga puoi anche caricare il logo.</p>
                 <p id="societa-conteggio" class="mt-3 text-sm font-semibold text-ink/80"></p>
                 <ul id="societa-elenco" class="mt-2 space-y-2 text-sm"></ul>
             </section>
@@ -555,6 +557,30 @@ header('Content-Type: text/html; charset=utf-8');
             righe.forEach((riga) => lista.append(riga));
         }
 
+        function resetSocietaForm() {
+            document.getElementById('societa-id').value = '';
+            document.getElementById('societa-form').reset();
+            document.getElementById('societa-salva').textContent = 'Crea la cucina';
+            document.getElementById('societa-annulla').hidden = true;
+            document.getElementById('societa-caterer-password').required = true;
+            document.getElementById('societa-caterer-password').placeholder = 'Obbligatoria in creazione; in modifica lascia vuota per non cambiarla';
+        }
+
+        function modificaSocieta(societa) {
+            document.getElementById('societa-id').value = String(societa.id || '');
+            document.getElementById('societa-nome').value = societa.nome || '';
+            document.getElementById('societa-slug').value = societa.slug || '';
+            document.getElementById('societa-pagamento').value = societa.tipo_pagamento || 'welfare';
+            document.getElementById('societa-modalita').value = societa.modalita || 'intranet';
+            document.getElementById('societa-caterer-nome').value = societa.caterer_nome || '';
+            document.getElementById('societa-caterer-matricola').value = societa.caterer_matricola || '';
+            document.getElementById('societa-caterer-password').value = '';
+            document.getElementById('societa-caterer-password').required = false;
+            document.getElementById('societa-salva').textContent = 'Salva modifica';
+            document.getElementById('societa-annulla').hidden = false;
+            document.getElementById('societa-nome').focus();
+        }
+
         function disegnaSocieta(elenco) {
             const lista = document.getElementById('societa-elenco');
             const conteggio = document.getElementById('societa-conteggio');
@@ -569,6 +595,13 @@ header('Content-Type: text/html; charset=utf-8');
                     ? ' · catering ' + societa.caterer_matricola
                     : '';
                 testo.textContent = societa.nome + ' · azienda ' + societa.slug + catering + ' · ' + etichettaPagamento(societa.tipo_pagamento) + ' · ' + societa.modalita;
+                const azioni = document.createElement('div');
+                azioni.className = 'flex flex-wrap items-center gap-2';
+                const modifica = document.createElement('button');
+                modifica.type = 'button';
+                modifica.className = 'rounded-xl border border-ink/15 bg-white px-3 py-2 text-xs font-semibold';
+                modifica.textContent = 'Modifica';
+                modifica.addEventListener('click', () => modificaSocieta(societa));
                 const file = document.createElement('input');
                 file.type = 'file';
                 file.accept = 'image/png,image/jpeg,image/webp,image/gif';
@@ -588,7 +621,8 @@ header('Content-Type: text/html; charset=utf-8');
                         })
                         .catch((error) => mostraBanner('errore', error.message));
                 });
-                item.append(testo, file);
+                azioni.append(modifica, file);
+                item.append(testo, azioni);
                 return item;
             });
             disegnaVoci(lista, 'Nessuna cucina ancora. La prima si crea da questo modulo.', righe);
@@ -941,36 +975,44 @@ header('Content-Type: text/html; charset=utf-8');
             caricaPrenotazioni().catch((error) => mostraBanner('errore', error.message));
         });
 
+        document.getElementById('societa-annulla').addEventListener('click', resetSocietaForm);
+
         document.getElementById('societa-form').addEventListener('submit', async (event) => {
             event.preventDefault();
+            const id = document.getElementById('societa-id').value;
+            const password = document.getElementById('societa-caterer-password').value;
+            if (!id && password.length < 10) {
+                mostraBanner('errore', 'La password catering deve avere tra 10 e 72 caratteri.');
+                return;
+            }
             try {
                 const payload = await api(API + 'societa.php', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
+                        azione: id ? 'aggiorna' : 'crea',
+                        azienda_id: id ? Number(id) : undefined,
                         nome: document.getElementById('societa-nome').value,
                         slug: document.getElementById('societa-slug').value,
                         tipo_pagamento: document.getElementById('societa-pagamento').value,
                         modalita: document.getElementById('societa-modalita').value,
                         caterer_nome: document.getElementById('societa-caterer-nome').value,
                         caterer_matricola: document.getElementById('societa-caterer-matricola').value,
-                        caterer_password: document.getElementById('societa-caterer-password').value,
+                        caterer_password: password,
                     }),
                 });
                 state.csrf = payload.csrf;
-                document.getElementById('societa-form').reset();
+                resetSocietaForm();
                 if (Array.isArray(payload.elenco)) {
                     disegnaSocieta(payload.elenco);
                 } else {
                     await caricaSocieta();
                 }
-                const creata = payload.societa || {};
-                mostraBanner(
-                    'ok',
-                    (payload.messaggio || 'Cucina creata.') + (creata.slug && creata.caterer_matricola
-                        ? ' Per gestirla: Esci, poi entra con azienda ' + creata.slug + ' e matricola ' + creata.caterer_matricola + '.'
-                        : ''),
-                );
+                const voce = payload.societa || {};
+                const extra = !id && voce.slug && voce.caterer_matricola
+                    ? ' Per gestirla: Esci, poi entra con azienda ' + voce.slug + ' e matricola ' + voce.caterer_matricola + '.'
+                    : '';
+                mostraBanner('ok', (payload.messaggio || (id ? 'Cucina aggiornata.' : 'Cucina creata.')) + extra);
             } catch (error) {
                 mostraBanner('errore', error.message);
             }

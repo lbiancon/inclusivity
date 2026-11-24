@@ -730,6 +730,60 @@ attesaEccezione('SLUG_ESISTENTE', fn () => $anagrafica->creaSocieta([
     'caterer_matricola' => 'CAT-QA',
     'caterer_password' => 'MenuCraft!2026',
 ]), 'slug duplicato');
+$aggiornata = $anagrafica->aggiornaSocieta([
+    'azienda_id' => (int) $creata['id'],
+    'nome' => 'Cucina QA Corretta',
+    'slug' => 'qa-cucina-ok',
+    'tipo_pagamento' => 'dipendente',
+    'modalita' => 'internet',
+    'caterer_nome' => 'Cuoco QA Bis',
+    'caterer_matricola' => 'CAT-QA2',
+]);
+verifica(
+    $aggiornata['nome'] === 'Cucina QA Corretta'
+        && $aggiornata['slug'] === 'qa-cucina-ok'
+        && $aggiornata['tipo_pagamento'] === 'dipendente'
+        && $aggiornata['modalita'] === 'internet'
+        && $aggiornata['caterer_matricola'] === 'CAT-QA2'
+        && $aggiornata['caterer_nome'] === 'Cuoco QA Bis',
+    'cucina aggiornata se sbagliata in inserimento',
+);
+$hashPrima = (string) $pdo->query(
+    "SELECT password_hash FROM utenti WHERE azienda_id = " . (int) $creata['id'] . " AND matricola = 'CAT-QA2'"
+)->fetchColumn();
+$anagrafica->aggiornaSocieta([
+    'azienda_id' => (int) $creata['id'],
+    'nome' => 'Cucina QA Corretta',
+    'slug' => 'qa-cucina-ok',
+    'tipo_pagamento' => 'dipendente',
+    'modalita' => 'internet',
+    'caterer_nome' => 'Cuoco QA Bis',
+    'caterer_matricola' => 'CAT-QA2',
+    'caterer_password' => '',
+]);
+$hashDopoVuota = (string) $pdo->query(
+    "SELECT password_hash FROM utenti WHERE azienda_id = " . (int) $creata['id'] . " AND matricola = 'CAT-QA2'"
+)->fetchColumn();
+verifica($hashPrima === $hashDopoVuota, 'password catering invariata se lasciata vuota in modifica');
+attesaEccezione('SLUG_ESISTENTE', fn () => $anagrafica->aggiornaSocieta([
+    'azienda_id' => (int) $creata['id'],
+    'nome' => 'Cucina QA Corretta',
+    'slug' => 'aurora-welfare',
+    'tipo_pagamento' => 'dipendente',
+    'modalita' => 'internet',
+    'caterer_nome' => 'Cuoco QA Bis',
+    'caterer_matricola' => 'CAT-QA2',
+]), 'slug già usato da un\'altra cucina');
+$elencoQa = array_values(array_filter(
+    $anagrafica->elencoSocieta(),
+    static fn (array $voce): bool => (int) $voce['id'] === (int) $creata['id'],
+));
+verifica(
+    count($elencoQa) === 1
+        && $elencoQa[0]['caterer_nome'] === 'Cuoco QA Bis'
+        && $elencoQa[0]['caterer_matricola'] === 'CAT-QA2',
+    'elenco società espone nome e matricola catering per la modifica',
+);
 $anagrafica->segnalaAllergie($auroraId, $auroraUser, 'Lattosio');
 $pdo->prepare('INSERT INTO portafogli (azienda_id, utente_id, saldo_centesimi) VALUES (?, ?, 2000) ON DUPLICATE KEY UPDATE saldo_centesimi = 2000')
     ->execute([$auroraId, $auroraUser]);

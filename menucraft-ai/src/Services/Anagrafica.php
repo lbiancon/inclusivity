@@ -25,12 +25,26 @@ final class Anagrafica
         $stmt = $this->pdo->query(
             "SELECT a.id, a.nome, a.slug, a.tipo_pagamento, a.modalita, a.bevanda_obbligatoria,
                     (
+                        SELECT u.id
+                        FROM utenti u
+                        WHERE u.azienda_id = a.id AND u.ruolo = 'caterer'
+                        ORDER BY u.id
+                        LIMIT 1
+                    ) AS caterer_id,
+                    (
                         SELECT u.matricola
                         FROM utenti u
                         WHERE u.azienda_id = a.id AND u.ruolo = 'caterer'
                         ORDER BY u.id
                         LIMIT 1
-                    ) AS caterer_matricola
+                    ) AS caterer_matricola,
+                    (
+                        SELECT u.nome
+                        FROM utenti u
+                        WHERE u.azienda_id = a.id AND u.ruolo = 'caterer'
+                        ORDER BY u.id
+                        LIMIT 1
+                    ) AS caterer_nome
              FROM aziende a
              WHERE a.slug <> 'menucraft'
              ORDER BY a.nome"
@@ -44,7 +58,9 @@ final class Anagrafica
                 'tipo_pagamento' => (string) $riga['tipo_pagamento'],
                 'modalita' => (string) $riga['modalita'],
                 'bevanda_obbligatoria' => (int) $riga['bevanda_obbligatoria'] === 1,
+                'caterer_id' => $riga['caterer_id'] !== null ? (int) $riga['caterer_id'] : null,
                 'caterer_matricola' => $riga['caterer_matricola'] !== null ? (string) $riga['caterer_matricola'] : '',
+                'caterer_nome' => $riga['caterer_nome'] !== null ? (string) $riga['caterer_nome'] : '',
             ];
         }
 
@@ -120,6 +136,144 @@ final class Anagrafica
                 $slug,
                 $matricola,
             ),
+        ];
+    }
+
+    /**
+     * Corregge una cucina già creata (nome, codice, pagamento, modalità e primo catering).
+     *
+     * @param array<string, mixed> $input
+     * @return array<string, mixed>
+     */
+    public function aggiornaSocieta(array $input): array
+    {
+        $aziendaId = (int) ($input['azienda_id'] ?? $input['id'] ?? 0);
+        if ($aziendaId < 1) {
+            throw new MenuRuleException('AZIENDA_SCONOSCIUTA', 'Indica la cucina da modificare.', 404);
+        }
+
+        $attuale = $this->pdo->prepare(
+            "SELECT id, nome, slug, tipo_pagamento, modalita FROM aziende WHERE id = :id AND slug <> 'menucraft'"
+        );
+        $attuale->execute(['id' => $aziendaId]);
+        $riga = $attuale->fetch();
+        if ($riga === false) {
+            throw new MenuRuleException('AZIENDA_SCONOSCIUTA', 'Cucina non trovata.', 404);
+        }
+
+        $nome = $this->nome((string) ($input['nome'] ?? $riga['nome']), 'Indica il nome della società.');
+        $slug = $this->slug((string) ($input['slug'] ?? $riga['slug']));
+        $pagamento = $this->pagamentoAzienda($input['tipo_pagamento'] ?? $riga['tipo_pagamento']);
+        $modalita = $this->modalita($input['modalita'] ?? $riga['modalita']);
+        $catererNome = $this->nome(
+            (string) ($input['caterer_nome'] ?? ''),
+            'Indica il nome di chi gestisce la cucina.',
+        );
+        $matricola = $this->matricola((string) ($input['caterer_matricola'] ?? ''));
+        $passwordGrezza = trim((string) ($input['caterer_password'] ?? ''));
+        $password = $passwordGrezza !== '' ? $this->password($passwordGrezza) : '';
+
+        $caterer = $this->pdo->prepare(
+            "SELECT id, matricola, nome FROM utenti
+             WHERE azienda_id = :azienda AND ruolo = 'caterer'
+             ORDER BY id ASC
+             LIMIT 1"
+        );
+        $caterer->execute(['azienda' => $aziendaId]);
+        $primo = $caterer->fetch();
+        if ($primo === false) {
+            throw new MenuRuleException('RUOLO', 'Questa cucina non ha ancora un catering da aggiornare.');
+        }
+
+        $this->pdo->beginTransaction();
+        try {
+            if ($slug !== (string) $riga['slug']) {
+                $duplicato = $this->pdo->prepare('SELECT id FROM aziende WHERE slug = :slug AND id <> :id');
+                $duplicato->execute(['slug' => $slug, 'id' => $aziendaId]);
+                if ($duplicato->fetchColumn() !== false) {
+                    throw new MenuRuleException('SLUG_ESISTENTE', 'Questa azienda esiste già. Scegli un altro codice.', 409);
+                }
+            }
+
+            $update = $this->pdo->prepare(
+                'UPDATE aziende
+                 SET nome = :nome, slug = :slug, tipo_pagamento = :pagamento, modalita = :modalita
+                 WHERE id = :id'
+            );
+            $update->execute([
+                'nome' => $nome,
+                'slug' => $slug,
+                'pagamento' => $pagamento,
+                'modalita' => $modalita,
+                'id' => $aziendaId,
+            ]);
+
+            if ($matricola !== (string) $primo['matricola']) {
+                $dupMat = $this->pdo->prepare(
+                    'SELECT id FROM utenti WHERE azienda_id = :azienda AND matricola = :matricola AND id <> :id'
+                );
+                $dupMat->execute([
+                    'azienda' => $aziendaId,
+                    'matricola' => $matricola,
+                    'id' => (int) $primo['id'],
+                ]);
+                if ($dupMat->fetchColumn() !== false) {
+                    throw new MenuRuleException('MATRICOLA_ESISTENTE', 'Questa matricola è già usata in azienda.', 409);
+                }
+            }
+
+            if ($password !== '') {
+                $updCaterer = $this->pdo->prepare(
+                    'UPDATE utenti
+                     SET nome = :nome, matricola = :matricola, password_hash = :hash
+                     WHERE id = :id AND azienda_id = :azienda'
+                );
+                $updCaterer->execute([
+                    'nome' => $catererNome,
+                    'matricola' => $matricola,
+                    'hash' => password_hash($password, PASSWORD_BCRYPT, ['cost' => AuthService::COSTO_BCRYPT]),
+                    'id' => (int) $primo['id'],
+                    'azienda' => $aziendaId,
+                ]);
+            } else {
+                $updCaterer = $this->pdo->prepare(
+                    'UPDATE utenti
+                     SET nome = :nome, matricola = :matricola
+                     WHERE id = :id AND azienda_id = :azienda'
+                );
+                $updCaterer->execute([
+                    'nome' => $catererNome,
+                    'matricola' => $matricola,
+                    'id' => (int) $primo['id'],
+                    'azienda' => $aziendaId,
+                ]);
+            }
+
+            $this->pdo->commit();
+        } catch (MenuRuleException $e) {
+            if ($this->pdo->inTransaction()) {
+                $this->pdo->rollBack();
+            }
+            throw $e;
+        } catch (PDOException $e) {
+            if ($this->pdo->inTransaction()) {
+                $this->pdo->rollBack();
+            }
+            if ($e->getCode() === '23000') {
+                throw new MenuRuleException('SLUG_ESISTENTE', 'Codice azienda o matricola già in uso.', 409);
+            }
+            throw $e;
+        }
+
+        return [
+            'id' => $aziendaId,
+            'nome' => $nome,
+            'slug' => $slug,
+            'tipo_pagamento' => $pagamento,
+            'modalita' => $modalita,
+            'caterer_matricola' => $matricola,
+            'caterer_nome' => $catererNome,
+            'messaggio' => sprintf('Cucina %s aggiornata.', $nome),
         ];
     }
 
