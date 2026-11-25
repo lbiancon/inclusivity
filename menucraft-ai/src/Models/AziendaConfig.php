@@ -1,0 +1,301 @@
+<?php
+
+declare(strict_types=1);
+
+namespace MenuCraft\Models;
+
+use MenuCraft\Enums\PagamentoType;
+use MenuCraft\Enums\PortataType;
+use MenuCraft\Services\MenuRuleException;
+use MenuCraft\Support\Money;
+use PDO;
+
+if (!defined('MENUCRAFT_APP')) {
+    http_response_code(404);
+    exit;
+}
+
+readonly class AziendaConfig
+{
+    public function __construct(
+        public int $id,
+        public string $nome,
+        public string $slug,
+        public PagamentoType $tipoPagamento,
+        public int $maxScelte,
+        public bool $permettiDoppioPrimo,
+        public bool $permettiDoppioContorno,
+        public string $limiteOggi,
+        public string $limiteDomani,
+        public string $modalita = 'intranet',
+        public bool $bevandaObbligatoria = false,
+        public bool $permettiDoppioSecondo = false,
+        public ?int $maxPrimo = null,
+        public ?int $maxSecondo = null,
+        public ?int $maxContorno = null,
+        public bool $permettiDoppioFrutta = false,
+        public bool $permettiDoppioDessert = false,
+        public ?int $maxFrutta = null,
+        public ?int $maxDessert = null,
+        public bool $permettiDoppioYogurt = false,
+        public ?int $maxYogurt = null,
+        public ?string $logo = null,
+        public int $minScelte = 0,
+        public string $guidaLinea = '',
+        public string $contattoLinea = '',
+        public string $caricamentoMenu = 'sempre',
+        public bool $menuBanco = true,
+        public bool $apriSabato = false,
+        public bool $apriDomenica = false,
+    ) {
+        if ($this->id < 1) {
+            throw new \InvalidArgumentException('Identificativo azienda non valido.');
+        }
+        if ($this->maxScelte < 1 || $this->maxScelte > 10) {
+            throw new \InvalidArgumentException('Il numero massimo di scelte deve essere compreso tra 1 e 10.');
+        }
+        if ($this->minScelte !== 0 && ($this->minScelte < 1 || $this->minScelte > $this->maxScelte)) {
+            throw new \InvalidArgumentException('Il numero minimo di scelte deve essere compreso tra 1 e il massimo.');
+        }
+        if (!in_array($this->modalita, ['intranet', 'internet'], true)) {
+            throw new \InvalidArgumentException('Modalità azienda non valida.');
+        }
+        if (!in_array($this->caricamentoMenu, ['sempre', 'giovedi'], true)) {
+            throw new \InvalidArgumentException('Modalità di caricamento menu non valida.');
+        }
+    }
+
+    public function caricaSoloGiovedi(): bool
+    {
+        return $this->caricamentoMenu === 'giovedi';
+    }
+
+    public function permetteMenuBanco(): bool
+    {
+        return $this->menuBanco;
+    }
+
+    public function minimoScelte(): int
+    {
+        if ($this->minScelte >= 1) {
+            return $this->minScelte;
+        }
+
+        return $this->bevandaObbligatoria ? $this->maxScelte : 1;
+    }
+
+    /** @param array<string, mixed> $riga */
+    public static function fromRow(array $riga): self
+    {
+        return new self(
+            id: (int) $riga['id'],
+            nome: (string) $riga['nome'],
+            slug: (string) $riga['slug'],
+            tipoPagamento: PagamentoType::from((string) $riga['tipo_pagamento']),
+            maxScelte: (int) $riga['max_scelte'],
+            permettiDoppioPrimo: (int) $riga['permetti_doppio_primo'] === 1,
+            permettiDoppioContorno: (int) $riga['permetti_doppio_contorno'] === 1,
+            limiteOggi: self::normalizzaOrario((string) $riga['limite_oggi']),
+            limiteDomani: self::normalizzaOrario((string) $riga['limite_domani']),
+            modalita: self::modalita((string) ($riga['modalita'] ?? 'intranet')),
+            bevandaObbligatoria: (int) ($riga['bevanda_obbligatoria'] ?? 0) === 1,
+            permettiDoppioSecondo: (int) ($riga['permetti_doppio_secondo'] ?? 0) === 1,
+            maxPrimo: self::massimoSalvato($riga, 'max_primo'),
+            maxSecondo: self::massimoSalvato($riga, 'max_secondo'),
+            maxContorno: self::massimoSalvato($riga, 'max_contorno'),
+            permettiDoppioFrutta: (int) ($riga['permetti_doppio_frutta'] ?? 0) === 1,
+            permettiDoppioDessert: (int) ($riga['permetti_doppio_dessert'] ?? 0) === 1,
+            maxFrutta: self::massimoSalvato($riga, 'max_frutta'),
+            maxDessert: self::massimoSalvato($riga, 'max_dessert'),
+            permettiDoppioYogurt: (int) ($riga['permetti_doppio_yogurt'] ?? 0) === 1,
+            maxYogurt: self::massimoSalvato($riga, 'max_yogurt'),
+            logo: isset($riga['logo']) && is_string($riga['logo']) && $riga['logo'] !== '' ? $riga['logo'] : null,
+            minScelte: (int) ($riga['min_scelte'] ?? 0),
+            guidaLinea: trim((string) ($riga['guida_linea'] ?? '')),
+            contattoLinea: trim((string) ($riga['contatto_linea'] ?? '')),
+            caricamentoMenu: self::caricamentoMenu((string) ($riga['caricamento_menu'] ?? 'sempre')),
+            menuBanco: (int) ($riga['menu_banco'] ?? 1) === 1,
+            apriSabato: (int) ($riga['apri_sabato'] ?? 0) === 1,
+            apriDomenica: (int) ($riga['apri_domenica'] ?? 0) === 1,
+        );
+    }
+
+    public static function trova(PDO $pdo, int $aziendaId): self
+    {
+        $stmt = $pdo->prepare(
+            'SELECT id, nome, slug, tipo_pagamento, max_scelte, min_scelte, permetti_doppio_primo,
+                    permetti_doppio_contorno, permetti_doppio_secondo, permetti_doppio_frutta, permetti_doppio_dessert,
+                    permetti_doppio_yogurt, max_primo, max_secondo, max_contorno, max_frutta, max_dessert, max_yogurt, logo,
+                    limite_oggi, limite_domani, modalita, bevanda_obbligatoria, guida_linea, contatto_linea,
+                    caricamento_menu, menu_banco, apri_sabato, apri_domenica
+             FROM aziende
+             WHERE id = :id'
+        );
+        $stmt->execute(['id' => $aziendaId]);
+        $riga = $stmt->fetch();
+        if ($riga === false) {
+            throw new MenuRuleException('AZIENDA_ASSENTE', 'Azienda non trovata.', 404);
+        }
+
+        return self::fromRow($riga);
+    }
+
+    public function maxPerCategoria(PortataType $categoria): int
+    {
+        if ($categoria === PortataType::Bevanda) {
+            return 1;
+        }
+
+        $base = match ($categoria) {
+            PortataType::Secondo => $this->permettiDoppioSecondo ? 2 : 1,
+            PortataType::Primo => $this->permettiDoppioPrimo ? 2 : 1,
+            PortataType::Contorno => $this->permettiDoppioContorno ? 2 : 1,
+            PortataType::Frutta => $this->permettiDoppioFrutta ? 2 : 1,
+            PortataType::Dessert => $this->permettiDoppioDessert ? 2 : 1,
+            PortataType::Yogurt => $this->permettiDoppioYogurt ? 2 : 1,
+            default => $this->maxScelte,
+        };
+        $salvato = match ($categoria) {
+            PortataType::Primo => $this->maxPrimo,
+            PortataType::Secondo => $this->maxSecondo,
+            PortataType::Contorno => $this->maxContorno,
+            PortataType::Frutta => $this->maxFrutta,
+            PortataType::Dessert => $this->maxDessert,
+            PortataType::Yogurt => $this->maxYogurt,
+            default => null,
+        };
+        // null = non impostato (usa i flag); 0 = portata spenta per questa azienda
+        if ($salvato === null) {
+            return $base;
+        }
+        if ($salvato < 1) {
+            return 0;
+        }
+        if ($this->doppioStessoPiatto($categoria) && $salvato < 2) {
+            return 2;
+        }
+
+        return $salvato;
+    }
+
+    public function portataAttiva(PortataType $categoria): bool
+    {
+        return $this->maxPerCategoria($categoria) > 0;
+    }
+
+    public function doppioStessoPiatto(PortataType $categoria): bool
+    {
+        return match ($categoria) {
+            PortataType::Primo => $this->permettiDoppioPrimo,
+            PortataType::Secondo => $this->permettiDoppioSecondo,
+            PortataType::Contorno => $this->permettiDoppioContorno,
+            PortataType::Frutta => $this->permettiDoppioFrutta,
+            PortataType::Dessert => $this->permettiDoppioDessert,
+            PortataType::Yogurt => $this->permettiDoppioYogurt,
+            default => false,
+        };
+    }
+
+    public function prezzoApplicato(string $listino): string
+    {
+        if ($this->tipoPagamento->copertoDaAzienda()) {
+            return '0.00';
+        }
+
+        return Money::normalizza($listino);
+    }
+
+    /** @return array<string, mixed> */
+    public function toArray(): array
+    {
+        return [
+            'id' => $this->id,
+            'nome' => $this->nome,
+            'slug' => $this->slug,
+            'tipo_pagamento' => $this->tipoPagamento->value,
+            'tipo_pagamento_etichetta' => $this->tipoPagamento->etichetta(),
+            'max_scelte' => $this->maxScelte,
+            'min_scelte' => $this->minimoScelte(),
+            'permetti_doppio_primo' => $this->permettiDoppioPrimo,
+            'permetti_doppio_secondo' => $this->permettiDoppioSecondo,
+            'permetti_doppio_contorno' => $this->permettiDoppioContorno,
+            'permetti_doppio_frutta' => $this->permettiDoppioFrutta,
+            'permetti_doppio_dessert' => $this->permettiDoppioDessert,
+            'permetti_doppio_yogurt' => $this->permettiDoppioYogurt,
+            'max_primo' => $this->maxPerCategoria(PortataType::Primo),
+            'max_secondo' => $this->maxPerCategoria(PortataType::Secondo),
+            'max_contorno' => $this->maxPerCategoria(PortataType::Contorno),
+            'max_frutta' => $this->maxPerCategoria(PortataType::Frutta),
+            'max_dessert' => $this->maxPerCategoria(PortataType::Dessert),
+            'max_yogurt' => $this->maxPerCategoria(PortataType::Yogurt),
+            'logo' => $this->logo,
+            'limite_oggi' => substr($this->limiteOggi, 0, 5),
+            'limite_domani' => substr($this->limiteDomani, 0, 5),
+            'modalita' => $this->modalita,
+            'modalita_etichetta' => $this->modalita === 'internet' ? 'Internet' : 'Intranet',
+            'bevanda_obbligatoria' => $this->bevandaObbligatoria,
+            'guida_linea' => $this->guidaLinea,
+            'contatto_linea' => $this->contattoLinea,
+            'caricamento_menu' => $this->caricamentoMenu,
+            'caricamento_menu_etichetta' => $this->caricaSoloGiovedi()
+                ? 'Solo giovedì dopo le 19:00'
+                : 'Quando serve',
+            'menu_banco' => $this->menuBanco,
+            'apri_sabato' => $this->apriSabato,
+            'apri_domenica' => $this->apriDomenica,
+            'pagamento_etichetta' => $this->tipoPagamento->copertoDaAzienda() ? 'A carico dell\'azienda' : 'Paga il dipendente',
+        ];
+    }
+
+    public function weekendAperto(int $giornoSettimana): bool
+    {
+        return match ($giornoSettimana) {
+            6 => $this->apriSabato,
+            7 => $this->apriDomenica,
+            default => true,
+        };
+    }
+
+    /** @param array<string, mixed> $riga */
+    private static function massimoSalvato(array $riga, string $chiave): ?int
+    {
+        if (!array_key_exists($chiave, $riga) || $riga[$chiave] === null || $riga[$chiave] === '') {
+            return null;
+        }
+
+        return (int) $riga[$chiave];
+    }
+
+    private static function caricamentoMenu(string $valore): string
+    {
+        $valore = strtolower(trim($valore));
+
+        return in_array($valore, ['sempre', 'giovedi'], true) ? $valore : 'sempre';
+    }
+
+    private static function modalita(string $valore): string
+    {
+        $modalita = strtolower(trim($valore));
+        if (!in_array($modalita, ['intranet', 'internet'], true)) {
+            throw new \InvalidArgumentException('Modalità azienda non valida.');
+        }
+
+        return $modalita;
+    }
+
+    private static function normalizzaOrario(string $orario): string
+    {
+        if (!preg_match('/^(?<h>\d{2}):(?<m>\d{2})(?::(?<s>\d{2}))?$/', $orario, $parti)) {
+            throw new \InvalidArgumentException('Orario del tenant non valido.');
+        }
+
+        $ore = (int) $parti['h'];
+        $minuti = (int) $parti['m'];
+        $secondi = (int) ($parti['s'] ?? 0);
+        if ($ore > 23 || $minuti > 59 || $secondi > 59) {
+            throw new \InvalidArgumentException('Orario del tenant non valido.');
+        }
+
+        return sprintf('%02d:%02d:%02d', $ore, $minuti, $secondi);
+    }
+}
