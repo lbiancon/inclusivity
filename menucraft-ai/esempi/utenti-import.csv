@@ -1,4 +1,4 @@
-matricola;nome;password;pagamento;allergie;saldo
-A101;Mario Rossi;CambiaMe!2026;eredita;;
-A102;Lucia Bianchi;CambiaMe!2026;busta;lattosio;
-A103;Paolo Verdi;CambiaMe!2026;pagante;;25,00
+matricola;nome;password;pagamento;allergie;saldo;email;mail_reminder
+A101;Mario Rossi;CambiaMe!2026;eredita;;;mario.rossi@example.com;Y
+A102;Lucia Bianchi;CambiaMe!2026;busta;lattosio;;;;N
+A103;Paolo Verdi;CambiaMe!2026;pagante;;25,00;paolo.verdi@example.com;Y

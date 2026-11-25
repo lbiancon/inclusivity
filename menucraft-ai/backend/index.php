@@ -399,7 +399,7 @@ header('Content-Type: text/html; charset=utf-8');
                 </div>
                 <div class="mt-4 rounded-2xl border border-ink/10 bg-cream p-4">
                     <h3 class="font-serif text-2xl uppercase">Importa da Excel / CSV</h3>
-                    <p class="mt-2 text-sm text-ink/70">Scarica il template, compilalo (matricola, nome, password; pagamento/allergie/saldo opzionali) e caricalo qui. Le matricole già presenti vengono aggiornate.</p>
+                    <p class="mt-2 text-sm text-ink/70">Scarica il template, compilalo (matricola, nome, password; pagamento/allergie/saldo/email/mail_reminder opzionali) e caricalo qui. Le matricole già presenti vengono aggiornate.</p>
                     <div class="mt-3 flex flex-wrap gap-2">
                         <a id="scarica-template-utenti" href="../api/template-utenti.php" class="rounded-xl border border-ink px-4 py-3 text-sm font-semibold">Scarica template</a>
                     </div>
@@ -435,6 +435,15 @@ header('Content-Type: text/html; charset=utf-8');
                     </label>
                     <label class="text-sm font-semibold sm:col-span-2">Intolleranze o allergie
                         <input id="utente-allergie" maxlength="240" class="mt-1 w-full rounded-xl border border-ink/15 bg-cream px-3 py-2" placeholder="Lattosio, glutine">
+                    </label>
+                    <label class="text-sm font-semibold">Email (reminder mensa)
+                        <input id="utente-email" type="email" maxlength="190" class="mt-1 w-full rounded-xl border border-ink/15 bg-cream px-3 py-2" placeholder="nome.cognome@azienda.com">
+                    </label>
+                    <label class="text-sm font-semibold">Invia reminder
+                        <select id="utente-mail-reminder" class="mt-1 w-full rounded-xl border border-ink/15 bg-cream px-3 py-2">
+                            <option value="N">N · no</option>
+                            <option value="Y">Y · sì, se manca la prenotazione</option>
+                        </select>
                     </label>
                     <input id="utente-id" type="hidden" value="">
                     <button id="utente-salva" type="submit" class="self-end rounded-xl bg-moss px-4 py-3 text-sm font-semibold text-white">Crea utente</button>
@@ -711,7 +720,10 @@ header('Content-Type: text/html; charset=utf-8');
                 item.className = 'flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-cream px-4 py-3';
                 const testo = document.createElement('span');
                 const allergia = utente.allergie ? ' · allergie: ' + utente.allergie : '';
-                testo.textContent = utente.matricola + ' · ' + utente.nome + ' · ' + utente.ruolo + ' · ' + etichettaPagamento(utente.pagamento) + allergia;
+                const mail = utente.mail_reminder === 'Y' && utente.email
+                    ? ' · reminder: ' + utente.email
+                    : (utente.email ? ' · email: ' + utente.email : '');
+                testo.textContent = utente.matricola + ' · ' + utente.nome + ' · ' + utente.ruolo + ' · ' + etichettaPagamento(utente.pagamento) + allergia + mail;
                 const azioni = document.createElement('span');
                 azioni.className = 'flex gap-2';
                 const modifica = document.createElement('button');
@@ -1105,6 +1117,8 @@ header('Content-Type: text/html; charset=utf-8');
             document.getElementById('utente-password').value = '';
             document.getElementById('utente-pagamento').value = utente.pagamento === 'dipendente' ? 'pagante' : utente.pagamento;
             document.getElementById('utente-allergie').value = utente.allergie || '';
+            document.getElementById('utente-email').value = utente.email || '';
+            document.getElementById('utente-mail-reminder').value = utente.mail_reminder === 'Y' ? 'Y' : 'N';
             document.getElementById('utente-salva').textContent = 'Salva modifiche';
             document.getElementById('utente-annulla').hidden = false;
             mostraSezione('utenti');
@@ -1114,6 +1128,7 @@ header('Content-Type: text/html; charset=utf-8');
             document.getElementById('utente-form').reset();
             document.getElementById('utente-id').value = '';
             document.getElementById('utente-matricola').readOnly = false;
+            document.getElementById('utente-mail-reminder').value = 'N';
             document.getElementById('utente-salva').textContent = 'Crea utente';
             document.getElementById('utente-annulla').hidden = true;
         }
@@ -1467,6 +1482,8 @@ header('Content-Type: text/html; charset=utf-8');
                         pagamento: document.getElementById('utente-pagamento').value,
                         saldo: document.getElementById('utente-saldo').value,
                         allergie: document.getElementById('utente-allergie').value,
+                        email: document.getElementById('utente-email').value,
+                        mail_reminder: document.getElementById('utente-mail-reminder').value,
                     }),
                 });
                 state.csrf = payload.csrf;

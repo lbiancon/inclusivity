@@ -28,17 +28,24 @@ Password dipendente
 Frontend: tab Password (non sullo scontrino). Login: «Password dimenticata?»
 → richiesta al catering; in Utenti si genera una password temporanea.
 
-Export Excel VB.NET (Form1 / function.vb / config.ini)
-=====================================================
-Module: ExportCucinaDataTable.vb
-Snippet timer + start: Form1-mensa-snippet.vb
+Export Excel + Reminder VB.NET
+==============================
+Form1 completo (da usare): Form1.vb
+Module (anche standalone): ExportCucinaDataTable.vb
 Esempio INI: config.mensa.example.ini
 SQL: export-vbnet.sql
 
-Con ini_method=2: connectionDBM2() + ini_company (id numerico, es. 5).
-Alla sera (oraInvio_ini → ini_oraInvio) EseguiExportMensa calcola il primo
-giorno lavorativo DOPO oggi (sab/dom, feste, ferie MenuCraft), esporta
-export_cucina, salva in pathFile, poi sendMailSMTPKSS.
+ini_method=2 → connectionDBM2() + ini_company (id, es. 5).
+
+Export sera (oraInvio_ini): primo giorno utile DOPO oggi → Excel + mail.
+
+Reminder (hour_ini_reminder / hour_ini_reminder2):
+  utenti.email (la digiti tu) + mail_reminder=Y
+  mattina  → chi non ha prenotato OGGI
+  pomeriggio → chi non ha prenotato il primo giorno utile (ferie/chiusure/sab-dom)
+  Orari cutoff presi da aziende.limite_oggi / limite_domani (default 09:30 / 18:00).
+
+Nel backend Utenti: campi Email + Invia reminder; anche nel CSV import.
 
 Sovrascrivere la cartella sul server di lavoro
 =============================================

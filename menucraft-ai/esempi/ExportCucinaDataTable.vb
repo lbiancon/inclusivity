@@ -464,6 +464,126 @@ Public Module ExportCucinaDataTable
         DatatableToExcel(dt, percorsoFile)
     End Sub
 
+#End Region
+
+#Region "Reminder mensa (MenuCraft)"
+
+    ''' <summary>
+    ''' Sostituisce getReminderListMail sul DB vecchio.
+    ''' Mattina: pasto di oggi (se lavorativo). Pomeriggio: primo giorno utile dopo oggi.
+    ''' Solo utenti con mail_reminder='Y' e email valorizzata, senza ordine personale (ospite=0).
+    ''' </summary>
+    Public Function ListaReminderMail(
+        connessione As String,
+        remainderType As String,
+        dataNow As Date,
+        Optional aziendaId As Object = Nothing
+    ) As List(Of String)
+        Dim lista As New List(Of String)()
+        Dim tipo As String = If(remainderType, "").Trim().ToLowerInvariant()
+        Dim target As Date
+
+        If tipo = "mattina" Then
+            If Not GiornoLavorativo(connessione, dataNow.Date, aziendaId) Then
+                Return lista
+            End If
+            target = dataNow.Date
+        ElseIf tipo = "pomeriggio" Then
+            target = DataPastoDaEsportare(connessione, dataNow.Date, aziendaId)
+        Else
+            Return lista
+        End If
+
+        Dim sql As String =
+            "SELECT u.email FROM utenti u " &
+            "WHERE u.ruolo = 'dipendente' " &
+            "AND u.mail_reminder = 'Y' " &
+            "AND u.email IS NOT NULL AND TRIM(u.email) <> '' "
+        If aziendaId IsNot Nothing AndAlso Not IsDBNull(aziendaId) Then
+            sql &= "AND u.azienda_id = @azienda "
+        End If
+        sql &=
+            "AND NOT EXISTS (" &
+            "  SELECT 1 FROM ordini o " &
+            "  WHERE o.utente_id = u.id AND o.azienda_id = u.azienda_id " &
+            "    AND o.data_pasto = @pasto AND o.ospite = 0" &
+            ") " &
+            "ORDER BY u.nome ASC"
+
+        Using cn As New MySqlConnection(connessione)
+            Using cmd As New MySqlCommand(sql, cn)
+                cmd.Parameters.AddWithValue("@pasto", DataPastoIso(target))
+                If aziendaId IsNot Nothing AndAlso Not IsDBNull(aziendaId) Then
+                    cmd.Parameters.AddWithValue("@azienda", aziendaId)
+                End If
+                cn.Open()
+                Using rd = cmd.ExecuteReader()
+                    While rd.Read()
+                        Dim mail As String = If(rd("email"), "").ToString().Trim().ToLowerInvariant()
+                        If mail <> "" AndAlso mail.Contains("@") AndAlso Not lista.Contains(mail) Then
+                            lista.Add(mail)
+                        End If
+                    End While
+                End Using
+            End Using
+        End Using
+        Return lista
+    End Function
+
+    ''' <summary>limite_oggi / limite_domani (HH:mm) da aziende.</summary>
+    Public Function LimitiPrenotazione(
+        connessione As String,
+        Optional aziendaId As Object = Nothing
+    ) As String()
+        Dim oggi As String = "09:30"
+        Dim domani As String = "18:00"
+        Dim sql As String = "SELECT limite_oggi, limite_domani FROM aziende "
+        If aziendaId IsNot Nothing AndAlso Not IsDBNull(aziendaId) Then
+            sql &= "WHERE id = @id "
+        End If
+        sql &= "LIMIT 1"
+        Using cn As New MySqlConnection(connessione)
+            Using cmd As New MySqlCommand(sql, cn)
+                If aziendaId IsNot Nothing AndAlso Not IsDBNull(aziendaId) Then
+                    cmd.Parameters.AddWithValue("@id", aziendaId)
+                End If
+                cn.Open()
+                Using rd = cmd.ExecuteReader()
+                    If rd.Read() Then
+                        Dim lo = If(rd("limite_oggi"), "").ToString()
+                        Dim ld = If(rd("limite_domani"), "").ToString()
+                        If lo.Length >= 5 Then oggi = lo.Substring(0, 5)
+                        If ld.Length >= 5 Then domani = ld.Substring(0, 5)
+                    End If
+                End Using
+            End Using
+        End Using
+        Return New String() {oggi, domani}
+    End Function
+
+    Public Function DataPastoReminderIso(
+        connessione As String,
+        remainderType As String,
+        dataNow As Date,
+        Optional aziendaId As Object = Nothing
+    ) As String
+        Dim tipo As String = If(remainderType, "").Trim().ToLowerInvariant()
+        If tipo = "mattina" Then
+            If Not GiornoLavorativo(connessione, dataNow.Date, aziendaId) Then
+                Return ""
+            End If
+            Return DataPastoIso(dataNow.Date)
+        End If
+        If tipo = "pomeriggio" Then
+            Return DataPastoIso(DataPastoDaEsportare(connessione, dataNow.Date, aziendaId))
+        End If
+        Return ""
+    End Function
+
+#End Region
+
+#Region "Export orchestratore"
+
     ''' <summary>
     ''' Orchestratore come DatatableToExcel di Form1:
     ''' dataNow (oggi del timer) → DataPastoDaEsportare (primo utile) →

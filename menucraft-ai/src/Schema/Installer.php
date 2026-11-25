@@ -70,6 +70,22 @@ final class Installer
         $this->assicuraPiattaforma();
         $this->assicuraExportCucina();
         $this->assicuraPasswordRichieste();
+        $this->assicuraEmailReminder();
+    }
+
+    private function assicuraEmailReminder(): void
+    {
+        if (!$this->haColonna('utenti', 'email')) {
+            $this->pdo->exec(
+                "ALTER TABLE utenti ADD COLUMN email VARCHAR(190) NULL AFTER allergie"
+            );
+        }
+        if (!$this->haColonna('utenti', 'mail_reminder')) {
+            $this->pdo->exec(
+                "ALTER TABLE utenti
+                 ADD COLUMN mail_reminder CHAR(1) NOT NULL DEFAULT 'N' AFTER email"
+            );
+        }
     }
 
     private function assicuraPasswordRichieste(): void
@@ -286,12 +302,15 @@ final class Installer
                 ruolo VARCHAR(20) NOT NULL,
                 pagamento VARCHAR(20) NOT NULL DEFAULT \'eredita\',
                 allergie VARCHAR(240) NULL,
+                email VARCHAR(190) NULL,
+                mail_reminder CHAR(1) NOT NULL DEFAULT \'N\',
                 PRIMARY KEY (id),
                 UNIQUE KEY uq_utenti_matricola (azienda_id, matricola),
                 KEY idx_utenti_azienda (azienda_id),
                 CONSTRAINT fk_utenti_azienda FOREIGN KEY (azienda_id) REFERENCES aziende (id) ON DELETE CASCADE,
                 CONSTRAINT chk_ruolo CHECK (ruolo IN (\'dipendente\', \'caterer\', \'piattaforma\')),
-                CONSTRAINT chk_pagamento_utente CHECK (pagamento IN (\'eredita\', \'welfare\', \'busta\', \'pagante\', \'buono\'))
+                CONSTRAINT chk_pagamento_utente CHECK (pagamento IN (\'eredita\', \'welfare\', \'busta\', \'pagante\', \'buono\')),
+                CONSTRAINT chk_mail_reminder CHECK (mail_reminder IN (\'Y\', \'N\'))
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci',
 
             'CREATE TABLE IF NOT EXISTS piatti (

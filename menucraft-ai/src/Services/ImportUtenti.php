@@ -23,6 +23,8 @@ final class ImportUtenti
         'pagamento' => ['pagamento', 'payment', 'tipo_pagamento', 'modo'],
         'allergie' => ['allergie', 'intolleranze', 'nota', 'allergia'],
         'saldo' => ['saldo', 'wallet', 'credito', 'importo'],
+        'email' => ['email', 'mail', 'e_mail', 'posta'],
+        'mail_reminder' => ['mail_reminder', 'reminder', 'invia_reminder', 'reminder_mail'],
     ];
 
     public function __construct(
@@ -67,9 +69,14 @@ final class ImportUtenti
                 'pagamento' => $this->cella($celle, $mappa, 'pagamento'),
                 'allergie' => $this->cella($celle, $mappa, 'allergie'),
                 'saldo' => $this->cella($celle, $mappa, 'saldo'),
+                'email' => $this->cella($celle, $mappa, 'email'),
+                'mail_reminder' => $this->cella($celle, $mappa, 'mail_reminder'),
             ];
             if ($input['pagamento'] === '') {
                 $input['pagamento'] = 'eredita';
+            }
+            if ($input['mail_reminder'] === '') {
+                $input['mail_reminder'] = 'N';
             }
             try {
                 $esistente = $this->trovaPerMatricola($aziendaId, $input['matricola']);
@@ -209,10 +216,10 @@ final class ImportUtenti
     public static function templateCsv(): string
     {
         $righe = [
-            ['matricola', 'nome', 'password', 'pagamento', 'allergie', 'saldo'],
-            ['A101', 'Mario Rossi', 'CambiaMe!2026', 'eredita', '', ''],
-            ['A102', 'Lucia Bianchi', 'CambiaMe!2026', 'busta', 'lattosio', ''],
-            ['A103', 'Paolo Verdi', 'CambiaMe!2026', 'pagante', '', '25,00'],
+            ['matricola', 'nome', 'password', 'pagamento', 'allergie', 'saldo', 'email', 'mail_reminder'],
+            ['A101', 'Mario Rossi', 'CambiaMe!2026', 'eredita', '', '', 'mario.rossi@example.com', 'Y'],
+            ['A102', 'Lucia Bianchi', 'CambiaMe!2026', 'busta', 'lattosio', '', '', 'N'],
+            ['A103', 'Paolo Verdi', 'CambiaMe!2026', 'pagante', '', '25,00', 'paolo.verdi@example.com', 'Y'],
         ];
         $out = "\xEF\xBB\xBF";
         foreach ($righe as $riga) {

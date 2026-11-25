@@ -281,7 +281,7 @@ final class Anagrafica
     public function elencoUtenti(int $aziendaId): array
     {
         $stmt = $this->pdo->prepare(
-            'SELECT id, matricola, nome, ruolo, pagamento, allergie
+            'SELECT id, matricola, nome, ruolo, pagamento, allergie, email, mail_reminder
              FROM utenti
              WHERE azienda_id = :azienda AND ruolo <> :piattaforma
              ORDER BY ruolo, matricola'
@@ -296,6 +296,8 @@ final class Anagrafica
                 'ruolo' => (string) $riga['ruolo'],
                 'pagamento' => (string) $riga['pagamento'],
                 'allergie' => $riga['allergie'] !== null ? (string) $riga['allergie'] : '',
+                'email' => $riga['email'] !== null ? (string) $riga['email'] : '',
+                'mail_reminder' => (string) ($riga['mail_reminder'] ?? 'N') === 'Y' ? 'Y' : 'N',
             ];
         }
 
@@ -324,6 +326,12 @@ final class Anagrafica
         try {
             $id = $this->inserisciUtente($aziendaId, $matricola, $nome, $password, 'dipendente', $pagamento, $saldo);
             $this->scriviAllergie($aziendaId, $id, (string) ($input['allergie'] ?? ''));
+            $email = $this->scriviEmailReminder(
+                $aziendaId,
+                $id,
+                (string) ($input['email'] ?? ''),
+                (string) ($input['mail_reminder'] ?? 'N'),
+            );
             $this->pdo->commit();
         } catch (MenuRuleException $e) {
             if ($this->pdo->inTransaction()) {
@@ -345,6 +353,8 @@ final class Anagrafica
             'matricola' => $matricola,
             'nome' => $nome,
             'pagamento' => $pagamento,
+            'email' => $email['email'],
+            'mail_reminder' => $email['mail_reminder'],
             'messaggio' => sprintf('Utente %s creato. Entra con azienda %s e matricola %s.', $nome, $azienda['slug'], $matricola),
         ];
     }
@@ -388,6 +398,12 @@ final class Anagrafica
             ]);
         }
         $allergie = $this->scriviAllergie($aziendaId, $id, (string) ($input['allergie'] ?? ''));
+        $email = $this->scriviEmailReminder(
+            $aziendaId,
+            $id,
+            (string) ($input['email'] ?? ''),
+            (string) ($input['mail_reminder'] ?? 'N'),
+        );
         if (array_key_exists('saldo', $input) && trim((string) $input['saldo']) !== '' && $persona['ruolo'] === 'dipendente') {
             $saldo = $this->saldo($input['saldo']);
             $wallet = $this->pdo->prepare(
@@ -407,6 +423,8 @@ final class Anagrafica
             'nome' => $nome,
             'pagamento' => $pagamento,
             'allergie' => $allergie,
+            'email' => $email['email'],
+            'mail_reminder' => $email['mail_reminder'],
             'messaggio' => sprintf('Utente %s aggiornato.', $nome),
         ];
     }
@@ -480,6 +498,38 @@ final class Anagrafica
         ]);
 
         return $testo;
+    }
+
+    /** @return array{email: string, mail_reminder: string} */
+    private function scriviEmailReminder(int $aziendaId, int $utenteId, string $email, string $mailReminder): array
+    {
+        $email = strtolower(trim($email));
+        $email = preg_replace('/[\x00-\x1F\x7F]/u', '', $email) ?? '';
+        $email = trim($email);
+        if ($email !== '') {
+            if (mb_strlen($email) > 190 || filter_var($email, FILTER_VALIDATE_EMAIL) === false) {
+                throw new MenuRuleException('EMAIL_NON_VALIDA', 'Indica un indirizzo email valido (max 190 caratteri).');
+            }
+        }
+        $flag = strtoupper(trim($mailReminder)) === 'Y' ? 'Y' : 'N';
+        if ($flag === 'Y' && $email === '') {
+            throw new MenuRuleException(
+                'EMAIL_OBBLIGATORIA',
+                'Per attivare il reminder mensa serve un indirizzo email.',
+            );
+        }
+        $stmt = $this->pdo->prepare(
+            'UPDATE utenti SET email = :email, mail_reminder = :flag
+             WHERE id = :id AND azienda_id = :azienda'
+        );
+        $stmt->execute([
+            'email' => $email === '' ? null : $email,
+            'flag' => $flag,
+            'id' => $utenteId,
+            'azienda' => $aziendaId,
+        ]);
+
+        return ['email' => $email, 'mail_reminder' => $flag];
     }
 
     /** @return array{slug: string, tipo_pagamento: string} */
