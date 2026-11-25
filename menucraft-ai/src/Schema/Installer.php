@@ -69,6 +69,28 @@ final class Installer
 
         $this->assicuraPiattaforma();
         $this->assicuraExportCucina();
+        $this->assicuraPasswordRichieste();
+    }
+
+    private function assicuraPasswordRichieste(): void
+    {
+        $this->pdo->exec(
+            'CREATE TABLE IF NOT EXISTS password_richieste (
+                id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+                azienda_id BIGINT UNSIGNED NOT NULL,
+                utente_id BIGINT UNSIGNED NOT NULL,
+                stato VARCHAR(20) NOT NULL DEFAULT \'aperta\',
+                creato_il DATETIME NOT NULL,
+                evasa_il DATETIME NULL,
+                evasa_da BIGINT UNSIGNED NULL,
+                PRIMARY KEY (id),
+                KEY idx_password_richieste_aperte (azienda_id, stato, creato_il),
+                KEY idx_password_richieste_utente (utente_id, creato_il),
+                CONSTRAINT fk_password_richieste_azienda FOREIGN KEY (azienda_id) REFERENCES aziende (id) ON DELETE CASCADE,
+                CONSTRAINT fk_password_richieste_utente FOREIGN KEY (utente_id) REFERENCES utenti (id) ON DELETE CASCADE,
+                CONSTRAINT chk_password_richieste_stato CHECK (stato IN (\'aperta\', \'evasa\', \'annullata\'))
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci'
+        );
     }
 
     private function assicuraExportCucina(): void

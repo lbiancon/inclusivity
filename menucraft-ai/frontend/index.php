@@ -104,6 +104,21 @@ header('Content-Type: text/html; charset=utf-8');
                     </label>
                     <button type="submit" class="w-full rounded-2xl bg-moss px-4 py-3 font-semibold text-white transition hover:bg-[#163c2d]">Entra in linea</button>
                 </form>
+                <p class="mt-3 text-center text-sm">
+                    <button id="apri-password-dimenticata" type="button" class="text-moss underline-offset-2 hover:underline">Password dimenticata?</button>
+                </p>
+                <form id="reset-form" hidden class="mt-6 space-y-4 border-t border-ink/10 pt-6">
+                    <h3 class="font-serif text-2xl uppercase">Password dimenticata</h3>
+                    <p class="text-sm text-ink/70">Indica azienda e matricola. Il catering riceve la richiesta e ti comunica una password temporanea (di persona o sul contatto aziendale). Non c’è invio automatico via email.</p>
+                    <label class="block text-sm font-medium" for="reset-slug">Azienda
+                        <input id="reset-slug" name="reset-slug" autocomplete="organization" class="mt-1 w-full rounded-2xl border border-ink/10 bg-cream px-4 py-3 outline-none ring-terracotta focus:ring-2" placeholder="aurora-welfare">
+                    </label>
+                    <label class="block text-sm font-medium" for="reset-matricola">Matricola
+                        <input id="reset-matricola" name="reset-matricola" autocomplete="username" class="mt-1 w-full rounded-2xl border border-ink/10 bg-cream px-4 py-3 outline-none ring-terracotta focus:ring-2" placeholder="A100">
+                    </label>
+                    <button type="submit" class="w-full rounded-2xl bg-moss px-4 py-3 font-semibold text-white">Chiedi il reset al catering</button>
+                    <button id="chiudi-password-dimenticata" type="button" class="w-full rounded-2xl border border-ink/15 px-4 py-3 text-sm">Torna all’accesso</button>
+                </form>
                 <div id="login-error" hidden class="mt-4 rounded-2xl border border-red-200 bg-red-50 p-4 text-red-900" role="alert"></div>
                 <div class="mt-6">
                     <p class="text-xs uppercase tracking-[0.18em] text-ink/50">Aziende salvate su questo dispositivo</p>
@@ -142,9 +157,10 @@ header('Content-Type: text/html; charset=utf-8');
                     <p id="guida-testo" class="mt-2 text-sm text-ink/80"></p>
                     <p id="guida-contatto" hidden class="mt-3 text-sm font-semibold"></p>
                 </aside>
-                <div class="flex gap-2">
+                <div class="flex flex-wrap gap-2">
                     <button id="vista-menu" type="button" class="rounded-full bg-moss px-4 py-2 text-sm font-semibold text-white">Menu</button>
                     <button id="vista-storico" type="button" class="rounded-full border border-ink/15 bg-white px-4 py-2 text-sm font-semibold">Le tue prenotazioni</button>
+                    <button id="vista-password" type="button" class="rounded-full border border-ink/15 bg-white px-4 py-2 text-sm font-semibold">Password</button>
                 </div>
                 <div id="pannello-menu" class="space-y-4">
                     <div id="weeks" class="space-y-4"></div>
@@ -155,8 +171,24 @@ header('Content-Type: text/html; charset=utf-8');
                     <div id="storico-conteggi" class="mt-4 flex flex-wrap gap-2 text-sm"></div>
                 <ul id="storico" class="mt-4 space-y-3 text-sm"></ul>
                 </section>
+                <section id="pannello-password" hidden class="rounded-3xl border border-[#d5cbb8] bg-white p-5">
+                    <h2 class="font-serif text-3xl uppercase">Password</h2>
+                    <p class="mt-2 text-sm text-ink/70">Cambia la password del tuo accesso senza toccare menu o prenotazioni. Serve quella attuale. Se l’hai dimenticata, esci e usa «Password dimenticata?» in login: il catering ti darà una temporanea.</p>
+                    <form id="password-form" class="mt-4 max-w-md space-y-3">
+                        <label class="block text-sm font-semibold">Password attuale
+                            <input id="password-attuale" type="password" autocomplete="current-password" class="mt-1 w-full rounded-2xl border border-ink/10 bg-cream px-3 py-2 text-sm font-normal">
+                        </label>
+                        <label class="block text-sm font-semibold">Nuova password
+                            <input id="password-nuova" type="password" autocomplete="new-password" minlength="10" maxlength="72" class="mt-1 w-full rounded-2xl border border-ink/10 bg-cream px-3 py-2 text-sm font-normal">
+                        </label>
+                        <label class="block text-sm font-semibold">Conferma nuova
+                            <input id="password-conferma" type="password" autocomplete="new-password" minlength="10" maxlength="72" class="mt-1 w-full rounded-2xl border border-ink/10 bg-cream px-3 py-2 text-sm font-normal">
+                        </label>
+                        <button id="salva-password" type="submit" class="rounded-2xl bg-moss px-4 py-3 text-sm font-semibold text-white">Aggiorna password</button>
+                    </form>
+                </section>
             </section>
-            <aside class="scontrino h-fit rounded-[2rem] p-5 lg:sticky lg:top-24">
+            <aside id="scontrino" class="scontrino h-fit rounded-[2rem] p-5 lg:sticky lg:top-24">
                 <p class="text-xs uppercase tracking-[0.18em] text-ink/50">Scontrino vassoio</p>
                 <h2 id="summary-title" class="mt-1 font-serif text-3xl">Vassoio</h2>
                 <div class="mt-3 grid grid-cols-2 gap-2 text-sm">
@@ -178,20 +210,6 @@ header('Content-Type: text/html; charset=utf-8');
                     <textarea id="allergie" maxlength="240" rows="2" class="mt-1 w-full rounded-2xl border border-ink/10 bg-white px-3 py-2 text-sm font-normal" placeholder="Es. lattosio, glutine, frutta a guscio"></textarea>
                 </label>
                 <button id="salva-allergie" type="button" class="mt-2 w-full rounded-2xl border border-ink/15 px-3 py-2 text-sm">Segnala in cucina</button>
-                <div class="mt-5 rounded-2xl border border-ink/10 bg-cream p-4">
-                    <h3 class="font-serif text-2xl uppercase">Password</h3>
-                    <p class="mt-1 text-xs text-ink/60">Cambia la password del tuo accesso. Serve quella attuale.</p>
-                    <label class="mt-3 block text-sm font-semibold">Password attuale
-                        <input id="password-attuale" type="password" autocomplete="current-password" class="mt-1 w-full rounded-2xl border border-ink/10 bg-white px-3 py-2 text-sm font-normal">
-                    </label>
-                    <label class="mt-2 block text-sm font-semibold">Nuova password
-                        <input id="password-nuova" type="password" autocomplete="new-password" minlength="10" maxlength="72" class="mt-1 w-full rounded-2xl border border-ink/10 bg-white px-3 py-2 text-sm font-normal">
-                    </label>
-                    <label class="mt-2 block text-sm font-semibold">Conferma nuova
-                        <input id="password-conferma" type="password" autocomplete="new-password" minlength="10" maxlength="72" class="mt-1 w-full rounded-2xl border border-ink/10 bg-white px-3 py-2 text-sm font-normal">
-                    </label>
-                    <button id="salva-password" type="button" class="mt-3 w-full rounded-2xl border border-ink/15 bg-white px-3 py-2 text-sm">Aggiorna password</button>
-                </div>
                 <div class="mt-4 grid gap-2">
                     <button id="submit-order" type="button" class="rounded-2xl bg-moss px-4 py-3 font-semibold text-white disabled:cursor-not-allowed disabled:bg-ink/20">Conferma prenotazione</button>
                     <button id="cancel-order" type="button" hidden class="rounded-2xl border border-ink/15 px-4 py-3 text-sm">Annulla buono</button>
@@ -335,6 +353,7 @@ header('Content-Type: text/html; charset=utf-8');
                 ? 'Questa azienda è in internet: il pasto di oggi si prenota solo dalla rete aziendale.'
                 : 'Questa azienda è in intranet: oggi si prenota fino all’orario di chiusura della linea.';
             aggiornaGuida(payload.azienda);
+            mostraVista('menu');
         }
 
         function aggiornaGuida(azienda) {
@@ -1099,15 +1118,65 @@ header('Content-Type: text/html; charset=utf-8');
         document.getElementById('carico-azienda').addEventListener('change', () => disegna());
         document.getElementById('carico-mio').addEventListener('change', () => disegna());
 
+        function stileVista(attivo) {
+            return 'rounded-full px-4 py-2 text-sm font-semibold ' + (attivo ? 'bg-moss text-white' : 'border border-ink/15 bg-white');
+        }
+
         function mostraVista(nome) {
             const menu = nome === 'menu';
+            const storico = nome === 'storico';
+            const password = nome === 'password';
             document.getElementById('pannello-menu').hidden = !menu;
-            document.getElementById('pannello-storico').hidden = menu;
-            document.getElementById('vista-menu').className = 'rounded-full px-4 py-2 text-sm font-semibold ' + (menu ? 'bg-moss text-white' : 'border border-ink/15 bg-white');
-            document.getElementById('vista-storico').className = 'rounded-full px-4 py-2 text-sm font-semibold ' + (menu ? 'border border-ink/15 bg-white' : 'bg-moss text-white');
+            document.getElementById('pannello-storico').hidden = !storico;
+            document.getElementById('pannello-password').hidden = !password;
+            document.getElementById('scontrino').hidden = password;
+            document.getElementById('vista-menu').className = stileVista(menu);
+            document.getElementById('vista-storico').className = stileVista(storico);
+            document.getElementById('vista-password').className = stileVista(password);
         }
         document.getElementById('vista-menu').addEventListener('click', () => mostraVista('menu'));
         document.getElementById('vista-storico').addEventListener('click', () => mostraVista('storico'));
+        document.getElementById('vista-password').addEventListener('click', () => mostraVista('password'));
+
+        function mostraPannelloReset(aperto) {
+            document.getElementById('login-form').hidden = aperto;
+            document.getElementById('apri-password-dimenticata').hidden = aperto;
+            document.getElementById('reset-form').hidden = !aperto;
+            document.getElementById('login-error').hidden = true;
+            if (aperto) {
+                const slug = document.getElementById('slug').value;
+                const matricola = document.getElementById('matricola').value;
+                if (slug) {
+                    document.getElementById('reset-slug').value = slug;
+                }
+                if (matricola) {
+                    document.getElementById('reset-matricola').value = matricola;
+                }
+            }
+        }
+        document.getElementById('apri-password-dimenticata').addEventListener('click', () => mostraPannelloReset(true));
+        document.getElementById('chiudi-password-dimenticata').addEventListener('click', () => mostraPannelloReset(false));
+
+        document.getElementById('reset-form').addEventListener('submit', async (event) => {
+            event.preventDefault();
+            try {
+                const payload = await api(API + 'password-dimenticata.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        slug: document.getElementById('reset-slug').value,
+                        matricola: document.getElementById('reset-matricola').value,
+                    }),
+                });
+                document.getElementById('login-error').hidden = true;
+                mostraBanner('ok', payload.messaggio || 'Richiesta inviata al catering.', null, []);
+                mostraPannelloReset(false);
+            } catch (error) {
+                const box = document.getElementById('login-error');
+                box.hidden = false;
+                box.textContent = error.message || 'Richiesta non riuscita.';
+            }
+        });
 
         document.getElementById('salva-allergie').addEventListener('click', async () => {
             try {
@@ -1123,7 +1192,8 @@ header('Content-Type: text/html; charset=utf-8');
             }
         });
 
-        document.getElementById('salva-password').addEventListener('click', async () => {
+        document.getElementById('password-form').addEventListener('submit', async (event) => {
+            event.preventDefault();
             const attuale = document.getElementById('password-attuale').value;
             const nuova = document.getElementById('password-nuova').value;
             const conferma = document.getElementById('password-conferma').value;
@@ -1141,10 +1211,7 @@ header('Content-Type: text/html; charset=utf-8');
                     }),
                 });
                 state.csrf = payload.csrf || state.csrf;
-                document.getElementById('password-attuale').value = '';
-                document.getElementById('password-nuova').value = '';
-                document.getElementById('password-conferma').value = '';
-                // Aggiorna l’accesso salvato sul dispositivo, se c’è.
+                document.getElementById('password-form').reset();
                 try {
                     const lista = JSON.parse(localStorage.getItem(STORAGE_ACCESSI) || '[]');
                     if (Array.isArray(lista) && state.azienda?.slug && state.utente?.matricola) {

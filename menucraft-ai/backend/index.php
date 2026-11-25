@@ -389,6 +389,15 @@ header('Content-Type: text/html; charset=utf-8');
                 <h2 class="font-serif text-3xl uppercase">Chi può prenotare</h2>
                 <p class="mt-2 text-sm text-ink/70">Ogni persona entra dal frontend con l’azienda, la matricola e la password. Pagante usa il wallet. A carico azienda resta a 0,00 €. Eredita segue la regola della società.</p>
                 <div class="mt-4 rounded-2xl border border-ink/10 bg-cream p-4">
+                    <h3 class="font-serif text-2xl uppercase">Password dimenticata</h3>
+                    <p class="mt-2 text-sm text-ink/70">Le richieste dal login della linea restano qui. Genera una password temporanea e comunicala solo a quella persona (voce o contatto aziendale). Poi potrà cambiarla dalla sezione Password in linea.</p>
+                    <ul id="password-richieste" class="mt-3 space-y-2 text-sm"></ul>
+                    <p id="password-temp-box" hidden class="mt-3 rounded-xl border border-moss/30 bg-white px-3 py-3 text-sm">
+                        <span class="font-semibold">Password temporanea:</span>
+                        <code id="password-temp-valore" class="ml-2 select-all font-mono text-base"></code>
+                    </p>
+                </div>
+                <div class="mt-4 rounded-2xl border border-ink/10 bg-cream p-4">
                     <h3 class="font-serif text-2xl uppercase">Importa da Excel / CSV</h3>
                     <p class="mt-2 text-sm text-ink/70">Scarica il template, compilalo (matricola, nome, password; pagamento/allergie/saldo opzionali) e caricalo qui. Le matricole già presenti vengono aggiornate.</p>
                     <div class="mt-3 flex flex-wrap gap-2">
@@ -634,6 +643,65 @@ header('Content-Type: text/html; charset=utf-8');
             disegnaSocieta(payload.societa || []);
         }
 
+        function disegnaPasswordRichieste(elenco) {
+            const lista = document.getElementById('password-richieste');
+            const righe = (elenco || []).map((richiesta) => {
+                const item = document.createElement('li');
+                item.className = 'flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-white px-4 py-3';
+                const testo = document.createElement('span');
+                testo.textContent = richiesta.matricola + ' · ' + richiesta.nome + ' · chiesta il ' + richiesta.creato_il;
+                const azioni = document.createElement('span');
+                azioni.className = 'flex flex-wrap gap-2';
+                const genera = document.createElement('button');
+                genera.type = 'button';
+                genera.className = 'rounded-full border border-moss bg-moss px-3 py-1 font-semibold text-white';
+                genera.textContent = 'Genera password';
+                genera.addEventListener('click', () => evadiPasswordRichiesta(richiesta, 'genera'));
+                const annulla = document.createElement('button');
+                annulla.type = 'button';
+                annulla.className = 'rounded-full border border-ink/15 px-3 py-1';
+                annulla.textContent = 'Chiudi';
+                annulla.addEventListener('click', () => evadiPasswordRichiesta(richiesta, 'annulla'));
+                azioni.append(genera, annulla);
+                item.append(testo, azioni);
+                return item;
+            });
+            disegnaVoci(lista, 'Nessuna richiesta di reset aperta.', righe);
+        }
+
+        async function caricaPasswordRichieste() {
+            const payload = await api(API + 'password-richieste.php');
+            state.csrf = payload.csrf;
+            disegnaPasswordRichieste(payload.richieste || []);
+        }
+
+        async function evadiPasswordRichiesta(richiesta, azione) {
+            if (azione === 'genera' && !window.confirm('Generare una password temporanea per ' + richiesta.nome + '? Verrà mostrata una sola volta.')) {
+                return;
+            }
+            try {
+                const payload = await api(API + 'password-richieste.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ azione, richiesta_id: richiesta.id }),
+                });
+                state.csrf = payload.csrf;
+                disegnaPasswordRichieste(payload.richieste || []);
+                const box = document.getElementById('password-temp-box');
+                if (azione === 'genera' && payload.password_temporanea) {
+                    document.getElementById('password-temp-valore').textContent = payload.password_temporanea;
+                    box.hidden = false;
+                    mostraBanner('ok', payload.messaggio || 'Password temporanea generata.');
+                } else {
+                    box.hidden = true;
+                    document.getElementById('password-temp-valore').textContent = '';
+                    mostraBanner('ok', payload.messaggio || 'Richiesta chiusa.');
+                }
+            } catch (error) {
+                mostraBanner('errore', error.message);
+            }
+        }
+
         async function caricaUtenti() {
             const payload = await api(API + 'utenti.php');
             state.csrf = payload.csrf;
@@ -661,6 +729,7 @@ header('Content-Type: text/html; charset=utf-8');
                 return item;
             });
             disegnaVoci(lista, 'Nessun utente in questa azienda.', righe);
+            await caricaPasswordRichieste();
         }
 
         async function caricaPrenotazioni() {
