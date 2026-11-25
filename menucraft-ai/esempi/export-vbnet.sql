@@ -1,24 +1,17 @@
 -- ============================================================================
--- VB.NET + config.ini (Form1 TimerOra / function.vb SetIni)
+-- VB.NET + config.ini reale (SetIni in function.vb)
 -- ============================================================================
--- INI usati dal flusso mensa:
---   [MENSACONFIG] ini_send_file, ini_oraInvio, ini_nomeFile, ini_pathSave,
---                 ini_fileFormat, hour_ini_reminder, ...
---   [CONNESSIONE] ini_db_* → connectionDB() sul DB MenuCraft
---   [CONNESSIONE_M2] ini_company → slug azienda (opzionale, AziendaIdDaSlug)
+-- [SETUP]            ini_method=2
+-- [CONNESSIONE_M2]   connectionDBM2() → menucraft @ u341web03
+--                    ini_company=5 → aziende.id (AziendaIdDaIni)
+-- [EXCEL]            nameFile→ini_nomeFile, pathFile→ini_pathSave, ini_fileFormat
+-- [ORARIO_INVIO]     oraInvio_ini→ini_oraInvio (es. 21:56)
+-- [MENSACONFIG]      ini_send_file=Y
+-- [DESTINATARI]      mail=... → listInvioMail
 --
--- Data pasto (sostituisce getIdPrenotazione che faceva solo +1 / ven+3):
---   DataPastoDaEsportare legge:
---     aziende.apri_sabato / apri_domenica
---     calendario_chiusure (feste nazionali azienda_id IS NULL + ferie servizio)
---     calendario_aperture (giorno reso lavorativo)
---   → primo giorno utile DOPO oggi. Es. ven→lun; lun con mar+mer chiusi→gio.
---
--- Snippet timer: esempi/Form1-mensa-snippet.vb
--- Module: esempi/ExportCucinaDataTable.vb → EseguiExportMensa(...)
---
--- Nome file: {ini_nomeFile}_{yy}{dayOfYear3}{ini_fileFormat}
---   getIdPrenotazione(giornoPasto) = ExportCucina::idGiornoPasto
+-- EseguiExportMensa(connectionDBM2, dataNow, ini_pathSave, ini_nomeFile, ...)
+-- DataPastoDaEsportare: primo giorno utile dopo oggi (weekend/ferie/chiusure).
+-- Snippet: Form1-mensa-snippet.vb | esempio INI: config.mensa.example.ini
 -- ============================================================================
 
 -- Verifica giorno utile (stessa regola di GiornoLavorativo in VB)

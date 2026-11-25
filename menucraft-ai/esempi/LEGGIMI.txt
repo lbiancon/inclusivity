@@ -31,13 +31,14 @@ Frontend: tab Password (non sullo scontrino). Login: «Password dimenticata?»
 Export Excel VB.NET (Form1 / function.vb / config.ini)
 =====================================================
 Module: ExportCucinaDataTable.vb
-Snippet timer: Form1-mensa-snippet.vb
-SQL di supporto: export-vbnet.sql
+Snippet timer + start: Form1-mensa-snippet.vb
+Esempio INI: config.mensa.example.ini
+SQL: export-vbnet.sql
 
-Alla sera (ini_oraInvio) EseguiExportMensa prende dataNow del timer e calcola
-il primo giorno lavorativo DOPO oggi (salta sab/dom salvo apri_*, feste e
-ferie/chiusure MenuCraft). Esporta export_cucina di quel giorno, salva in
-ini_pathSave col nome di sempre, poi sendMailSMTPKSS come già fai.
+Con ini_method=2: connectionDBM2() + ini_company (id numerico, es. 5).
+Alla sera (oraInvio_ini → ini_oraInvio) EseguiExportMensa calcola il primo
+giorno lavorativo DOPO oggi (sab/dom, feste, ferie MenuCraft), esporta
+export_cucina, salva in pathFile, poi sendMailSMTPKSS.
 
 Sovrascrivere la cartella sul server di lavoro
 =============================================

@@ -1,34 +1,16 @@
 ' ============================================================================
 ' MenuCraft → VB.NET (allineato a Form1 + function.vb + config.ini)
 '
-' Orario: ini_oraInvio (MENSACONFIG) come nel TimerOra di Form1.
-' Data pasto: NON più solo “+1 / venerdì +3”.
-'   Usa DataPastoDaEsportare: primo giorno LAVORATIVO dopo oggi, leggendo
-'   aziende.apri_sabato/apri_domenica, calendario_chiusure e calendario_aperture.
-'   Esempi: ven→lun; lun con mar+mer chiusi→gio.
-' File: ini_nomeFile & "_" & getIdPrenotazione(dataPasto) & ini_fileFormat
-'       in ini_pathSave, poi sendMailSMTPKSS come già fai.
+' config.ini (i tuoi nomi chiave reali):
+'   [SETUP] ini_method=2                  → usa CONNESSIONE_M2 / MenuCraft
+'   [CONNESSIONE_M2] ini_db_*2, ini_company=5  → id aziende (numero) o slug
+'   [EXCEL] nameFile, pathFile, ini_fileFormat → ini_nomeFile / ini_pathSave
+'   [ORARIO_INVIO] oraInvio_ini           → ini_oraInvio (timer sera)
+'   [MENSACONFIG] ini_send_file=Y
+'   [DESTINATARI] mail=...                → listInvioMail
 '
-' Nel TimerOra (al posto di day <> Saturday/Sunday + DatatableToExcel()):
-'
-'   If oraNow = oraStart And ini_send_file = "Y" Then
-'       If boolEntrySendMensa = False Then
-'           boolEntrySendMensa = True
-'           Dim nameFile As String = Nothing
-'           Dim percorso As String = EseguiExportMensa(
-'               connectionDB().ConnectionString, dataNow,
-'               ini_pathSave, ini_nomeFile, ini_fileFormat, nameFile,
-'               Nothing)  ' oppure AziendaIdDaSlug(..., ini_company)
-'           If percorso <> "" Then
-'               sendMailSMTPKSS("Ordini-mensa@eu.joysonsafety.com", "",
-'                   "ordine pasti JOYSONSAFETY",
-'                   "Ciao siamo la JoysonSafety in allegato il file ...",
-'                   nameFile, ini_pathSave, "", "", listInvioMail, "mensa")
-'           End If
-'       End If
-'   Else
-'       boolEntrySendMensa = False
-'   End If
+' Data pasto: DataPastoDaEsportare (primo lavorativo dopo oggi sul DB MenuCraft).
+' Snippet timer + start manuale: Form1-mensa-snippet.vb
 ' ============================================================================
 
 Imports MySql.Data.MySqlClient
@@ -73,7 +55,23 @@ Public Module ExportCucinaDataTable
         Return ini_pathSave.TrimEnd() & "\" & nameFile
     End Function
 
-    ''' <summary>Risolve aziende.id da slug (es. ini_company o "joyson-safety").</summary>
+    ''' <summary>
+    ''' ini_company da [CONNESSIONE_M2]: se è numerico (es. "5") è già aziende.id;
+    ''' altrimenti cerca per slug. Se vuoto → Nothing (tutte le aziende in export).
+    ''' </summary>
+    Public Function AziendaIdDaIni(connessione As String, iniCompany As String) As Object
+        If String.IsNullOrWhiteSpace(iniCompany) Then
+            Return Nothing
+        End If
+        Dim grezzo As String = iniCompany.Trim()
+        Dim idNum As Long
+        If Long.TryParse(grezzo, idNum) AndAlso idNum > 0 Then
+            Return idNum
+        End If
+        Return AziendaIdDaSlug(connessione, grezzo)
+    End Function
+
+    ''' <summary>Risolve aziende.id da slug (es. "aurora-welfare").</summary>
     Public Function AziendaIdDaSlug(connessione As String, slug As String) As Object
         If String.IsNullOrWhiteSpace(slug) Then
             Return Nothing
