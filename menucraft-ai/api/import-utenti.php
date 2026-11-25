@@ -18,7 +18,16 @@ JsonResponse::guard(static function (): void {
     $auth = new AuthService($pdo);
     $utente = $auth->richiediRuoli(['caterer', 'piattaforma']);
     $auth->richiediCsrf();
-    $aziendaId = $auth->aziendaOperativa($utente, $_POST);
+
+    $aziendaFallback = null;
+    if ($utente['ruolo'] === 'caterer') {
+        $aziendaFallback = (int) $utente['azienda_id'];
+    } else {
+        $id = (int) ($_POST['azienda_id'] ?? 0);
+        if ($id > 0) {
+            $aziendaFallback = $auth->aziendaOperativa($utente, ['azienda_id' => $id]);
+        }
+    }
 
     $file = $_FILES['utenti'] ?? null;
     if (!is_array($file)) {
@@ -42,9 +51,14 @@ JsonResponse::guard(static function (): void {
     }
 
     $esito = (new ImportUtenti($pdo))->importa(
-        $aziendaId,
+        $aziendaFallback,
         $temporaneo,
         (string) ($file['name'] ?? 'utenti.csv'),
+        [
+            'ruolo' => (string) $utente['ruolo'],
+            'azienda_id' => (int) $utente['azienda_id'],
+            'id' => (int) $utente['id'],
+        ],
     );
 
     $parti = [];
@@ -56,6 +70,13 @@ JsonResponse::guard(static function (): void {
     }
     if ($esito['saltati'] > 0) {
         $parti[] = $esito['saltati'] . ' con errore';
+    }
+    if ($esito['per_azienda'] !== []) {
+        $dettaglio = [];
+        foreach ($esito['per_azienda'] as $slug => $conteggi) {
+            $dettaglio[] = $slug . ' (' . $conteggi['creati'] . '+' . $conteggi['aggiornati'] . ')';
+        }
+        $parti[] = 'aziende: ' . implode(', ', $dettaglio);
     }
 
     JsonResponse::send(200, [

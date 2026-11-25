@@ -17,6 +17,7 @@ final class ImportUtenti
 
     /** @var array<string, list<string>> */
     private const COLONNE = [
+        'azienda' => ['azienda', 'slug', 'codice_azienda', 'societa', 'company', 'azienda_slug'],
         'matricola' => ['matricola', 'badge', 'code_employee', 'codice', 'id'],
         'nome' => ['nome', 'employee', 'cognome_nome', 'nominativo', 'name'],
         'password' => ['password', 'pwd', 'pass', 'chiave'],
@@ -33,24 +34,53 @@ final class ImportUtenti
     ) {
     }
 
-    /** @return array{creati: int, aggiornati: int, saltati: int, errori: list<array{riga: int, messaggio: string}>, utenti: list<array<string, mixed>>} */
-    public function importa(int $aziendaId, string $path, string $filename): array
-    {
+    /**
+     * Importa utenti da CSV/Excel. Ogni riga può indicare `azienda` (slug);
+     * se manca si usa `$aziendaFallbackId` (azienda operativa della sessione).
+     *
+     * @param array{ruolo: string, azienda_id: int, id?: int} $attore
+     * @return array{
+     *   creati: int,
+     *   aggiornati: int,
+     *   saltati: int,
+     *   errori: list<array{riga: int, messaggio: string}>,
+     *   per_azienda: array<string, array{creati: int, aggiornati: int}>,
+     *   utenti: list<array<string, mixed>>
+     * }
+     */
+    public function importa(
+        ?int $aziendaFallbackId,
+        string $path,
+        string $filename,
+        array $attore,
+    ): array {
         $tabella = $this->parser->leggiTabella(
             $path,
             $filename,
-            'Carica il template utenti (.xlsx o .csv) con le colonne matricola, nome, password.',
+            'Carica il template utenti (.xlsx o .csv) con le colonne azienda, matricola, nome, password.',
         );
         if ($tabella === []) {
             throw new MenuRuleException('FILE_VUOTO', 'Il file non contiene righe.');
         }
 
         $mappa = $this->mappaColonne($tabella[0]);
+        $haColonnaAzienda = isset($mappa['azienda']);
+        if ($aziendaFallbackId === null && !$haColonnaAzienda) {
+            throw new MenuRuleException(
+                'AZIENDA_MANCANTE',
+                'Nel file serve la colonna azienda (codice slug), oppure scegli l’azienda prima di importare.',
+                422,
+            );
+        }
+
         $anagrafica = new Anagrafica($this->pdo);
         $creati = 0;
         $aggiornati = 0;
         $saltati = 0;
         $errori = [];
+        $perAzienda = [];
+        $ultimeUtenti = [];
+        $ultimoAziendaId = $aziendaFallbackId;
 
         $corpo = array_slice($tabella, 1);
         if (count($corpo) > self::MAX_RIGHE) {
@@ -62,23 +92,31 @@ final class ImportUtenti
             if ($this->rigaVuota($celle)) {
                 continue;
             }
-            $input = [
-                'matricola' => $this->cella($celle, $mappa, 'matricola'),
-                'nome' => $this->cella($celle, $mappa, 'nome'),
-                'password' => $this->cella($celle, $mappa, 'password'),
-                'pagamento' => $this->cella($celle, $mappa, 'pagamento'),
-                'allergie' => $this->cella($celle, $mappa, 'allergie'),
-                'saldo' => $this->cella($celle, $mappa, 'saldo'),
-                'email' => $this->cella($celle, $mappa, 'email'),
-                'mail_reminder' => $this->cella($celle, $mappa, 'mail_reminder'),
-            ];
-            if ($input['pagamento'] === '') {
-                $input['pagamento'] = 'eredita';
-            }
-            if ($input['mail_reminder'] === '') {
-                $input['mail_reminder'] = 'N';
-            }
             try {
+                $slugRiga = $haColonnaAzienda ? $this->cella($celle, $mappa, 'azienda') : '';
+                $aziendaId = $this->risolviAziendaId($slugRiga, $aziendaFallbackId, $attore);
+                $input = [
+                    'matricola' => $this->cella($celle, $mappa, 'matricola'),
+                    'nome' => $this->cella($celle, $mappa, 'nome'),
+                    'password' => $this->cella($celle, $mappa, 'password'),
+                    'pagamento' => $this->cella($celle, $mappa, 'pagamento'),
+                    'allergie' => $this->cella($celle, $mappa, 'allergie'),
+                    'saldo' => $this->cella($celle, $mappa, 'saldo'),
+                    'email' => $this->cella($celle, $mappa, 'email'),
+                    'mail_reminder' => $this->cella($celle, $mappa, 'mail_reminder'),
+                ];
+                if ($input['pagamento'] === '') {
+                    $input['pagamento'] = 'eredita';
+                }
+                if ($input['mail_reminder'] === '') {
+                    $input['mail_reminder'] = 'N';
+                }
+
+                $slugKey = $this->slugDi($aziendaId);
+                if (!isset($perAzienda[$slugKey])) {
+                    $perAzienda[$slugKey] = ['creati' => 0, 'aggiornati' => 0];
+                }
+
                 $esistente = $this->trovaPerMatricola($aziendaId, $input['matricola']);
                 if ($esistente !== null) {
                     if ($esistente['ruolo'] !== 'dipendente') {
@@ -90,13 +128,16 @@ final class ImportUtenti
                     }
                     $anagrafica->aggiornaUtente($aziendaId, $esistente['id'], $input);
                     $aggiornati++;
+                    $perAzienda[$slugKey]['aggiornati']++;
                 } else {
                     if ($input['password'] === '') {
                         throw new MenuRuleException('PASSWORD_NON_VALIDA', 'La password è obbligatoria per un nuovo utente.');
                     }
                     $anagrafica->creaUtente($aziendaId, $input);
                     $creati++;
+                    $perAzienda[$slugKey]['creati']++;
                 }
+                $ultimoAziendaId = $aziendaId;
             } catch (MenuRuleException $e) {
                 $saltati++;
                 $errori[] = [
@@ -113,13 +154,169 @@ final class ImportUtenti
             throw new MenuRuleException('FILE_VUOTO', 'Nessuna riga utente da importare.');
         }
 
+        if ($ultimoAziendaId !== null) {
+            $ultimeUtenti = $anagrafica->elencoUtenti($ultimoAziendaId);
+        }
+
         return [
             'creati' => $creati,
             'aggiornati' => $aggiornati,
             'saltati' => $saltati,
             'errori' => $errori,
-            'utenti' => $anagrafica->elencoUtenti($aziendaId),
+            'per_azienda' => $perAzienda,
+            'utenti' => $ultimeUtenti,
         ];
+    }
+
+    /**
+     * Template scaricabile: intestazione + righe esempio, oppure esportazione
+     * degli utenti già in anagrafica (password vuota = non cambia in reimport).
+     *
+     * @param list<string>|null $slugEsempio
+     */
+    public function generaTemplateCsv(
+        ?int $aziendaId = null,
+        bool $includiEsistenti = true,
+        ?array $slugEsempio = null,
+    ): string {
+        $righe = [[
+            'azienda', 'matricola', 'nome', 'password', 'pagamento', 'allergie', 'saldo', 'email', 'mail_reminder',
+        ]];
+
+        if ($aziendaId !== null && $includiEsistenti) {
+            $slug = $this->slugDi($aziendaId);
+            $stmt = $this->pdo->prepare(
+                "SELECT matricola, nome, pagamento, allergie, email, mail_reminder
+                 FROM utenti
+                 WHERE azienda_id = :azienda AND ruolo = 'dipendente'
+                 ORDER BY matricola"
+            );
+            $stmt->execute(['azienda' => $aziendaId]);
+            $trovati = 0;
+            foreach ($stmt as $riga) {
+                $trovati++;
+                $righe[] = [
+                    $slug,
+                    (string) $riga['matricola'],
+                    (string) $riga['nome'],
+                    '',
+                    (string) $riga['pagamento'],
+                    $riga['allergie'] !== null ? (string) $riga['allergie'] : '',
+                    '',
+                    $riga['email'] !== null ? (string) $riga['email'] : '',
+                    (string) ($riga['mail_reminder'] ?? 'N') === 'Y' ? 'Y' : 'N',
+                ];
+            }
+            if ($trovati === 0) {
+                $righe = array_merge($righe, $this->righeEsempio($slug));
+            }
+        } else {
+            $slugs = $slugEsempio ?? [];
+            if ($slugs === []) {
+                $slugs = $this->primiSlug(2);
+            }
+            if ($slugs === []) {
+                $slugs = ['codice-azienda'];
+            }
+            foreach ($slugs as $i => $slug) {
+                foreach ($this->righeEsempio($slug, $i * 3) as $riga) {
+                    $righe[] = $riga;
+                }
+                break; // una sola azienda di esempio nel template vuoto
+            }
+        }
+
+        return $this->csvDaRighe($righe);
+    }
+
+    /** Compat: template statico senza DB. */
+    public static function templateCsv(?string $slugAzienda = null): string
+    {
+        $slug = $slugAzienda !== null && $slugAzienda !== '' ? $slugAzienda : 'codice-azienda';
+        $self = new self(menucraft_db());
+
+        return $self->generaTemplateCsv(null, false, [$slug]);
+    }
+
+    /** @return list<list<string>> */
+    private function righeEsempio(string $slug, int $offset = 0): array
+    {
+        $base = 101 + $offset;
+
+        return [
+            [$slug, 'A' . $base, 'Mario Rossi', 'CambiaMe!2026', 'eredita', '', '', 'mario.rossi@example.com', 'Y'],
+            [$slug, 'A' . ($base + 1), 'Lucia Bianchi', 'CambiaMe!2026', 'busta', 'lattosio', '', '', 'N'],
+            [$slug, 'A' . ($base + 2), 'Paolo Verdi', 'CambiaMe!2026', 'pagante', '', '25,00', 'paolo.verdi@example.com', 'Y'],
+        ];
+    }
+
+    /** @param array{ruolo: string, azienda_id: int} $attore */
+    private function risolviAziendaId(string $slugRiga, ?int $fallbackId, array $attore): int
+    {
+        $slugRiga = strtolower(trim($slugRiga));
+        if ($slugRiga !== '') {
+            $id = $this->idDaSlug($slugRiga);
+            if ($attore['ruolo'] === 'caterer' && $id !== (int) $attore['azienda_id']) {
+                throw new MenuRuleException(
+                    'AZIENDA_NON_CONSENTITA',
+                    'Puoi importare solo utenti della tua azienda (' . $this->slugDi((int) $attore['azienda_id']) . ').',
+                    403,
+                );
+            }
+
+            return $id;
+        }
+
+        if ($fallbackId === null || $fallbackId < 1) {
+            throw new MenuRuleException('AZIENDA_MANCANTE', 'Manca il codice azienda sulla riga.', 422);
+        }
+        if ($attore['ruolo'] === 'caterer' && $fallbackId !== (int) $attore['azienda_id']) {
+            throw new MenuRuleException('AZIENDA_NON_CONSENTITA', 'Azienda non consentita.', 403);
+        }
+
+        return $fallbackId;
+    }
+
+    private function idDaSlug(string $slug): int
+    {
+        $stmt = $this->pdo->prepare('SELECT id FROM aziende WHERE slug = :slug LIMIT 1');
+        $stmt->execute(['slug' => $slug]);
+        $id = $stmt->fetchColumn();
+        if ($id === false) {
+            throw new MenuRuleException(
+                'AZIENDA_SCONOSCIUTA',
+                'Azienda sconosciuta: ' . $slug . '. Usa il codice (slug) della società.',
+                404,
+            );
+        }
+
+        return (int) $id;
+    }
+
+    private function slugDi(int $aziendaId): string
+    {
+        $stmt = $this->pdo->prepare('SELECT slug FROM aziende WHERE id = :id LIMIT 1');
+        $stmt->execute(['id' => $aziendaId]);
+        $slug = $stmt->fetchColumn();
+        if ($slug === false) {
+            throw new MenuRuleException('AZIENDA_SCONOSCIUTA', 'Azienda non trovata.', 404);
+        }
+
+        return (string) $slug;
+    }
+
+    /** @return list<string> */
+    private function primiSlug(int $max): array
+    {
+        $stmt = $this->pdo->query(
+            "SELECT slug FROM aziende WHERE slug <> 'menucraft' ORDER BY nome LIMIT " . (int) $max
+        );
+        $out = [];
+        foreach ($stmt as $riga) {
+            $out[] = (string) $riga['slug'];
+        }
+
+        return $out;
     }
 
     /** @return array{id: int, ruolo: string}|null */
@@ -164,13 +361,20 @@ final class ImportUtenti
                 }
             }
         }
-        foreach (['matricola', 'nome', 'password'] as $obbligatoria) {
+        foreach (['matricola', 'nome'] as $obbligatoria) {
             if (!isset($mappa[$obbligatoria])) {
                 throw new MenuRuleException(
                     'COLONNE_MANCANTI',
-                    'Nel file servono le colonne matricola, nome e password (pagamento, allergie e saldo sono opzionali).',
+                    'Nel file servono le colonne matricola e nome (azienda consigliata; password obbligatoria sui nuovi).',
                 );
             }
+        }
+        if (!isset($mappa['password'])) {
+            // password column can be missing only if every row is update — still require header for clarity
+            throw new MenuRuleException(
+                'COLONNE_MANCANTI',
+                'Nel file serve la colonna password (lascia vuota per non cambiare quella già presente).',
+            );
         }
 
         return $mappa;
@@ -212,19 +416,13 @@ final class ImportUtenti
         return trim($testo, '_');
     }
 
-    /** Contenuto CSV del template (Excel lo apre senza problemi). */
-    public static function templateCsv(): string
+    /** @param list<list<string>> $righe */
+    private function csvDaRighe(array $righe): string
     {
-        $righe = [
-            ['matricola', 'nome', 'password', 'pagamento', 'allergie', 'saldo', 'email', 'mail_reminder'],
-            ['A101', 'Mario Rossi', 'CambiaMe!2026', 'eredita', '', '', 'mario.rossi@example.com', 'Y'],
-            ['A102', 'Lucia Bianchi', 'CambiaMe!2026', 'busta', 'lattosio', '', '', 'N'],
-            ['A103', 'Paolo Verdi', 'CambiaMe!2026', 'pagante', '', '25,00', 'paolo.verdi@example.com', 'Y'],
-        ];
         $out = "\xEF\xBB\xBF";
         foreach ($righe as $riga) {
             $out .= implode(';', array_map(static function (string $cella): string {
-                if (str_contains($cella, ';') || str_contains($cella, '"')) {
+                if (str_contains($cella, ';') || str_contains($cella, '"') || str_contains($cella, "\n")) {
                     return '"' . str_replace('"', '""', $cella) . '"';
                 }
 

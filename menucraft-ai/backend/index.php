@@ -149,6 +149,20 @@ header('Content-Type: text/html; charset=utf-8');
                     <button id="societa-annulla" type="button" hidden class="rounded-xl border border-ink/15 px-4 py-3 text-sm">Annulla modifica</button>
                 </form>
                 <p class="mt-4 text-sm text-ink/60">Le cucine create restano in questo elenco: puoi modificarle se hai sbagliato i dati. Per entrare nel banco fai Esci e accedi con codice azienda e matricola catering. Su ogni riga puoi anche caricare il logo.</p>
+                <div class="mt-4 rounded-2xl border border-ink/10 bg-cream p-4">
+                    <h3 class="font-serif text-2xl uppercase">Import utenti (con azienda)</h3>
+                    <p class="mt-2 text-sm text-ink/70">Scarica il template (colonna <code>azienda</code> = codice slug), compilalo o usa “Scarica utenti” sulla riga della cucina, poi reimporta qui. Password vuota in aggiornamento lascia quella già presente.</p>
+                    <div class="mt-3 flex flex-wrap gap-2">
+                        <a id="scarica-template-utenti-servizio" href="../api/template-utenti.php?esporta=0" class="rounded-xl border border-ink px-4 py-3 text-sm font-semibold">Scarica template</a>
+                    </div>
+                    <form id="import-utenti-servizio-form" class="mt-3 grid gap-3 sm:grid-cols-[1fr_auto] sm:items-end">
+                        <label class="block text-sm font-semibold">File utenti
+                            <input id="import-utenti-servizio-file" type="file" accept=".csv,.txt,.xlsx,.xls,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" class="mt-1 block w-full text-sm">
+                        </label>
+                        <button type="submit" class="rounded-xl bg-moss px-4 py-3 text-sm font-semibold text-white">Importa utenti</button>
+                    </form>
+                    <ul id="import-utenti-servizio-esito" class="mt-3 space-y-1 text-sm text-ink/70"></ul>
+                </div>
                 <p id="societa-conteggio" class="mt-3 text-sm font-semibold text-ink/80"></p>
                 <ul id="societa-elenco" class="mt-2 space-y-2 text-sm"></ul>
             </section>
@@ -399,9 +413,9 @@ header('Content-Type: text/html; charset=utf-8');
                 </div>
                 <div class="mt-4 rounded-2xl border border-ink/10 bg-cream p-4">
                     <h3 class="font-serif text-2xl uppercase">Importa da Excel / CSV</h3>
-                    <p class="mt-2 text-sm text-ink/70">Scarica il template, compilalo (matricola, nome, password; pagamento/allergie/saldo/email/mail_reminder opzionali) e caricalo qui. Le matricole già presenti vengono aggiornate.</p>
+                    <p class="mt-2 text-sm text-ink/70">Scarica gli utenti di questa azienda (colonna <code>azienda</code> già valorizzata), modifica e reimporta. Password vuota = non cambia. Nuove matricole richiedono password. Colonne: azienda, matricola, nome, password, pagamento, allergie, saldo, email, mail_reminder.</p>
                     <div class="mt-3 flex flex-wrap gap-2">
-                        <a id="scarica-template-utenti" href="../api/template-utenti.php" class="rounded-xl border border-ink px-4 py-3 text-sm font-semibold">Scarica template</a>
+                        <a id="scarica-template-utenti" href="../api/template-utenti.php?esporta=1" class="rounded-xl border border-ink px-4 py-3 text-sm font-semibold">Scarica utenti / template</a>
                     </div>
                     <form id="import-utenti-form" class="mt-3 grid gap-3 sm:grid-cols-[1fr_auto] sm:items-end">
                         <label class="block text-sm font-semibold">File utenti
@@ -620,6 +634,10 @@ header('Content-Type: text/html; charset=utf-8');
                 modifica.className = 'rounded-xl border border-ink/15 bg-white px-3 py-2 text-xs font-semibold';
                 modifica.textContent = 'Modifica';
                 modifica.addEventListener('click', () => modificaSocieta(societa));
+                const utentiCsv = document.createElement('a');
+                utentiCsv.href = '../api/template-utenti.php?esporta=1&azienda_id=' + encodeURIComponent(String(societa.id));
+                utentiCsv.className = 'rounded-xl border border-ink/15 bg-white px-3 py-2 text-xs font-semibold';
+                utentiCsv.textContent = 'Scarica utenti';
                 const file = document.createElement('input');
                 file.type = 'file';
                 file.accept = 'image/png,image/jpeg,image/webp,image/gif';
@@ -639,7 +657,7 @@ header('Content-Type: text/html; charset=utf-8');
                         })
                         .catch((error) => mostraBanner('errore', error.message));
                 });
-                azioni.append(modifica, file);
+                azioni.append(modifica, utentiCsv, file);
                 item.append(testo, azioni);
                 return item;
             });
@@ -1428,37 +1446,54 @@ header('Content-Type: text/html; charset=utf-8');
 
         document.getElementById('utente-annulla').addEventListener('click', resetUtente);
 
-        document.getElementById('import-utenti-form').addEventListener('submit', async (event) => {
-            event.preventDefault();
-            const input = document.getElementById('import-utenti-file');
-            const esito = document.getElementById('import-utenti-esito');
-            esito.replaceChildren();
-            if (!input.files || !input.files[0]) {
+        async function inviaImportUtenti(fileInput, esitoEl, { ricaricaUtenti }) {
+            esitoEl.replaceChildren();
+            if (!fileInput.files || !fileInput.files[0]) {
                 mostraBanner('errore', 'Seleziona il file utenti da importare.');
                 return;
             }
             const body = new FormData();
-            body.append('utenti', input.files[0]);
+            body.append('utenti', fileInput.files[0]);
             if (state.ruolo === 'piattaforma' && state.azienda?.id) {
                 body.append('azienda_id', String(state.azienda.id));
             }
             try {
                 const payload = await api(API + 'import-utenti.php', { method: 'POST', body });
                 state.csrf = payload.csrf || state.csrf;
-                input.value = '';
-                disegnaUtenti(payload.utenti || []);
+                fileInput.value = '';
+                if (ricaricaUtenti) {
+                    await caricaUtenti();
+                }
                 mostraBanner('ok', payload.messaggio);
                 const errori = payload.import?.errori || [];
                 if (errori.length) {
                     errori.slice(0, 20).forEach((voce) => {
                         const li = document.createElement('li');
                         li.textContent = 'Riga ' + voce.riga + ': ' + voce.messaggio;
-                        esito.append(li);
+                        esitoEl.append(li);
                     });
                 }
             } catch (error) {
                 mostraBanner('errore', error.message);
             }
+        }
+
+        document.getElementById('import-utenti-form').addEventListener('submit', async (event) => {
+            event.preventDefault();
+            await inviaImportUtenti(
+                document.getElementById('import-utenti-file'),
+                document.getElementById('import-utenti-esito'),
+                { ricaricaUtenti: true },
+            );
+        });
+
+        document.getElementById('import-utenti-servizio-form').addEventListener('submit', async (event) => {
+            event.preventDefault();
+            await inviaImportUtenti(
+                document.getElementById('import-utenti-servizio-file'),
+                document.getElementById('import-utenti-servizio-esito'),
+                { ricaricaUtenti: false },
+            );
         });
 
         document.getElementById('utente-form').addEventListener('submit', async (event) => {

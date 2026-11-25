@@ -47,6 +47,14 @@ Reminder (hour_ini_reminder / hour_ini_reminder2):
 
 Nel backend Utenti: campi Email + Invia reminder; anche nel CSV import.
 
+Import utenti con azienda
+=========================
+Template/export: api/template-utenti.php (colonna azienda = slug).
+Catering: Scarica utenti/template già filtrato sulla propria società.
+Piattaforma: template vuoto oppure “Scarica utenti” per cucina; import
+accetta più aziende nello stesso file (una riga = una persona + slug).
+Password vuota in aggiornamento non cambia quella già salvata.
+
 Sovrascrivere la cartella sul server di lavoro
 =============================================
 Sì, puoi copiare tutta la cartella menucraft-ai/ sopra quella già installata.
