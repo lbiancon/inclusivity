@@ -129,6 +129,27 @@ $sabatoAperto = new AziendaConfig(30, 'Sabato', 'sabato', PagamentoType::Welfare
 verifica($validator->motivoWeekend(new DateTimeImmutable('2026-11-14', $fuso), $sabatoAperto) === null, 'sabato lavorativo per il servizio');
 verifica($validator->motivoWeekend(new DateTimeImmutable('2026-11-15', $fuso), $sabatoAperto) !== null, 'domenica resta chiusa se non aperta');
 
+// Export sera: primo giorno utile dopo oggi (come VB DataPastoDaEsportare).
+$auroraExportId = (int) $pdo->query("SELECT id FROM aziende WHERE slug = 'aurora-welfare'")->fetchColumn();
+$ven = new DateTimeImmutable('2026-11-13', $fuso); // venerdì
+$lunDopoVen = $validator->prossimoGiornoExport($auroraExportId, $ven);
+verifica($lunDopoVen->format('Y-m-d') === '2026-11-16', 'export: venerdì → lunedì');
+$pdo->prepare(
+    'INSERT INTO calendario_chiusure (azienda_id, data_chiusura, descrizione)
+     VALUES (?, ?, ?)
+     ON DUPLICATE KEY UPDATE descrizione = VALUES(descrizione)'
+)->execute([$auroraExportId, '2026-11-17', 'Ferie QA mar']);
+$pdo->prepare(
+    'INSERT INTO calendario_chiusure (azienda_id, data_chiusura, descrizione)
+     VALUES (?, ?, ?)
+     ON DUPLICATE KEY UPDATE descrizione = VALUES(descrizione)'
+)->execute([$auroraExportId, '2026-11-18', 'Ferie QA mer']);
+$lun = new DateTimeImmutable('2026-11-16', $fuso);
+$gioDopoPonte = $validator->prossimoGiornoExport($auroraExportId, $lun);
+verifica($gioDopoPonte->format('Y-m-d') === '2026-11-19', 'export: lun con mar+mer chiusi → gio');
+$pdo->prepare('DELETE FROM calendario_chiusure WHERE azienda_id = ? AND data_chiusura IN (?, ?)')
+    ->execute([$auroraExportId, '2026-11-17', '2026-11-18']);
+
 $validator->validaComposizione($azienda, [PortataType::Primo, PortataType::Secondo, PortataType::Contorno, PortataType::Frutta, PortataType::Bevanda]);
 attesaEccezione('LIMITE_SECONDO', fn () => $validator->validaComposizione($azienda, [PortataType::Secondo, PortataType::Secondo]), 'due secondi');
 attesaEccezione('LIMITE_PRIMO', fn () => $validator->validaComposizione($azienda, [PortataType::Primo, PortataType::Primo]), 'doppio primo negato');

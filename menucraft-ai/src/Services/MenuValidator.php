@@ -331,6 +331,37 @@ final class MenuValidator
         }
     }
 
+    /**
+     * Giorno pasto da esportare/inviare la sera: il primo giorno lavorativo
+     * dopo `$riferimento` (di default “oggi”), saltando sabato/domenica (salvo
+     * apri_sabato/apri_domenica), feste nazionali e chiusure/ferie del servizio.
+     *
+     * Esempi: venerdì → lunedì; lunedì con mar+mer chiusi → giovedì.
+     */
+    public function prossimoGiornoExport(
+        int $aziendaId,
+        ?DateTimeImmutable $riferimento = null,
+        int $maxGiorni = 60,
+    ): DateTimeImmutable {
+        $oggi = $this->giornoCivile($riferimento ?? $this->adesso());
+        $candidato = $oggi->modify('+1 day');
+        $azienda = AziendaConfig::trova($this->pdo, $aziendaId);
+        $orizzonte = $candidato->modify('+' . max(1, $maxGiorni) . ' days');
+        $chiusure = $this->chiusureNelPeriodo($aziendaId, $candidato, $orizzonte);
+
+        for ($i = 0; $i < $maxGiorni; $i++) {
+            if ($this->motivoCalendario($aziendaId, $candidato, $chiusure, $azienda) === null) {
+                return $candidato;
+            }
+            $candidato = $candidato->modify('+1 day');
+        }
+
+        throw new MenuRuleException(
+            'GIORNO_CHIUSO',
+            'Non c’è un giorno utile da esportare nei prossimi ' . $maxGiorni . ' giorni.',
+        );
+    }
+
     public function assertCaricamentoConsentito(\MenuCraft\Models\AziendaConfig $azienda, DateTimeImmutable $adesso): void
     {
         if (!$azienda->caricaSoloGiovedi()) {

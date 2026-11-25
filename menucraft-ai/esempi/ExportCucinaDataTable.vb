@@ -1,15 +1,34 @@
 ' ============================================================================
-' MenuCraft → VB.NET (allineato al tuo flusso originale)
+' MenuCraft → VB.NET (allineato a Form1 + function.vb + config.ini)
 '
-' Data: usa la stessa dataNow del tuo form (non è fissa nel DB).
-'       Tipicamente la data del pasto da esportare (es. domani se lanci la sera).
-' File: ini_nomeFile & "_" & getIdPrenotazione(dataNow) & ini_fileFormat
-'       salvato in ini_pathSave (stesso server/cartella del file INI di prima)
-' Mail: dopo SaveAs richiama la tua sendMailSMTPKSS come facevi già
+' Orario: ini_oraInvio (MENSACONFIG) come nel TimerOra di Form1.
+' Data pasto: NON più solo “+1 / venerdì +3”.
+'   Usa DataPastoDaEsportare: primo giorno LAVORATIVO dopo oggi, leggendo
+'   aziende.apri_sabato/apri_domenica, calendario_chiusure e calendario_aperture.
+'   Esempi: ven→lun; lun con mar+mer chiusi→gio.
+' File: ini_nomeFile & "_" & getIdPrenotazione(dataPasto) & ini_fileFormat
+'       in ini_pathSave, poi sendMailSMTPKSS come già fai.
 '
-' 1) dataMensaDaExportCucina: export_cucina JSON → DataTable dinamico
-' 2) DatatableToExcel: un foglio, dipendenti + ospiti in fondo
-' 3) EseguiExportMensa: dataNow + INI + Excel + mail (orchestratore)
+' Nel TimerOra (al posto di day <> Saturday/Sunday + DatatableToExcel()):
+'
+'   If oraNow = oraStart And ini_send_file = "Y" Then
+'       If boolEntrySendMensa = False Then
+'           boolEntrySendMensa = True
+'           Dim nameFile As String = Nothing
+'           Dim percorso As String = EseguiExportMensa(
+'               connectionDB().ConnectionString, dataNow,
+'               ini_pathSave, ini_nomeFile, ini_fileFormat, nameFile,
+'               Nothing)  ' oppure AziendaIdDaSlug(..., ini_company)
+'           If percorso <> "" Then
+'               sendMailSMTPKSS("Ordini-mensa@eu.joysonsafety.com", "",
+'                   "ordine pasti JOYSONSAFETY",
+'                   "Ciao siamo la JoysonSafety in allegato il file ...",
+'                   nameFile, ini_pathSave, "", "", listInvioMail, "mensa")
+'           End If
+'       End If
+'   Else
+'       boolEntrySendMensa = False
+'   End If
 ' ============================================================================
 
 Imports MySql.Data.MySqlClient
@@ -25,17 +44,17 @@ Public Module ExportCucinaDataTable
 #Region "Data / nome file (come il tuo getIdPrenotazione)"
 
     ''' <summary>
-    ''' Chiave giorno a 5 cifre: yy + giorno dell'anno (1..366).
-    ''' Stesso algoritmo di MenuCraft (ExportCucina::idGiornoPasto) e del
-    ''' RIGHT(ID_PRENOTAZIONE, 5) che usavi sulla tabella prenotazioni.
+    ''' Chiave giorno a 5 cifre sul GIORNO PASTO già risolto: yy + giorno anno.
+    ''' Non avanza più la data (il salto weekend/ferie è in DataPastoDaEsportare).
+    ''' Allineato a MenuCraft ExportCucina::idGiornoPasto.
     ''' </summary>
-    Public Function getIdPrenotazione(dataNow As Date) As String
-        Return dataNow.ToString("yy") & dataNow.DayOfYear.ToString("000")
+    Public Function getIdPrenotazione(dataPasto As Date) As String
+        Return dataPasto.ToString("yy") & dataPasto.DayOfYear.ToString("000")
     End Function
 
     ''' <summary>Data pasto ISO per il filtro SQL su export_cucina.data_pasto.</summary>
-    Public Function DataPastoIso(dataNow As Date) As String
-        Return dataNow.ToString("yyyy-MM-dd")
+    Public Function DataPastoIso(dataPasto As Date) As String
+        Return dataPasto.ToString("yyyy-MM-dd")
     End Function
 
     ''' <summary>Stesso nome file di prima: {ini_nomeFile}_{id5}{ini_fileFormat}.</summary>
@@ -52,6 +71,119 @@ Public Module ExportCucinaDataTable
             Return ini_pathSave & nameFile
         End If
         Return ini_pathSave.TrimEnd() & "\" & nameFile
+    End Function
+
+    ''' <summary>Risolve aziende.id da slug (es. ini_company o "joyson-safety").</summary>
+    Public Function AziendaIdDaSlug(connessione As String, slug As String) As Object
+        If String.IsNullOrWhiteSpace(slug) Then
+            Return Nothing
+        End If
+        Using cn As New MySqlConnection(connessione)
+            Using cmd As New MySqlCommand("SELECT id FROM aziende WHERE slug = @slug LIMIT 1", cn)
+                cmd.Parameters.AddWithValue("@slug", slug.Trim().ToLowerInvariant())
+                cn.Open()
+                Dim v = cmd.ExecuteScalar()
+                If v Is Nothing OrElse IsDBNull(v) Then
+                    Return Nothing
+                End If
+                Return Convert.ToInt64(v)
+            End Using
+        End Using
+    End Function
+
+    ''' <summary>
+    ''' True se il giorno è prenotabile/esportabile per l'azienda MenuCraft:
+    ''' apertura forzata, oppure non weekend (salvo apri_sabato/domenica),
+    ''' e non in calendario_chiusure (nazionali + ferie servizio).
+    ''' </summary>
+    Public Function GiornoLavorativo(
+        connessione As String,
+        giorno As Date,
+        Optional aziendaId As Object = Nothing
+    ) As Boolean
+        Dim iso As String = DataPastoIso(giorno.Date)
+        Dim dow As Integer = Weekday(giorno.Date, FirstDayOfWeek.Monday) ' 1=lun .. 7=dom
+
+        Using cn As New MySqlConnection(connessione)
+            cn.Open()
+
+            Dim apriSabato As Boolean = False
+            Dim apriDomenica As Boolean = False
+            If aziendaId IsNot Nothing AndAlso Not IsDBNull(aziendaId) Then
+                Using cmdA As New MySqlCommand(
+                    "SELECT apri_sabato, apri_domenica FROM aziende WHERE id = @id LIMIT 1", cn)
+                    cmdA.Parameters.AddWithValue("@id", aziendaId)
+                    Using rd = cmdA.ExecuteReader()
+                        If rd.Read() Then
+                            apriSabato = Convert.ToInt32(rd("apri_sabato")) = 1
+                            apriDomenica = Convert.ToInt32(rd("apri_domenica")) = 1
+                        End If
+                    End Using
+                End Using
+
+                Using cmdOpen As New MySqlCommand(
+                    "SELECT 1 FROM calendario_aperture WHERE azienda_id = @id AND data_apertura = @d LIMIT 1", cn)
+                    cmdOpen.Parameters.AddWithValue("@id", aziendaId)
+                    cmdOpen.Parameters.AddWithValue("@d", iso)
+                    Dim aperto = cmdOpen.ExecuteScalar()
+                    If aperto IsNot Nothing AndAlso Not IsDBNull(aperto) Then
+                        Return True
+                    End If
+                End Using
+            End If
+
+            If dow = 6 AndAlso Not apriSabato Then
+                Return False
+            End If
+            If dow = 7 AndAlso Not apriDomenica Then
+                Return False
+            End If
+
+            Dim sqlChiusura As String =
+                "SELECT 1 FROM calendario_chiusure WHERE data_chiusura = @d AND ("
+            If aziendaId IsNot Nothing AndAlso Not IsDBNull(aziendaId) Then
+                sqlChiusura &= "azienda_id = @id OR azienda_id IS NULL"
+            Else
+                sqlChiusura &= "azienda_id IS NULL"
+            End If
+            sqlChiusura &= ") LIMIT 1"
+
+            Using cmdC As New MySqlCommand(sqlChiusura, cn)
+                cmdC.Parameters.AddWithValue("@d", iso)
+                If aziendaId IsNot Nothing AndAlso Not IsDBNull(aziendaId) Then
+                    cmdC.Parameters.AddWithValue("@id", aziendaId)
+                End If
+                Dim chiuso = cmdC.ExecuteScalar()
+                If chiuso IsNot Nothing AndAlso Not IsDBNull(chiuso) Then
+                    Return False
+                End If
+            End Using
+        End Using
+
+        Return True
+    End Function
+
+    ''' <summary>
+    ''' Giorno pasto da esportare alla sera (come il tuo getIdPrenotazione, ma
+    ''' con ferie/chiusure MenuCraft): primo giorno lavorativo DOPO riferimento
+    ''' (default = oggi del timer Form1).
+    ''' </summary>
+    Public Function DataPastoDaEsportare(
+        connessione As String,
+        Optional riferimento As Date = Nothing,
+        Optional aziendaId As Object = Nothing,
+        Optional maxGiorni As Integer = 60
+    ) As Date
+        Dim baseDay As Date = If(riferimento = Nothing OrElse riferimento = Date.MinValue, Date.Today, riferimento.Date)
+        Dim candidato As Date = baseDay.AddDays(1)
+        For i As Integer = 0 To Math.Max(1, maxGiorni) - 1
+            If GiornoLavorativo(connessione, candidato, aziendaId) Then
+                Return candidato
+            End If
+            candidato = candidato.AddDays(1)
+        Next
+        Throw New InvalidOperationException(
+            "Nessun giorno utile da esportare nei prossimi " & maxGiorni & " giorni.")
     End Function
 
 #End Region
@@ -335,26 +467,11 @@ Public Module ExportCucinaDataTable
     End Sub
 
     ''' <summary>
-    ''' Orchestratore come il tuo DatatableToExcel originale:
-    ''' dataNow → id 5 cifre → DataTable → SaveAs(ini_pathSave\nome).
-    '''
-    ''' Nel form / timer dove già leggevi l'INI (stesso punto di prima):
-    '''
-    '''   ' dataNow = la tua variabile di sempre (data del pasto da esportare).
-    '''   ' Se la sera esporti il pasto di domani: dataNow = Date.Today.AddDays(1)
-    '''   Dim nameFile As String = Nothing
-    '''   Dim percorso As String = EseguiExportMensa(
-    '''       connectionDB().ConnectionString, dataNow,
-    '''       ini_pathSave, ini_nomeFile, ini_fileFormat, nameFile, aziendaId)
-    '''   If percorso &lt;&gt; "" Then
-    '''       messages = messages &amp; Now &amp; " Invio il file Creato per Email" &amp; vbCrLf
-    '''       sendMailSMTPKSS("Ordini-mensa@eu.joysonsafety.com", "",
-    '''           "ordine pasti JOYSONSAFETY",
-    '''           "Ciao siamo la JoysonSafety in allegato il file in excel che contiente gli ordini del giorno",
-    '''           nameFile, ini_pathSave, "", "", listInvioMail, "mensa")
-    '''   End If
-    '''
-    ''' sendMailSMTPKSS e la lettura INI restano nel tuo progetto (non sono qui).
+    ''' Orchestratore come DatatableToExcel di Form1:
+    ''' dataNow (oggi del timer) → DataPastoDaEsportare (primo utile) →
+    ''' id 5 cifre → export_cucina → Excel → SaveAs(ini_pathSave\nome).
+    ''' Se oggi non è lavorativo (sab/dom/festa) non invia (come il tuo
+    ''' day &lt;&gt; Saturday/Sunday), salvo forzaAncheOggiChiuso=True.
     ''' </summary>
     Public Function EseguiExportMensa(
         connessione As String,
@@ -363,11 +480,21 @@ Public Module ExportCucinaDataTable
         ini_nomeFile As String,
         ini_fileFormat As String,
         ByRef nameFile As String,
-        Optional aziendaId As Object = Nothing
+        Optional aziendaId As Object = Nothing,
+        Optional ByRef dataPastoScelta As Date = Nothing,
+        Optional forzaAncheOggiChiuso As Boolean = False
     ) As String
 
-        Dim idPrenotazione As String = getIdPrenotazione(dataNow)
-        Dim dataPasto As String = DataPastoIso(dataNow)
+        nameFile = ""
+        If Not forzaAncheOggiChiuso AndAlso Not GiornoLavorativo(connessione, dataNow.Date, aziendaId) Then
+            Return ""
+        End If
+
+        Dim giornoPasto As Date = DataPastoDaEsportare(connessione, dataNow.Date, aziendaId)
+        dataPastoScelta = giornoPasto
+
+        Dim idPrenotazione As String = getIdPrenotazione(giornoPasto)
+        Dim dataPasto As String = DataPastoIso(giornoPasto)
         nameFile = NomeFileMensa(ini_nomeFile, idPrenotazione, ini_fileFormat)
         Dim strFileName As String = PercorsoFileMensa(ini_pathSave, nameFile)
 

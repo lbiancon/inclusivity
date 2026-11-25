@@ -25,7 +25,19 @@ utenti-import.csv
 
 Password dipendente
 ===================
-Dal frontend, nello scontrino: Password attuale + nuova + conferma.
+Frontend: tab Password (non sullo scontrino). Login: «Password dimenticata?»
+→ richiesta al catering; in Utenti si genera una password temporanea.
+
+Export Excel VB.NET (Form1 / function.vb / config.ini)
+=====================================================
+Module: ExportCucinaDataTable.vb
+Snippet timer: Form1-mensa-snippet.vb
+SQL di supporto: export-vbnet.sql
+
+Alla sera (ini_oraInvio) EseguiExportMensa prende dataNow del timer e calcola
+il primo giorno lavorativo DOPO oggi (salta sab/dom salvo apri_*, feste e
+ferie/chiusure MenuCraft). Esporta export_cucina di quel giorno, salva in
+ini_pathSave col nome di sempre, poi sendMailSMTPKSS come già fai.
 
 Sovrascrivere la cartella sul server di lavoro
 =============================================
