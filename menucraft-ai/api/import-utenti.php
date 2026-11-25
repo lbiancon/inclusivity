@@ -71,18 +71,24 @@ JsonResponse::guard(static function (): void {
     if ($esito['saltati'] > 0) {
         $parti[] = $esito['saltati'] . ' con errore';
     }
-    if ($esito['per_azienda'] !== []) {
-        $dettaglio = [];
-        foreach ($esito['per_azienda'] as $slug => $conteggi) {
-            $dettaglio[] = $slug . ' (' . $conteggi['creati'] . '+' . $conteggi['aggiornati'] . ')';
+    if ($esito['verifica_db'] !== []) {
+        $ver = [];
+        foreach ($esito['verifica_db'] as $slug => $n) {
+            $ver[] = $slug . '=' . $n . ' dipendenti in DB';
         }
-        $parti[] = 'aziende: ' . implode(', ', $dettaglio);
+        $parti[] = implode('; ', $ver);
+    }
+
+    $suggerimento = '';
+    if ($utente['ruolo'] === 'piattaforma' && $esito['per_azienda'] !== []) {
+        $slugs = implode(', ', array_keys($esito['per_azienda']));
+        $suggerimento = ' Per vederli nel banco: Esci e entra come catering di ' . $slugs . '.';
     }
 
     JsonResponse::send(200, [
         'ok' => true,
         'csrf' => $utente['csrf'],
-        'messaggio' => 'Import utenti: ' . implode(', ', $parti) . '.',
+        'messaggio' => 'Import utenti: ' . implode(', ', $parti) . '.' . $suggerimento,
         'import' => $esito,
         'utenti' => $esito['utenti'],
     ]);

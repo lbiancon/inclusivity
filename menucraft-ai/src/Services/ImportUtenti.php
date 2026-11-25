@@ -17,8 +17,8 @@ final class ImportUtenti
 
     /** @var array<string, list<string>> */
     private const COLONNE = [
-        'azienda' => ['azienda', 'slug', 'codice_azienda', 'societa', 'company', 'azienda_slug'],
-        'matricola' => ['matricola', 'badge', 'code_employee', 'codice', 'id'],
+        'azienda' => ['azienda', 'azienda_slug', 'codice_azienda', 'slug_azienda', 'societa', 'company'],
+        'matricola' => ['matricola', 'badge', 'code_employee'],
         'nome' => ['nome', 'employee', 'cognome_nome', 'nominativo', 'name'],
         'password' => ['password', 'pwd', 'pass', 'chiave'],
         'pagamento' => ['pagamento', 'payment', 'tipo_pagamento', 'modo'],
@@ -45,6 +45,8 @@ final class ImportUtenti
      *   saltati: int,
      *   errori: list<array{riga: int, messaggio: string}>,
      *   per_azienda: array<string, array{creati: int, aggiornati: int}>,
+     *   dettaglio: list<array{riga: int, azione: string, azienda: string, matricola: string, nome: string}>,
+     *   verifica_db: array<string, int>,
      *   utenti: list<array<string, mixed>>
      * }
      */
@@ -68,7 +70,7 @@ final class ImportUtenti
         if ($aziendaFallbackId === null && !$haColonnaAzienda) {
             throw new MenuRuleException(
                 'AZIENDA_MANCANTE',
-                'Nel file serve la colonna azienda (codice slug), oppure scegli l’azienda prima di importare.',
+                'Nel file serve la colonna azienda (codice slug della cucina). Usa “Scarica utenti” sulla riga della società.',
                 422,
             );
         }
@@ -79,6 +81,7 @@ final class ImportUtenti
         $saltati = 0;
         $errori = [];
         $perAzienda = [];
+        $dettaglio = [];
         $ultimeUtenti = [];
         $ultimoAziendaId = $aziendaFallbackId;
 
@@ -94,6 +97,13 @@ final class ImportUtenti
             }
             try {
                 $slugRiga = $haColonnaAzienda ? $this->cella($celle, $mappa, 'azienda') : '';
+                if ($this->slugSegnaposto($slugRiga)) {
+                    throw new MenuRuleException(
+                        'AZIENDA_MANCANTE',
+                        'Sostituisci INSERISCI-SLUG-AZIENDA con il codice reale della cucina (colonna azienda).',
+                        422,
+                    );
+                }
                 $aziendaId = $this->risolviAziendaId($slugRiga, $aziendaFallbackId, $attore);
                 $input = [
                     'matricola' => $this->cella($celle, $mappa, 'matricola'),
@@ -129,14 +139,41 @@ final class ImportUtenti
                     $anagrafica->aggiornaUtente($aziendaId, $esistente['id'], $input);
                     $aggiornati++;
                     $perAzienda[$slugKey]['aggiornati']++;
+                    $azione = 'aggiornato';
+                    $utenteId = $esistente['id'];
                 } else {
                     if ($input['password'] === '') {
                         throw new MenuRuleException('PASSWORD_NON_VALIDA', 'La password è obbligatoria per un nuovo utente.');
                     }
-                    $anagrafica->creaUtente($aziendaId, $input);
+                    $creato = $anagrafica->creaUtente($aziendaId, $input);
                     $creati++;
                     $perAzienda[$slugKey]['creati']++;
+                    $azione = 'creato';
+                    $utenteId = (int) $creato['id'];
                 }
+
+                $check = $this->pdo->prepare(
+                    'SELECT id FROM utenti WHERE id = :id AND azienda_id = :azienda AND matricola = :matricola LIMIT 1'
+                );
+                $check->execute([
+                    'id' => $utenteId,
+                    'azienda' => $aziendaId,
+                    'matricola' => strtoupper(trim($input['matricola'])),
+                ]);
+                if ($check->fetchColumn() === false) {
+                    throw new MenuRuleException(
+                        'IMPORT_NON_PERSISTITO',
+                        'Scrittura non trovata nel database dopo l’import (controlla di essere sul DB menucraft).',
+                    );
+                }
+
+                $dettaglio[] = [
+                    'riga' => $numeroRiga,
+                    'azione' => $azione,
+                    'azienda' => $slugKey,
+                    'matricola' => strtoupper(trim($input['matricola'])),
+                    'nome' => $input['nome'],
+                ];
                 $ultimoAziendaId = $aziendaId;
             } catch (MenuRuleException $e) {
                 $saltati++;
@@ -150,8 +187,24 @@ final class ImportUtenti
             }
         }
 
-        if ($creati === 0 && $aggiornati === 0 && $errori === []) {
-            throw new MenuRuleException('FILE_VUOTO', 'Nessuna riga utente da importare.');
+        if ($creati === 0 && $aggiornati === 0) {
+            $primo = $errori[0]['messaggio'] ?? 'Nessuna riga utente importata.';
+            throw new MenuRuleException(
+                'IMPORT_VUOTO',
+                'Nessun utente scritto nel database. ' . $primo
+                    . ($errori !== [] ? ' (vedi errori riga per riga)' : ''),
+                422,
+            );
+        }
+
+        $verificaDb = [];
+        foreach (array_keys($perAzienda) as $slugKey) {
+            $idAz = $this->idDaSlug($slugKey);
+            $conta = $this->pdo->prepare(
+                "SELECT COUNT(*) FROM utenti WHERE azienda_id = :a AND ruolo = 'dipendente'"
+            );
+            $conta->execute(['a' => $idAz]);
+            $verificaDb[$slugKey] = (int) $conta->fetchColumn();
         }
 
         if ($ultimoAziendaId !== null) {
@@ -164,8 +217,19 @@ final class ImportUtenti
             'saltati' => $saltati,
             'errori' => $errori,
             'per_azienda' => $perAzienda,
+            'dettaglio' => $dettaglio,
+            'verifica_db' => $verificaDb,
             'utenti' => $ultimeUtenti,
         ];
+    }
+
+    private function slugSegnaposto(string $slug): bool
+    {
+        $slug = strtolower(trim($slug));
+
+        return $slug === 'inserisci-slug-azienda'
+            || $slug === 'codice-azienda'
+            || $slug === 'slug-azienda';
     }
 
     /**
@@ -183,46 +247,49 @@ final class ImportUtenti
             'azienda', 'matricola', 'nome', 'password', 'pagamento', 'allergie', 'saldo', 'email', 'mail_reminder',
         ]];
 
-        if ($aziendaId !== null && $includiEsistenti) {
+        if ($aziendaId !== null) {
             $slug = $this->slugDi($aziendaId);
-            $stmt = $this->pdo->prepare(
-                "SELECT matricola, nome, pagamento, allergie, email, mail_reminder
-                 FROM utenti
-                 WHERE azienda_id = :azienda AND ruolo = 'dipendente'
-                 ORDER BY matricola"
-            );
-            $stmt->execute(['azienda' => $aziendaId]);
-            $trovati = 0;
-            foreach ($stmt as $riga) {
-                $trovati++;
-                $righe[] = [
-                    $slug,
-                    (string) $riga['matricola'],
-                    (string) $riga['nome'],
-                    '',
-                    (string) $riga['pagamento'],
-                    $riga['allergie'] !== null ? (string) $riga['allergie'] : '',
-                    '',
-                    $riga['email'] !== null ? (string) $riga['email'] : '',
-                    (string) ($riga['mail_reminder'] ?? 'N') === 'Y' ? 'Y' : 'N',
-                ];
-            }
-            if ($trovati === 0) {
-                $righe = array_merge($righe, $this->righeEsempio($slug));
-            }
-        } else {
-            $slugs = $slugEsempio ?? [];
-            if ($slugs === []) {
-                $slugs = $this->primiSlug(2);
-            }
-            if ($slugs === []) {
-                $slugs = ['codice-azienda'];
-            }
-            foreach ($slugs as $i => $slug) {
-                foreach ($this->righeEsempio($slug, $i * 3) as $riga) {
+            if ($includiEsistenti) {
+                $stmt = $this->pdo->prepare(
+                    "SELECT matricola, nome, pagamento, allergie, email, mail_reminder
+                     FROM utenti
+                     WHERE azienda_id = :azienda AND ruolo = 'dipendente'
+                     ORDER BY matricola"
+                );
+                $stmt->execute(['azienda' => $aziendaId]);
+                $trovati = 0;
+                foreach ($stmt as $riga) {
+                    $trovati++;
+                    $righe[] = [
+                        $slug,
+                        (string) $riga['matricola'],
+                        (string) $riga['nome'],
+                        '',
+                        (string) $riga['pagamento'],
+                        $riga['allergie'] !== null ? (string) $riga['allergie'] : '',
+                        '',
+                        $riga['email'] !== null ? (string) $riga['email'] : '',
+                        (string) ($riga['mail_reminder'] ?? 'N') === 'Y' ? 'Y' : 'N',
+                    ];
+                }
+                if ($trovati === 0) {
+                    foreach ($this->righeEsempio($slug) as $riga) {
+                        $righe[] = $riga;
+                    }
+                }
+            } else {
+                foreach ($this->righeEsempio($slug) as $riga) {
                     $righe[] = $riga;
                 }
-                break; // una sola azienda di esempio nel template vuoto
+            }
+        } elseif ($slugEsempio !== null && $slugEsempio !== []) {
+            foreach ($this->righeEsempio((string) $slugEsempio[0]) as $riga) {
+                $righe[] = $riga;
+            }
+        } else {
+            // Segnaposto: se non lo sostituisci l'import si ferma con errore chiaro.
+            foreach ($this->righeEsempio('INSERISCI-SLUG-AZIENDA') as $riga) {
+                $righe[] = $riga;
             }
         }
 
@@ -232,10 +299,12 @@ final class ImportUtenti
     /** Compat: template statico senza DB. */
     public static function templateCsv(?string $slugAzienda = null): string
     {
-        $slug = $slugAzienda !== null && $slugAzienda !== '' ? $slugAzienda : 'codice-azienda';
         $self = new self(menucraft_db());
+        if ($slugAzienda !== null && $slugAzienda !== '' && !$self->slugSegnaposto($slugAzienda)) {
+            return $self->generaTemplateCsv(null, false, [$slugAzienda]);
+        }
 
-        return $self->generaTemplateCsv(null, false, [$slug]);
+        return $self->generaTemplateCsv(null, false, null);
     }
 
     /** @return list<list<string>> */

@@ -151,7 +151,7 @@ header('Content-Type: text/html; charset=utf-8');
                 <p class="mt-4 text-sm text-ink/60">Le cucine create restano in questo elenco: puoi modificarle se hai sbagliato i dati. Per entrare nel banco fai Esci e accedi con codice azienda e matricola catering. Su ogni riga puoi anche caricare il logo.</p>
                 <div class="mt-4 rounded-2xl border border-ink/10 bg-cream p-4">
                     <h3 class="font-serif text-2xl uppercase">Import utenti (con azienda)</h3>
-                    <p class="mt-2 text-sm text-ink/70">Scarica il template (colonna <code>azienda</code> = codice slug), compilalo o usa “Scarica utenti” sulla riga della cucina, poi reimporta qui. Password vuota in aggiornamento lascia quella già presente.</p>
+                    <p class="mt-2 text-sm text-ink/70">Usa <strong>Scarica utenti</strong> sulla riga della cucina (così la colonna <code>azienda</code> è già il codice giusto), modifica e reimporta qui. Il template vuoto ha il segnaposto <code>INSERISCI-SLUG-AZIENDA</code>: va sostituito. Da questo pannello non compare l’elenco persone: dopo l’import entra come catering di quella cucina.</p>
                     <div class="mt-3 flex flex-wrap gap-2">
                         <a id="scarica-template-utenti-servizio" href="../api/template-utenti.php?esporta=0" class="rounded-xl border border-ink px-4 py-3 text-sm font-semibold">Scarica template</a>
                     </div>
@@ -1465,10 +1465,30 @@ header('Content-Type: text/html; charset=utf-8');
                     await caricaUtenti();
                 }
                 mostraBanner('ok', payload.messaggio);
+                const dettaglio = payload.import?.dettaglio || [];
+                if (dettaglio.length) {
+                    const titolo = document.createElement('li');
+                    titolo.className = 'font-semibold text-ink';
+                    titolo.textContent = 'Scritti nel DB:';
+                    esitoEl.append(titolo);
+                    dettaglio.slice(0, 40).forEach((voce) => {
+                        const li = document.createElement('li');
+                        li.textContent = voce.azione + ' · ' + voce.azienda + ' · ' + voce.matricola + ' · ' + voce.nome;
+                        esitoEl.append(li);
+                    });
+                }
+                const verifica = payload.import?.verifica_db || {};
+                Object.keys(verifica).forEach((slug) => {
+                    const li = document.createElement('li');
+                    li.className = 'font-semibold';
+                    li.textContent = 'Totale dipendenti ora su ' + slug + ': ' + verifica[slug];
+                    esitoEl.append(li);
+                });
                 const errori = payload.import?.errori || [];
                 if (errori.length) {
                     errori.slice(0, 20).forEach((voce) => {
                         const li = document.createElement('li');
+                        li.className = 'text-red-800';
                         li.textContent = 'Riga ' + voce.riga + ': ' + voce.messaggio;
                         esitoEl.append(li);
                     });
