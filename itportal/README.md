@@ -48,6 +48,18 @@ LDAP_HOST=ldap://...
 
 Requires PHP extensions: `oci8`, `ldap` (and later `mysqli`/`pdo_mysql` for portal DBs).
 
+## No more giant `function.php`
+
+Legacy portal loaded mega-files on every page. Here each domain is a **small class**, registered in `config/services.php`, resolved lazily:
+
+```php
+portal('tracking.serial')->search($sn);
+portal('tracking.pallet')->search($pallet);
+portal()->auth()->requireLogin();
+```
+
+See [`docs/module-map.md`](docs/module-map.md) for the full legacy → module table.
+
 ## Migration map (from legacy)
 
 | Legacy | New |
@@ -56,7 +68,8 @@ Requires PHP extensions: `oci8`, `ldap` (and later `mysqli`/`pdo_mysql` for port
 | `ldap.php` / `LOGIN_PORTAL_LDAP` | `Auth\LdapAuthenticator` + `loginByLdap` |
 | `logout.php` | `public/logout.php` |
 | `menu.php` `MENU_SITE` | `config/menu.php` + `Menu\MenuBuilder` |
-| `search/serial.php` + `tables.php` | `tracking/serial.php` + `api/tracking/serial.php` |
+| `search/serial.php` + `tables.php` | `tracking.serial` / `tracking.pallet` services |
 | `loginCard/MySwipe.php` | `assets/js/cardswipe.js` |
+| `function.php` / `function2.php` / … | split per domain under `src/` + `portal('…')` |
 
 Modules marked **soon** in the menu are inventoried and gated by the same roles; pages will be ported next (Quality, Engineering, …).
