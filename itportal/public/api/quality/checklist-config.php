@@ -29,7 +29,7 @@ echo '<div><span>Rev</span><strong>' . View::e($result['meta']['rev'] ?? $rev) .
 echo '<div><span>Mode</span><strong>' . View::e($result['meta']['mode'] ?? '') . '</strong></div>';
 echo '</div>';
 echo '<p class="muted">' . View::e($result['message']) . '</p>';
-echo '<div class="table-wrap"><table class="data-table"><thead><tr><th>Ctrl</th><th>Question</th><th>Type</th><th>Status</th></tr></thead><tbody>';
+echo '<div class="table-wrap"><table class="data-table"><thead><tr><th>Ctrl</th><th>Question</th><th>Type</th><th>Status</th><th>Answer</th></tr></thead><tbody>';
 foreach ($result['items'] as $item) {
     echo '<tr>';
     echo '<td>' . View::e((string) ($item['check_ctrl'] ?? $item[4] ?? '')) . '</td>';

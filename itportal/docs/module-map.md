@@ -34,11 +34,12 @@ Non esiste più `include 'function.php'`.
 | `SELECT_PALLET_CONT_AIR` / `pallet_sn` | `tracking.pallet` → `OraclePalletRepository` | fatto (mock + SQL Oracle pronta) |
 | `SELECT_PACKOUT` / `CHILD_SN` | SQL in `LegacySql` (PACKOUT_*, CHILD_*) | SQL estratta, wiring UI next |
 | `SELECT_SINGLE_PROCESS` | `tracking.process` + API + panel in Serial Track | fatto (mock + SQL Oracle) |
-| `get_check_list_config` / `get_check_config` | `quality.checklist` + `/quality/checklist.php` | fatto (mock + SQL MySQL) |
+| `get_check_list_config` / `get_check_config` | `quality.checklist` + `/quality/checklist.php` | fatto |
+| `insert_login_check` / `logout` / `save_check` | `quality.checklist` login/save APIs | fatto (mock + SQL) |
+| `SELECT_REPORT_LINE_SCRAP` (core SUM) | `engineering.scrap` + `/engineering/report-scrap-line.php` | fatto (mock + SQL) |
 | `geTsmb` / `getPhoto` | `tracking.photos` | next |
-| altre `get_check_*` / save_check | `quality.checklist` write APIs | next |
-| `DASHBOARD_*` | `dashboard.*` | next |
-| report line / scrap / OEE | `engineering.*` | next |
+| report line / OEE full HTML | `engineering.*` | next |
+| `DASHBOARD_*` live | `dashboard.*` | next |
 | MP / efficiency | `production.*` | next |
 | `MSG_ERROR` / date helpers | `Support\Flash`, `Support\Dates` | next |
 

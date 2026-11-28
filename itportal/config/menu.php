@@ -158,7 +158,7 @@ return [
         'roles' => ['SU', 'D', 'EI', 'EA', 'MI', 'RI', 'RA', 'RMI', 'QI', 'QA', 'CI'],
         'children' => [
             ['label' => 'Report Part Line', 'href' => '/engineering/report-part-line.php', 'roles' => ['SU', 'D', 'EI', 'EA', 'MI', 'RI', 'RA', 'RMI', 'QI'], 'coming_soon' => true],
-            ['label' => 'Report Scrap Line', 'href' => '/engineering/report-scrap-line.php', 'roles' => ['SU', 'D', 'EI', 'EA', 'MI', 'RI', 'RA', 'RMI', 'QI'], 'coming_soon' => true],
+            ['label' => 'Report Scrap Line', 'href' => '/engineering/report-scrap-line.php', 'roles' => ['SU', 'D', 'EI', 'EA', 'MI', 'RI', 'RA', 'RMI', 'QI']],
             ['label' => 'Report Downtime', 'href' => '/engineering/report-downtime.php', 'roles' => null, 'coming_soon' => true],
             ['label' => 'Report OEE', 'href' => '/engineering/report-oee.php', 'roles' => ['SU', 'D'], 'coming_soon' => true],
             ['label' => 'Line Action Items', 'href' => '/engineering/items.php', 'roles' => ['SU', 'D', 'EI', 'EA', 'MI', 'RI', 'RA', 'RMI', 'QI'], 'coming_soon' => true],

@@ -68,4 +68,55 @@ SELECT *
  ORDER BY start_time DESC
  LIMIT 1
 SQL;
+
+    /** get_login_check() */
+    public const LOGIN_CHECK = <<<'SQL'
+SELECT *
+  FROM lot_user_check
+ WHERE line = :line
+   AND checkname = :checkname
+   AND user_id LIKE :user_id
+   AND (time_stamp BETWEEN :date1 AND :date2)
+ ORDER BY time_stamp DESC
+ LIMIT 3
+SQL;
+
+    /** insert_login_check() — deactivate previous */
+    public const DEACTIVATE_LINE_LOGINS = <<<'SQL'
+UPDATE lot_user_check
+   SET status_flag = 'N'
+ WHERE line = :line
+   AND checkname = :checkname
+SQL;
+
+    /** insert_login_check() */
+    public const INSERT_LOGIN = <<<'SQL'
+INSERT INTO lot_user_check
+  (user_id, empl_last, empl_first, status_flag, roles, checkname, line, rev)
+VALUES
+  (:user_id, :empl_last, :empl_first, 'Y', :roles, :checkname, :line, :rev)
+SQL;
+
+    /** logout() for checklist operators */
+    public const LOGOUT_LINE = <<<'SQL'
+UPDATE lot_user_check
+   SET status_flag = 'N'
+ WHERE line = :line
+   AND checkname = :checkname
+SQL;
+
+    /** save_check() */
+    public const SAVE_CHECK = <<<'SQL'
+INSERT INTO lot_check_list
+  (user_id, line, id_question, check_part, check_value, status, note, question, rev)
+VALUES
+  (:user_id, :line, :id_question, :check_part, :check_value, :status, :note, :question, :rev)
+SQL;
+
+    /** Oracle lot_employee lookup used by insert_login_check */
+    public const EMPLOYEE_BY_BADGE = <<<'SQL'
+SELECT EMPL_LAST, EMPL_FIRST, SUPERUSER, ROLES, TIP
+  FROM lot_employee
+ WHERE USER_ID = :user_id
+SQL;
 }
