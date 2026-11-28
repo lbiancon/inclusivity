@@ -65,4 +65,72 @@
       }
     });
   }
+
+  const btnLines = document.getElementById('btnLoadLines');
+  if (btnLines) {
+    const linesBox = document.getElementById('checklistLines');
+    const configBox = document.getElementById('checklistConfig');
+    btnLines.addEventListener('click', async () => {
+      if (!linesBox) return;
+      linesBox.innerHTML = '<div class="preloader"><div class="spinner"></div><span>Loading lines…</span></div>';
+      try {
+        const res = await fetch('/api/quality/checklist-lines.php', {
+          method: 'POST',
+          headers: { 'X-Requested-With': 'XMLHttpRequest' },
+        });
+        linesBox.innerHTML = await res.text();
+      } catch (err) {
+        linesBox.innerHTML = '<div class="alert alert--danger">Network error.</div>';
+      }
+    });
+
+    document.addEventListener('click', async (e) => {
+      const btn = e.target.closest('.btn-load-config');
+      if (!btn || !configBox) return;
+      const line = btn.getAttribute('data-line') || '';
+      const rev = btn.getAttribute('data-rev') || '1';
+      configBox.hidden = false;
+      configBox.innerHTML = '<div class="preloader"><div class="spinner"></div><span>Loading config…</span></div>';
+      const body = new URLSearchParams({ line, rev, check_part: 'csl' });
+      try {
+        const res = await fetch('/api/quality/checklist-config.php', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'X-Requested-With': 'XMLHttpRequest',
+          },
+          body,
+        });
+        configBox.innerHTML = await res.text();
+      } catch (err) {
+        configBox.innerHTML = '<div class="alert alert--danger">Network error.</div>';
+      }
+    });
+  }
+
+  // Optional: after serial search, also load process vars into #processResults if present
+  const serialForm = document.getElementById('formData');
+  const processBox = document.getElementById('processResults');
+  if (serialForm && processBox) {
+    serialForm.addEventListener('submit', async () => {
+      const sn = document.getElementById('part_sn');
+      if (!sn || !sn.value) return;
+      processBox.hidden = false;
+      processBox.innerHTML = '<div class="preloader"><div class="spinner"></div><span>Process vars…</span></div>';
+      try {
+        const body = new FormData();
+        body.set('part_sn', sn.value);
+        body.set('proc_type', '0');
+        body.set('fields', '20');
+        const res = await fetch('/api/tracking/process.php', {
+          method: 'POST',
+          body,
+          headers: { 'X-Requested-With': 'XMLHttpRequest' },
+        });
+        processBox.innerHTML = await res.text();
+      } catch (err) {
+        processBox.innerHTML = '<div class="alert alert--danger">Process lookup failed.</div>';
+      }
+    });
+  }
 })();

@@ -77,7 +77,7 @@ return [
             ['label' => 'LAT Test', 'href' => '/quality/lat-test.php', 'roles' => ['SU', 'QI', 'D', 'QAI'], 'coming_soon' => true],
             ['label' => 'SPT Test', 'href' => '/quality/spt-test.php', 'roles' => ['SU', 'QA', 'D', 'QAI'], 'coming_soon' => true],
             ['label' => 'Lab Test ACI', 'href' => '/quality/lab-test.php', 'roles' => ['SU', 'QA', 'D', 'QAI'], 'coming_soon' => true],
-            ['label' => 'Checklist', 'href' => '/quality/checklist.php', 'roles' => ['SU', 'QS', 'D', 'QI', 'QA'], 'coming_soon' => true],
+            ['label' => 'Checklist', 'href' => '/quality/checklist.php', 'roles' => ['SU', 'QS', 'D', 'QI', 'QA']],
             ['label' => 'Airbag', 'href' => '/airbag/', 'roles' => ['SU', 'QA', 'D'], 'coming_soon' => true],
             ['label' => 'Inflator', 'href' => '/inflator/', 'roles' => ['SU', 'QI', 'D'], 'coming_soon' => true],
         ],

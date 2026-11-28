@@ -13,8 +13,10 @@ declare(strict_types=1);
  *   LOGIN_PORTAL                                        → auth (already via App::auth())
  */
 
+use ItPortal\Quality\ChecklistService;
 use ItPortal\Support\App;
 use ItPortal\Tracking\PalletSearchService;
+use ItPortal\Tracking\ProcessSearchService;
 use ItPortal\Tracking\SerialSearchService;
 use ItPortal\Tracking\TraceNormalizer;
 
@@ -28,4 +30,10 @@ return [
     'tracking.pallet' => static function (App $app): PalletSearchService {
         return new PalletSearchService($app->make('tracking.normalizer'));
     },
+
+    'tracking.process' => static function (App $app): ProcessSearchService {
+        return new ProcessSearchService($app->make('tracking.normalizer'));
+    },
+
+    'quality.checklist' => static fn (App $app): ChecklistService => new ChecklistService(),
 ];

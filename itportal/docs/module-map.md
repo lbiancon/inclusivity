@@ -33,9 +33,10 @@ Non esiste più `include 'function.php'`.
 | `PARENT_PART_SN` | stesso flusso serial (genealogy) | fatto (SQL estratta) |
 | `SELECT_PALLET_CONT_AIR` / `pallet_sn` | `tracking.pallet` → `OraclePalletRepository` | fatto (mock + SQL Oracle pronta) |
 | `SELECT_PACKOUT` / `CHILD_SN` | SQL in `LegacySql` (PACKOUT_*, CHILD_*) | SQL estratta, wiring UI next |
-| `SELECT_SINGLE_PROCESS` | `LegacySql::processVariables()` | SQL estratta, service next |
+| `SELECT_SINGLE_PROCESS` | `tracking.process` + API + panel in Serial Track | fatto (mock + SQL Oracle) |
+| `get_check_list_config` / `get_check_config` | `quality.checklist` + `/quality/checklist.php` | fatto (mock + SQL MySQL) |
 | `geTsmb` / `getPhoto` | `tracking.photos` | next |
-| `get_check_*` / checklist | `quality.checklist` | next |
+| altre `get_check_*` / save_check | `quality.checklist` write APIs | next |
 | `DASHBOARD_*` | `dashboard.*` | next |
 | report line / scrap / OEE | `engineering.*` | next |
 | MP / efficiency | `production.*` | next |

@@ -54,4 +54,8 @@ use ItPortal\View;
             <?php require __DIR__ . '/_serial_result.php'; ?>
         <?php endif; ?>
     </div>
+
+    <h2 class="section-title" style="margin-top:1.5rem;font-family:var(--font-display);color:var(--navy);font-size:1.6rem;">Process variables</h2>
+    <p class="muted">Legacy <code>SELECT_SINGLE_PROCESS</code> → <code>portal('tracking.process')</code></p>
+    <div id="processResults" class="track-results" hidden></div>
 </section>
