@@ -90,8 +90,8 @@ return [
         'children' => [
             ['label' => 'Inflator', 'href' => '/inflator/', 'roles' => ['SU', 'D', 'CI', 'QI', 'MQI', 'RI'], 'coming_soon' => true],
             ['label' => 'Airbag', 'href' => '/airbag/', 'roles' => ['SU', 'D', 'CA', 'QA', 'RA', 'DA', 'CTS'], 'coming_soon' => true],
-            ['label' => 'MP IF', 'href' => '/tools/mp.php', 'roles' => ['SU', 'D'], 'coming_soon' => true],
-            ['label' => 'MP AB', 'href' => '/tools/mp2.php', 'roles' => ['SU', 'D'], 'coming_soon' => true],
+            ['label' => 'MP IF', 'href' => '/tools/mp.php', 'roles' => ['SU', 'D']],
+            ['label' => 'MP AB', 'href' => '/tools/mp2.php', 'roles' => ['SU', 'D']],
             ['label' => 'Efficiency', 'href' => '/tools/efficiency.php', 'roles' => ['SU', 'D'], 'coming_soon' => true],
             ['label' => 'Production Target', 'href' => '/tools/production.php', 'roles' => ['SU', 'D'], 'coming_soon' => true],
         ],
@@ -103,6 +103,7 @@ return [
         'roles' => ['SU', 'ITM', 'IT'],
         'children' => [
             ['label' => 'Utility', 'href' => '/it/', 'roles' => ['SU'], 'coming_soon' => true],
+            ['label' => 'Dashboard Line', 'href' => '/dashboard/line.php', 'roles' => ['SU', 'ITM', 'IT', 'D']],
             ['label' => 'Web Dashboard', 'href' => '/dashboard/', 'roles' => ['SU'], 'coming_soon' => true],
             ['label' => 'Action Items', 'href' => '/it/items.php', 'roles' => ['SU', 'ITM', 'IT'], 'coming_soon' => true],
             ['label' => 'Downtime IT', 'href' => '/it/downtime.php', 'roles' => ['SU', 'ITM', 'IT'], 'coming_soon' => true],

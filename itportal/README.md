@@ -48,9 +48,12 @@ LDAP_HOST=ldap://...
 
 Requires PHP extensions: `oci8`, `ldap` (and later `mysqli`/`pdo_mysql` for portal DBs).
 
-## No more giant `function.php`
+## No more giant `function*.php`
 
-Legacy portal loaded mega-files on every page. Here each domain is a **small class**, registered in `config/services.php`, resolved lazily:
+Legacy loaded `function.php`, `function2.php`, `functionDashboard.php`, `functionchecklist.php`, `functionTools.php` on pages.  
+Inventory: [`docs/function-files.md`](docs/function-files.md).
+
+Here each domain is a **small class**, registered in `config/services.php`, resolved lazily:
 
 ```php
 portal('tracking.serial')->search($sn);

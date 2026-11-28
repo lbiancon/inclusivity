@@ -188,18 +188,17 @@
     }
   }
 
-  const scrapForm = document.getElementById('formScrap');
-  if (scrapForm) {
-    scrapForm.addEventListener('submit', async (e) => {
+  async function postFormHtml(form, boxId, loadingLabel) {
+    const box = document.getElementById(boxId);
+    if (!form || !box) return;
+    form.addEventListener('submit', async (e) => {
       e.preventDefault();
-      const box = document.getElementById('scrapResults');
-      if (!box) return;
       box.hidden = false;
-      box.innerHTML = '<div class="preloader"><div class="spinner"></div><span>Running…</span></div>';
+      box.innerHTML = '<div class="preloader"><div class="spinner"></div><span>' + loadingLabel + '</span></div>';
       try {
-        const res = await fetch(scrapForm.action, {
+        const res = await fetch(form.action, {
           method: 'POST',
-          body: new FormData(scrapForm),
+          body: new FormData(form),
           headers: { 'X-Requested-With': 'XMLHttpRequest' },
         });
         box.innerHTML = await res.text();
@@ -208,6 +207,10 @@
       }
     });
   }
+
+  postFormHtml(document.getElementById('formScrap'), 'scrapResults', 'Running…');
+  postFormHtml(document.getElementById('formDashLine'), 'dashLineResults', 'Loading…');
+  postFormHtml(document.getElementById('formMp'), 'mpResults', 'Loading…');
 
   // Optional: after serial search, also load process vars into #processResults if present
   const serialForm = document.getElementById('formData');

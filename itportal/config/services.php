@@ -13,7 +13,9 @@ declare(strict_types=1);
  *   LOGIN_PORTAL                                        → auth (already via App::auth())
  */
 
+use ItPortal\Dashboard\DashboardLineService;
 use ItPortal\Engineering\ScrapReportService;
+use ItPortal\Production\ManpowerService;
 use ItPortal\Quality\ChecklistService;
 use ItPortal\Support\App;
 use ItPortal\Tracking\PalletSearchService;
@@ -39,4 +41,8 @@ return [
     'quality.checklist' => static fn (App $app): ChecklistService => new ChecklistService(),
 
     'engineering.scrap' => static fn (App $app): ScrapReportService => new ScrapReportService(),
+
+    'dashboard.line' => static fn (App $app): DashboardLineService => new DashboardLineService(),
+
+    'production.mp' => static fn (App $app): ManpowerService => new ManpowerService(),
 ];

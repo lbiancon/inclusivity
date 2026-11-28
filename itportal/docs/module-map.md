@@ -1,7 +1,9 @@
-# Da `function.php` enormi → moduli leggeri
+# Da `function*.php` enormi → moduli leggeri
+
+Vedi anche [`function-files.md`](function-files.md) per l’inventario completo dei 5 file.
 
 ## Problema legacy
-`function.php` (~35k righe), `function2.php`, `functionDashboard.php`, `functionchecklist.php`, `functionTools.php` venivano `include` su quasi ogni pagina: tutto in memoria, difficile da testare, rischi di collisioni di nomi.
+`function.php` (~35k), `function2.php` (~22k), `functionDashboard.php`, `functionchecklist.php`, `functionTools.php` venivano `include` su quasi ogni pagina: tutto in memoria, difficile da testare, rischi di collisioni di nomi.
 
 ## Regola nuova
 1. **Un dominio = una cartella** sotto `src/` (`Tracking/`, `Quality/`, `Engineering/`, …).
@@ -36,11 +38,14 @@ Non esiste più `include 'function.php'`.
 | `SELECT_SINGLE_PROCESS` | `tracking.process` + API + panel in Serial Track | fatto (mock + SQL Oracle) |
 | `get_check_list_config` / `get_check_config` | `quality.checklist` + `/quality/checklist.php` | fatto |
 | `insert_login_check` / `logout` / `save_check` | `quality.checklist` login/save APIs | fatto (mock + SQL) |
-| `SELECT_REPORT_LINE_SCRAP` (core SUM) | `engineering.scrap` + `/engineering/report-scrap-line.php` | fatto (mock + SQL) |
+| `SELECT_REPORT_LINE_SCRAP` (core SUM) | `engineering.scrap` | fatto |
+| `SELECT_DASHBOARD_LINE` (`functionDashboard.php`) | `dashboard.line` | fatto (SQL + servizio mock) |
+| `GET_DESCRIPTION_SCRAP` (`function2.php`) | `LegacySql::SCRAP_DESCRIPTIONS` | SQL estratta |
+| `SELECT_TABLE_MP` / EFF (`functionTools.php`) | `production.mp` | fatto (SQL + servizio mock) |
+| `functionchecklist.php` (`*_check`) | confrontare vs `quality.checklist` | next se diverge |
 | `geTsmb` / `getPhoto` | `tracking.photos` | next |
-| report line / OEE full HTML | `engineering.*` | next |
-| `DASHBOARD_*` live | `dashboard.*` | next |
-| MP / efficiency | `production.*` | next |
+| OEE / report line HTML completo | `engineering.*` | next |
+| Efficiency / WTARGET UI | `production.*` | next |
 | `MSG_ERROR` / date helpers | `Support\Flash`, `Support\Dates` | next |
 
 ## Convenzione nomi file
