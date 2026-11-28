@@ -1,0 +1,78 @@
+# JSS IT Portal (modern rewrite)
+
+PHP **8.3** rewrite of the Colleferro `ITPortal_new` intranet.
+
+## What works in this milestone
+
+- Modern UI shell (home, login, menu RBAC)
+- Auth compatible with legacy flows:
+  - badge / magnetic card (`pass`)
+  - LDAP username + password (`user` + `pass`)
+  - logout + 15‑minute idle timeout
+- Tracking UI: **Serial Track** + **Pallet Track**
+- Mock mode (`AUTH_DRIVER=mock`) so the UI is demoable without Oracle/LDAP
+
+## Run locally
+
+```bash
+cd itportal
+composer dump-autoload
+cp config/.env.example config/.env   # if needed
+php -S 127.0.0.1:8080 -t public
+```
+
+Open http://127.0.0.1:8080
+
+### Demo badges (mock)
+
+| Badge   | Role |
+|---------|------|
+| `demo`  | SU   |
+| `12345` | SU   |
+| `71875` | QA   |
+| `guard` | GUA  |
+
+LDAP mock: user `ldap.user` + any password.
+
+## Production wiring
+
+Set in `config/.env`:
+
+```
+AUTH_DRIVER=oracle
+ORACLE_USER=...
+ORACLE_PASSWORD=...
+ORACLE_CONNECTION=10.101.25.10/CFP2
+LDAP_HOST=ldap://...
+```
+
+Requires PHP extensions: `oci8`, `ldap` (and later `mysqli`/`pdo_mysql` for portal DBs).
+
+## No more giant `function*.php`
+
+Legacy loaded `function.php`, `function2.php`, `functionDashboard.php`, `functionchecklist.php`, `functionTools.php` on pages.  
+Inventory: [`docs/function-files.md`](docs/function-files.md).
+
+Here each domain is a **small class**, registered in `config/services.php`, resolved lazily:
+
+```php
+portal('tracking.serial')->search($sn);
+portal('tracking.pallet')->search($pallet);
+portal()->auth()->requireLogin();
+```
+
+See [`docs/module-map.md`](docs/module-map.md) for the full legacy → module table.
+
+## Migration map (from legacy)
+
+| Legacy | New |
+|--------|-----|
+| `login.php` / `LOGIN_PORTAL` | `Auth\AuthService::loginByBadge` |
+| `ldap.php` / `LOGIN_PORTAL_LDAP` | `Auth\LdapAuthenticator` + `loginByLdap` |
+| `logout.php` | `public/logout.php` |
+| `menu.php` `MENU_SITE` | `config/menu.php` + `Menu\MenuBuilder` |
+| `search/serial.php` + `tables.php` | `tracking.serial` / `tracking.pallet` services |
+| `loginCard/MySwipe.php` | `assets/js/cardswipe.js` |
+| `function.php` / `function2.php` / … | split per domain under `src/` + `portal('…')` |
+
+Modules marked **soon** in the menu are inventoried and gated by the same roles; pages will be ported next (Quality, Engineering, …).

@@ -1,0 +1,7 @@
+/vendor/
+/config/.env
+/composer.phar
+/storage/sessions/*
+/storage/cache/*
+!/storage/sessions/.gitkeep
+!/storage/cache/.gitkeep
