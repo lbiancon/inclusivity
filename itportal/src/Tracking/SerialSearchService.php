@@ -5,15 +5,19 @@ declare(strict_types=1);
 namespace ItPortal\Tracking;
 
 use ItPortal\Config;
+use ItPortal\Db\OracleConnection;
 
 /**
- * Replaces the part_sn branch of legacy tables.php + LOT_SERIAL helpers.
- * Keep this file focused: search serial only. Parent/process/photo stay sibling services.
+ * Tracking serial search.
+ * - mock: UI demo without plant DB
+ * - oracle: same SQL as function.php LOT_SERIAL / PARENT_PART_SN (parameterized)
  */
 final class SerialSearchService
 {
-    public function __construct(private readonly TraceNormalizer $normalizer)
-    {
+    public function __construct(
+        private readonly TraceNormalizer $normalizer,
+        private readonly ?OracleSerialRepository $oracle = null,
+    ) {
     }
 
     /**
@@ -29,16 +33,20 @@ final class SerialSearchService
         }
 
         $driver = (string) Config::get('app.auth_driver', 'mock');
-        if ($driver === 'mock') {
-            return $this->mockTrace($serial, $server, $parent);
+
+        if ($driver === 'oracle' || ($driver !== 'mock' && OracleConnection::available())) {
+            try {
+                $repo = $this->oracle ?? new OracleSerialRepository();
+                return $repo->search($serial, $server, $parent);
+            } catch (\Throwable $e) {
+                return $this->fail($serial, 'Oracle serial search failed: ' . $e->getMessage(), [
+                    'server' => $server,
+                    'mode' => 'oracle-error',
+                ]);
+            }
         }
 
-        // Production: inject Oracle repository here (LOT_SERIAL / PARENT_PART_SN).
-        return $this->fail(
-            $serial,
-            'Oracle tracking adapter not connected yet. Keep AUTH_DRIVER=mock for UI demos, or wire LOT_SERIAL next.',
-            ['server' => $server]
-        );
+        return $this->mockTrace($serial, $server, $parent);
     }
 
     /**
@@ -66,7 +74,7 @@ final class SerialSearchService
 
         return [
             'ok' => true,
-            'message' => 'Demo trace (mock). Same UI will bind to Oracle LOT_SERIAL / process tables.',
+            'message' => 'Demo trace (mock). Set AUTH_DRIVER=oracle + ORACLE_* env to run legacy LOT_SERIAL SQL.',
             'serial' => $serial,
             'rows' => [
                 ['station' => 'FINAL-01', 'op' => '10', 'result' => 'PASS', 'part' => 'AB-HOUSING', 'timestamp' => date('Y-m-d H:i:s', time() - 3600), 'operator' => 'ROSSI M.'],
@@ -79,6 +87,7 @@ final class SerialSearchService
                 'parent_part_sn' => $parentSn,
                 'part' => 'DEMO-PART-001',
                 'mode' => 'mock',
+                'source' => 'mock (legacy SQL ready in Tracking\\Sql\\LegacySql)',
             ],
         ];
     }

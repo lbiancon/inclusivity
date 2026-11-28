@@ -29,10 +29,11 @@ Non esiste più `include 'function.php'`.
 | `LOGIN_PORTAL` / `login.php` | `App::auth()` | fatto |
 | `validate_ldap` | `Auth\LdapAuthenticator` | fatto |
 | `MENU_SITE` | `Menu\MenuBuilder` + `config/menu.php` | fatto |
-| `LOT_SERIAL` / `part_sn` in `tables.php` | `tracking.serial` | fatto (mock) |
-| `pallet_sn` in `tables.php` | `tracking.pallet` | fatto (mock) |
-| `PARENT_PART_SN` / `CHILD_SN` | `tracking.genealogy` | next |
-| `SELECT_SINGLE_PROCESS` | `tracking.process` | next |
+| `LOT_SERIAL` / `part_sn` in `tables.php` | `tracking.serial` → `OracleSerialRepository` + `Sql/LegacySql` | fatto (mock + SQL Oracle pronta) |
+| `PARENT_PART_SN` | stesso flusso serial (genealogy) | fatto (SQL estratta) |
+| `SELECT_PALLET_CONT_AIR` / `pallet_sn` | `tracking.pallet` → `OraclePalletRepository` | fatto (mock + SQL Oracle pronta) |
+| `SELECT_PACKOUT` / `CHILD_SN` | SQL in `LegacySql` (PACKOUT_*, CHILD_*) | SQL estratta, wiring UI next |
+| `SELECT_SINGLE_PROCESS` | `LegacySql::processVariables()` | SQL estratta, service next |
 | `geTsmb` / `getPhoto` | `tracking.photos` | next |
 | `get_check_*` / checklist | `quality.checklist` | next |
 | `DASHBOARD_*` | `dashboard.*` | next |
@@ -50,3 +51,10 @@ config/services.php                    # registro unico
 ```
 
 Quando porti una funzione da `function.php`, **non** copiarla intera: estrai solo quella responsabilità in una classe del dominio, registrala in `services.php`, aggiorna questa tabella.
+
+## Regola Oracle (importante)
+1. La query resta **quella di `function.php`** (stesse tabelle/join/filtri).
+2. Si cambia solo la concatenazione `'…$var…'` in bind `:param` (`OracleQuery`).
+3. Senza rete Oracle → `AUTH_DRIVER=mock` (UI).
+4. In stabilimento → `AUTH_DRIVER=oracle` + `ORACLE_*` in `.env` (mai in git).
+5. SQL catalogate in `src/Tracking/Sql/LegacySql.php` — niente dati aziendali, solo testo SQL.

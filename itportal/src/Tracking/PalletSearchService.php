@@ -5,14 +5,17 @@ declare(strict_types=1);
 namespace ItPortal\Tracking;
 
 use ItPortal\Config;
+use ItPortal\Db\OracleConnection;
 
 /**
- * Replaces the pallet_sn branch of legacy tables.php.
+ * Pallet/cont search — legacy SELECT_PALLET_CONT_AIR SQL when Oracle is configured.
  */
 final class PalletSearchService
 {
-    public function __construct(private readonly TraceNormalizer $normalizer)
-    {
+    public function __construct(
+        private readonly TraceNormalizer $normalizer,
+        private readonly ?OraclePalletRepository $oracle = null,
+    ) {
     }
 
     /**
@@ -34,14 +37,19 @@ final class PalletSearchService
         }
 
         $driver = (string) Config::get('app.auth_driver', 'mock');
-        if ($driver !== 'mock') {
-            return [
-                'ok' => false,
-                'message' => 'Oracle pallet adapter not connected yet.',
-                'pallet' => $pallet,
-                'rows' => [],
-                'meta' => ['server' => $server],
-            ];
+        if ($driver === 'oracle' || ($driver !== 'mock' && OracleConnection::available())) {
+            try {
+                $repo = $this->oracle ?? new OraclePalletRepository();
+                return $repo->search($pallet, $server);
+            } catch (\Throwable $e) {
+                return [
+                    'ok' => false,
+                    'message' => 'Oracle pallet search failed: ' . $e->getMessage(),
+                    'pallet' => $pallet,
+                    'rows' => [],
+                    'meta' => ['server' => $server, 'mode' => 'oracle-error'],
+                ];
+            }
         }
 
         $rows = [];
@@ -57,12 +65,13 @@ final class PalletSearchService
 
         return [
             'ok' => true,
-            'message' => 'Demo pallet result. Production will call Oracle packout tables.',
+            'message' => 'Demo pallet (mock). Set AUTH_DRIVER=oracle to run SELECT_PALLET_CONT_AIR.',
             'pallet' => $pallet,
             'rows' => $rows,
             'meta' => [
                 'server' => $server,
                 'mode' => 'mock',
+                'source' => 'mock (legacy SQL ready in Tracking\\Sql\\LegacySql)',
             ],
         ];
     }
